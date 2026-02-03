@@ -48,4 +48,4 @@ Thumbs.db
 .kotlin-lsp-tmp/
 kotlin-lsp.cmd
 **/.serena/
-**/.sisyphus/
+# **/.sisyphus/
