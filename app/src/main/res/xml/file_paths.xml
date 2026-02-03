@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 只暴露必要子目录，避免误把 cache/files 下其它内容分享出去。 -->
+    <cache-path
+        name="share_cards"
+        path="share_cards/" />
+
+    <cache-path
+        name="screenshots"
+        path="screenshots/" />
+
+    <!-- 系统分享入口会把 stream 复制到 filesDir/shared；目前不对外分享，但保留白名单以便后续扩展。 -->
+    <files-path
+        name="shared"
+        path="shared/" />
+</paths>

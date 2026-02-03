@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">心流</string>
+    <string name="qs_quick_capture">极速记录</string>
+    <string name="qs_quick_screenshot">截图记录</string>
+</resources>

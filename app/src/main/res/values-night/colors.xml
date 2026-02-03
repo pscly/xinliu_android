@@ -1,0 +1,5 @@
+<resources>
+    <!-- 启动瞬间的 Window 背景色：避免冷启动时出现“白屏闪一下”。 -->
+    <color name="one_memos_window_bg">#FF18191B</color>
+</resources>
+

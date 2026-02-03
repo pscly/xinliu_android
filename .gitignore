@@ -1,0 +1,51 @@
+# 临时/噪声文件（常由 cmd/bash 兼容垫片或重定向误用产生）
+$null
+export.bat
+# Gradle
+.gradle/
+**/build/
+
+# Local toolchains / caches (never commit)
+android-sdk/
+android-sdk-home/
+.gradle-home/
+
+# Local configuration (SDK path, etc.)
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Android build outputs
+*.apk
+*.ap_
+*.aab
+
+# Native builds
+.cxx/
+.externalNativeBuild/
+
+# Logs / profiling
+*.log
+*.hprof
+
+# Signing / keys / certs (never commit)
+*.jks
+*.keystore
+*.pem
+*.p12
+
+# OS
+.DS_Store
+Thumbs.db
+.ace-tool/
+
+# AI / tooling caches (never commit)
+.kotlin-lsp-tmp/
+kotlin-lsp.cmd
+**/.serena/
+**/.sisyphus/

@@ -1,0 +1,29 @@
+<resources>
+    <style name="Theme.OneMemos" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- 配合 Activity.enableEdgeToEdge()，让状态栏/导航栏透明，交给 Compose 处理 Insets -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- 冷启动时 Window 先绘制背景：避免短暂白屏 -->
+        <item name="android:windowBackground">@color/one_memos_window_bg</item>
+    </style>
+
+    <!-- Quick Settings 极速记录：半透明弹出式 Activity -->
+    <style name="Theme.OneMemos.QuickCapture" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.35</item>
+    </style>
+
+    <!-- 极简透明入口：用于从系统快捷入口触发悬浮窗，不产生可见 UI -->
+    <style name="Theme.OneMemos.Transparent" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>
