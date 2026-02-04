@@ -168,22 +168,6 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(
-                            text = "服务器：${uiState.serverUrl}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                        val modeText =
-                            when (uiState.loginMode) {
-                                LoginMode.BACKEND -> "账号登录"
-                                LoginMode.CUSTOM -> "访问令牌"
-                                LoginMode.UNKNOWN -> "未知"
-                            }
-                        Text(
-                            text = "登录方式：$modeText",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
 
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
