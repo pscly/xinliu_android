@@ -1,0 +1,4 @@
+源仓库：/root/1codes/xinliuend
+源 Commit：0957e062ea15041abbddcec026d3173eeea37bcc
+同步时间：2026-02-04 12:01
+说明：本目录为后端对接文档快照，用于 Android 侧对接参考。
