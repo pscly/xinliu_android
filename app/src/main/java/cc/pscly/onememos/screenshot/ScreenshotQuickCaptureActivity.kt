@@ -143,6 +143,7 @@ class ScreenshotQuickCaptureActivity : ComponentActivity() {
     private fun openOverlayWithAttachment(uri: Uri) {
         startService(
             Intent(this, QuickCaptureOverlayService::class.java)
+                .setAction(QuickCaptureOverlayService.ACTION_SCREENSHOT_CAPTURE)
                 .putStringArrayListExtra(
                     QuickCaptureOverlayService.EXTRA_ATTACHMENTS,
                     arrayListOf(uri.toString()),

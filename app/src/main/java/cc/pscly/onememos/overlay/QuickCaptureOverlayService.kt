@@ -12,6 +12,7 @@ import android.view.WindowManager.LayoutParams
 import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,6 +20,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,26 +28,36 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.FocusRequester
@@ -64,6 +76,9 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
+import cc.pscly.onememos.domain.model.Memo
+import cc.pscly.onememos.domain.model.MemoAttachmentDraft
+import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.ui.component.InkCard
@@ -74,6 +89,7 @@ import cc.pscly.onememos.ui.theme.OneMemosThemeConfig
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
+import coil.compose.AsyncImage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -92,6 +108,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+internal enum class QuickCaptureOverlaySource {
+    NORMAL,
+    SCREENSHOT,
+}
+
+internal data class QuickCaptureOverlayAttachmentUi(
+    val key: String,
+    val localUri: String?,
+    val cacheUri: String?,
+    val remoteName: String?,
+    val filename: String?,
+    val mimeType: String?,
+    val createdAt: Long,
+)
+
 internal data class QuickCaptureOverlayUiState(
     val content: String = "",
     val isSaving: Boolean = false,
@@ -99,7 +130,9 @@ internal data class QuickCaptureOverlayUiState(
     val editingUuid: String? = null,
     val hiddenAutoTagLines: List<String> = emptyList(),
     val history: List<QuickCaptureOverlayHistoryItem> = emptyList(),
-    val attachments: List<String> = emptyList(),
+    val attachments: List<QuickCaptureOverlayAttachmentUi> = emptyList(),
+    val attachmentsEditable: Boolean = true,
+    val source: QuickCaptureOverlaySource = QuickCaptureOverlaySource.NORMAL,
 )
 
 internal data class QuickCaptureOverlayHistoryItem(
@@ -117,6 +150,9 @@ class QuickCaptureOverlayService : Service() {
     companion object {
         const val EXTRA_ATTACHMENTS = "cc.pscly.onememos.extra.ATTACHMENTS"
         const val EXTRA_PREFILL_TEXT = "cc.pscly.onememos.extra.PREFILL_TEXT"
+
+        const val ACTION_ADD_ATTACHMENTS = "cc.pscly.onememos.action.QUICK_CAPTURE_OVERLAY_ADD_ATTACHMENTS"
+        const val ACTION_SCREENSHOT_CAPTURE = "cc.pscly.onememos.action.QUICK_CAPTURE_OVERLAY_SCREENSHOT_CAPTURE"
     }
 
     @Inject
@@ -161,17 +197,46 @@ class QuickCaptureOverlayService : Service() {
             return START_NOT_STICKY
         }
 
+        val action = intent?.action
+        if (action == ACTION_ADD_ATTACHMENTS) {
+            val attachments = intent.getStringArrayListExtra(EXTRA_ATTACHMENTS).orEmpty()
+            addLocalAttachments(attachments)
+            showOverlayIfNeeded()
+            return START_NOT_STICKY
+        }
+
         val attachments = intent?.getStringArrayListExtra(EXTRA_ATTACHMENTS).orEmpty()
         val prefillText = intent?.getStringExtra(EXTRA_PREFILL_TEXT).orEmpty()
+        val hasExplicitPayload = attachments.isNotEmpty() || prefillText.isNotBlank() || action == ACTION_SCREENSHOT_CAPTURE
+
+        // 已在悬浮窗编辑时重复触发：如果没有明确 payload，就不要打断用户（避免清空附件/输入）。
+        if (!hasExplicitPayload && rootView != null) {
+            showOverlayIfNeeded()
+            return START_NOT_STICKY
+        }
+
+        val source =
+            if (action == ACTION_SCREENSHOT_CAPTURE || attachments.isNotEmpty()) {
+                QuickCaptureOverlaySource.SCREENSHOT
+            } else {
+                QuickCaptureOverlaySource.NORMAL
+            }
+
+        val attachmentsUi =
+            attachments.mapNotNull { uri ->
+                newLocalAttachmentUi(uri = uri)
+            }
 
         // 截图/附件场景：强制进入“新建记录”模式，避免误覆盖上一条。
         _uiState.update { state ->
             val next =
                 state.copy(
-                    attachments = attachments,
+                    attachments = attachmentsUi,
+                    attachmentsEditable = true,
+                    source = source,
                     error = null,
                 )
-            if (attachments.isNotEmpty()) {
+            if (attachmentsUi.isNotEmpty()) {
                 next.copy(editingUuid = null, hiddenAutoTagLines = emptyList())
             } else {
                 next
@@ -186,6 +251,60 @@ class QuickCaptureOverlayService : Service() {
 
         showOverlayIfNeeded()
         return START_NOT_STICKY
+    }
+
+    private fun newLocalAttachmentUi(
+        uri: String,
+        createdAt: Long = System.currentTimeMillis(),
+    ): QuickCaptureOverlayAttachmentUi? {
+        val trimmed = uri.trim()
+        if (trimmed.isBlank()) return null
+        return QuickCaptureOverlayAttachmentUi(
+            key = trimmed,
+            localUri = trimmed,
+            cacheUri = null,
+            remoteName = null,
+            filename = null,
+            mimeType = null,
+            createdAt = createdAt,
+        )
+    }
+
+    private fun addLocalAttachments(uris: List<String>) {
+        if (uris.isEmpty()) return
+
+        val createdAt = System.currentTimeMillis()
+        _uiState.update { state ->
+            if (!state.attachmentsEditable) return@update state
+
+            val seen = state.attachments.mapNotNull { it.localUri }.toMutableSet()
+            val extra = mutableListOf<QuickCaptureOverlayAttachmentUi>()
+            for (uri in uris) {
+                val item = newLocalAttachmentUi(uri = uri, createdAt = createdAt) ?: continue
+                val localUri = item.localUri
+                if (localUri != null && !seen.add(localUri)) continue
+                extra.add(item)
+            }
+            if (extra.isEmpty()) state.copy(error = null) else state.copy(attachments = state.attachments + extra, error = null)
+        }
+    }
+
+    private fun removeAttachment(key: String) {
+        _uiState.update { state ->
+            if (!state.attachmentsEditable) return@update state
+            state.copy(attachments = state.attachments.filterNot { it.key == key }, error = null)
+        }
+    }
+
+    private fun startPickImagesActivity() {
+        runCatching {
+            startActivity(
+                Intent(this, QuickCaptureOverlayPickImagesActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { e ->
+            Toast.makeText(this, e.message?.take(200) ?: "无法打开系统选图器", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showOverlayIfNeeded() {
@@ -233,6 +352,8 @@ class QuickCaptureOverlayService : Service() {
                             onEditPrevious = ::editPrevious,
                             onRefreshHistory = ::refreshHistory,
                             onLoadForEdit = ::loadForEdit,
+                            onPickImages = ::startPickImagesActivity,
+                            onRemoveAttachment = ::removeAttachment,
                         )
                     }
                 }
@@ -331,7 +452,7 @@ class QuickCaptureOverlayService : Service() {
                     if (memo == null) {
                         _uiState.update { it.copy(error = "暂无可续写记录") }
                     } else {
-                        applyMemoForEdit(memo.uuid, memo.content)
+                        applyMemoForEdit(memo)
                     }
                 }
                 .onFailure { e ->
@@ -350,7 +471,7 @@ class QuickCaptureOverlayService : Service() {
                     if (memo == null) {
                         _uiState.update { it.copy(error = "记录不存在或已被删除") }
                     } else {
-                        applyMemoForEdit(memo.uuid, memo.content)
+                        applyMemoForEdit(memo)
                     }
                 }
                 .onFailure { e ->
@@ -366,9 +487,10 @@ class QuickCaptureOverlayService : Service() {
         val visible = trimTrailingSpacesOnly(state.content)
         val uuid = state.editingUuid
         val attachments = state.attachments
+        val localUris = attachments.mapNotNull { it.localUri }
 
         if (uuid.isNullOrBlank()) {
-            if (visible.isBlank() && attachments.isEmpty()) {
+            if (visible.isBlank() && localUris.isEmpty()) {
                 _events.tryEmit(QuickCaptureOverlayEvent.Saved)
                 return
             }
@@ -391,9 +513,26 @@ class QuickCaptureOverlayService : Service() {
             try {
                 withContext(Dispatchers.IO) {
                     if (uuid.isNullOrBlank()) {
-                        memoRepository.createLocalMemo(content = content, resourceUris = attachments)
+                        memoRepository.createLocalMemo(content = content, resourceUris = localUris)
                     } else {
-                        memoRepository.updateMemoContent(uuid = uuid, content = content)
+                        if (state.attachmentsEditable) {
+                            memoRepository.updateMemoDraft(
+                                uuid = uuid,
+                                content = content,
+                                attachments =
+                                    attachments.map { a ->
+                                        MemoAttachmentDraft(
+                                            localUri = a.localUri,
+                                            remoteName = a.remoteName,
+                                            filename = a.filename,
+                                            mimeType = a.mimeType,
+                                            createdAt = a.createdAt,
+                                        )
+                                    },
+                            )
+                        } else {
+                            memoRepository.updateMemoContent(uuid = uuid, content = content)
+                        }
                     }
                 }
                 _events.tryEmit(QuickCaptureOverlayEvent.Saved)
@@ -405,19 +544,36 @@ class QuickCaptureOverlayService : Service() {
         }
     }
 
-    private fun applyMemoForEdit(uuid: String, content: String) {
-        val split = AutoTagLineHider.split(text = content, keywords = defaultAutoTagKeywords)
+    private fun applyMemoForEdit(memo: Memo) {
+        val split = AutoTagLineHider.split(text = memo.content, keywords = defaultAutoTagKeywords)
+        val localOnly = memo.serverId.isNullOrBlank()
+        val editable = localOnly || (memo.syncStatus != SyncStatus.SYNCED && memo.syncStatus != SyncStatus.SYNCING)
+        val attachmentsUi =
+            memo.attachments.map { a ->
+                QuickCaptureOverlayAttachmentUi(
+                    key = a.remoteName ?: a.localUri ?: "attachment_${a.id}",
+                    localUri = a.localUri,
+                    cacheUri = a.cacheUri,
+                    remoteName = a.remoteName,
+                    filename = a.filename,
+                    mimeType = a.mimeType,
+                    createdAt = a.createdAt,
+                )
+            }
         _uiState.update {
             it.copy(
                 content = split.visibleText,
-                editingUuid = uuid,
+                editingUuid = memo.uuid,
                 hiddenAutoTagLines = split.hiddenLines,
+                attachments = attachmentsUi,
+                attachmentsEditable = editable,
+                source = QuickCaptureOverlaySource.NORMAL,
                 error = null,
             )
         }
     }
 
-    private fun cc.pscly.onememos.domain.model.Memo.toHistoryItem(): QuickCaptureOverlayHistoryItem {
+    private fun Memo.toHistoryItem(): QuickCaptureOverlayHistoryItem {
         val visible = AutoTagLineHider.hideFast(text = content, keywords = defaultAutoTagKeywords)
         val preview = previewText(visible)
         return QuickCaptureOverlayHistoryItem(uuid = uuid, preview = preview, updatedAt = updatedAt)
@@ -453,6 +609,8 @@ private fun QuickCaptureOverlayContent(
     onEditPrevious: () -> Unit,
     onRefreshHistory: (Int) -> Unit,
     onLoadForEdit: (String) -> Unit,
+    onPickImages: () -> Unit,
+    onRemoveAttachment: (String) -> Unit,
 ) {
     val uiState by uiStateFlow.collectAsState()
     val imeBottomPx by imeBottomPxFlow.collectAsState()
@@ -523,7 +681,11 @@ private fun QuickCaptureOverlayContent(
                 onClick = null,
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val title = if (uiState.attachments.isNotEmpty()) "截图记录" else "极速记录"
+                    val title =
+                        when (uiState.source) {
+                            QuickCaptureOverlaySource.SCREENSHOT -> "截图记录"
+                            QuickCaptureOverlaySource.NORMAL -> "极速记录"
+                        }
                     Text(text = title, style = MaterialTheme.typography.titleLarge)
 
                     Text(
@@ -531,14 +693,6 @@ private fun QuickCaptureOverlayContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline,
                     )
-
-                    if (uiState.attachments.isNotEmpty()) {
-                        Text(
-                            text = "附件*${uiState.attachments.size}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
 
                     if (!uiState.editingUuid.isNullOrBlank()) {
                         Text(
@@ -564,6 +718,52 @@ private fun QuickCaptureOverlayContent(
                         maxLines = 10,
                         singleLine = false,
                     )
+
+                    if (uiState.attachments.isNotEmpty()) {
+                        LazyRow(
+                            contentPadding = PaddingValues(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            itemsIndexed(uiState.attachments, key = { _, it -> it.key }) { _, attachment ->
+                                OverlayAttachmentThumb(
+                                    attachment = attachment,
+                                    editable = uiState.attachmentsEditable && !uiState.isSaving,
+                                    onRemove = onRemoveAttachment,
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(
+                            enabled = uiState.attachmentsEditable && !uiState.isSaving,
+                            onClick = onPickImages,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.AddPhotoAlternate,
+                                contentDescription = "添加图片",
+                            )
+                        }
+
+                        Text(
+                            text = if (uiState.attachments.isEmpty()) "未添加图片" else "附件：${uiState.attachments.size} 个",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        if (!uiState.editingUuid.isNullOrBlank() && !uiState.attachmentsEditable) {
+                            Text(
+                                text = "暂不支持编辑附件",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                        }
+                    }
 
                     if (!uiState.error.isNullOrBlank()) {
                         Text(
@@ -622,6 +822,49 @@ private fun QuickCaptureOverlayContent(
         }
     }
 
+}
+
+@Composable
+private fun OverlayAttachmentThumb(
+    attachment: QuickCaptureOverlayAttachmentUi,
+    editable: Boolean,
+    onRemove: (String) -> Unit,
+) {
+    val model =
+        attachment.cacheUri?.takeIf { it.isNotBlank() }
+            ?: attachment.localUri?.takeIf { it.isNotBlank() }
+
+    Box(
+        modifier = Modifier.size(84.dp).clip(RoundedCornerShape(12.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (model != null) {
+            AsyncImage(
+                model = model,
+                contentDescription = "图片预览",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Text(
+                text = attachment.filename ?: "附件",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+
+        if (editable) {
+            IconButton(
+                modifier = Modifier.align(Alignment.TopEnd).size(28.dp),
+                onClick = { onRemove(attachment.key) },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "删除附件",
+                )
+            }
+        }
+    }
 }
 
 private data class OverlayTextToolbarState(

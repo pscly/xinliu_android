@@ -85,6 +85,14 @@
             android:theme="@style/Theme.OneMemos.Transparent" />
 
         <activity
+            android:name=".overlay.QuickCaptureOverlayPickImagesActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity="${applicationId}.quickcapture.overlay"
+            android:theme="@style/Theme.OneMemos.Transparent" />
+
+        <activity
             android:name=".screenshot.ScreenshotQuickCaptureActivity"
             android:exported="false"
             android:excludeFromRecents="true"
