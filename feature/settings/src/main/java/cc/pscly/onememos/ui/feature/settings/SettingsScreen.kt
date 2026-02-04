@@ -39,6 +39,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -92,6 +93,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val changePasswordState by viewModel.changePasswordUiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var canDrawOverlays by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
@@ -101,6 +103,7 @@ fun SettingsScreen(
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showFullResyncConfirm by remember { mutableStateOf(false) }
     var showDev2PasswordDialog by remember { mutableStateOf(false) }
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner) {
         val observer =
@@ -116,6 +119,19 @@ fun SettingsScreen(
     var dev2PasswordError by remember { mutableStateOf<String?>(null) }
     var versionTapCount by remember { mutableStateOf(0) }
     var versionFirstTapAtMs by remember { mutableStateOf(0L) }
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var newPassword2 by remember { mutableStateOf("") }
+
+    LaunchedEffect(changePasswordState.successAt) {
+        if (changePasswordState.successAt <= 0L) return@LaunchedEffect
+        Toast.makeText(context, "密码已更新", Toast.LENGTH_SHORT).show()
+        showChangePasswordDialog = false
+        currentPassword = ""
+        newPassword = ""
+        newPassword2 = ""
+        viewModel.resetChangePasswordState()
+    }
 
     Scaffold(
         topBar = {
@@ -273,6 +289,23 @@ fun SettingsScreen(
                             }
                             OutlinedButton(onClick = { showFullResyncConfirm = true }) {
                                 Text("重新同步所有笔记")
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    currentPassword = ""
+                                    newPassword = ""
+                                    newPassword2 = ""
+                                    viewModel.resetChangePasswordState()
+                                    showChangePasswordDialog = true
+                                },
+                            ) {
+                                Text("修改密码")
                             }
                         }
 
@@ -875,6 +908,97 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showFullResyncConfirm = false }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+
+    if (showChangePasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { showChangePasswordDialog = false },
+            title = { Text("修改密码") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "新密码至少 6 位，UTF-8 不超过 71 字节。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = currentPassword,
+                        onValueChange = {
+                            currentPassword = it
+                            if (!changePasswordState.error.isNullOrBlank()) {
+                                viewModel.resetChangePasswordState()
+                            }
+                        },
+                        label = { Text("当前密码") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = {
+                            newPassword = it
+                            if (!changePasswordState.error.isNullOrBlank()) {
+                                viewModel.resetChangePasswordState()
+                            }
+                        },
+                        label = { Text("新密码") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    OutlinedTextField(
+                        value = newPassword2,
+                        onValueChange = {
+                            newPassword2 = it
+                            if (!changePasswordState.error.isNullOrBlank()) {
+                                viewModel.resetChangePasswordState()
+                            }
+                        },
+                        label = { Text("再次确认") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    if (!changePasswordState.error.isNullOrBlank()) {
+                        Text(
+                            text = changePasswordState.error.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.changePassword(currentPassword, newPassword, newPassword2) },
+                    enabled = !changePasswordState.loading,
+                ) {
+                    if (changePasswordState.loading) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Text("保存")
+                        }
+                    } else {
+                        Text("保存")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showChangePasswordDialog = false }) {
                     Text("取消")
                 }
             },

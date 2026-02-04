@@ -36,6 +36,7 @@ kapt {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:data"))
+    implementation(project(":core:network"))
     implementation(project(":core:sync"))
     implementation(project(":core:designsystem"))
 
@@ -57,4 +58,6 @@ dependencies {
 
     // MemoDerivedFieldsRebuildScheduler 的参数类型依赖 WorkManager。
     implementation(libs.androidx.work.runtime.ktx)
+
+    implementation(libs.retrofit)
 }

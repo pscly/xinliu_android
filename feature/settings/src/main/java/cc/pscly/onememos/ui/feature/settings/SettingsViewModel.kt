@@ -12,6 +12,8 @@ import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.repository.CacheRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
+import cc.pscly.onememos.core.network.ChangePasswordRequest
+import cc.pscly.onememos.core.network.FlowBackendApi
 import cc.pscly.onememos.data.auth.FlowBackendCredentialStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -64,6 +67,12 @@ data class SettingsUiState(
     val cacheError: String? = null,
 )
 
+data class ChangePasswordUiState(
+    val loading: Boolean = false,
+    val error: String? = null,
+    val successAt: Long = 0L,
+)
+
 private data class CacheSectionState(
     val stats: CacheStats? = null,
     val loading: Boolean = false,
@@ -76,9 +85,11 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val cacheRepository: CacheRepository,
     private val syncScheduler: SyncScheduler,
+    private val flowBackendApi: FlowBackendApi,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
 ) : ViewModel() {
     private val cacheState = MutableStateFlow(CacheSectionState())
+    private val changePasswordState = MutableStateFlow(ChangePasswordUiState())
 
     val uiState: StateFlow<SettingsUiState> =
         combine(settingsRepository.settings, cacheState) { s, c ->
@@ -126,6 +137,8 @@ class SettingsViewModel @Inject constructor(
                 initialValue = SettingsUiState(),
             )
 
+    val changePasswordUiState: StateFlow<ChangePasswordUiState> = changePasswordState
+
     init {
         refreshCacheStats()
 
@@ -163,6 +176,90 @@ class SettingsViewModel @Inject constructor(
             if (clearServerUrl) {
                 settingsRepository.setServerUrl("")
             }
+        }
+    }
+
+    fun resetChangePasswordState() {
+        changePasswordState.value = ChangePasswordUiState()
+    }
+
+    fun changePassword(current: String, new1: String, new2: String) {
+        if (changePasswordState.value.loading) return
+
+        if (current.isBlank()) {
+            changePasswordState.value = ChangePasswordUiState(error = "请输入当前密码。")
+            return
+        }
+        if (new1.length < 6) {
+            changePasswordState.value = ChangePasswordUiState(error = "新密码至少 6 位。")
+            return
+        }
+        val newBytes = new1.toByteArray(Charsets.UTF_8).size
+        if (newBytes > 71) {
+            changePasswordState.value = ChangePasswordUiState(error = "新密码过长（UTF-8 不超过 71 字节）。")
+            return
+        }
+        if (new1 != new2) {
+            changePasswordState.value = ChangePasswordUiState(error = "两次输入的新密码不一致。")
+            return
+        }
+
+        viewModelScope.launch {
+            changePasswordState.value = ChangePasswordUiState(loading = true)
+
+            val settings = settingsRepository.settings.first()
+            val token = settings.token.trim()
+            if (token.isBlank()) {
+                changePasswordState.value = ChangePasswordUiState(error = "登录已失效，请重新登录。")
+                return@launch
+            }
+
+            val resp =
+                runCatching {
+                    flowBackendApi.changePassword(
+                        token = "Bearer $token",
+                        body = ChangePasswordRequest(
+                            currentPassword = current,
+                            newPassword = new1,
+                            newPassword2 = new2,
+                        ),
+                    )
+                }.getOrNull()
+
+            if (resp == null) {
+                changePasswordState.value = ChangePasswordUiState(error = "网络异常，请稍后重试。")
+                return@launch
+            }
+            if (!resp.isSuccessful) {
+                changePasswordState.value = ChangePasswordUiState(error = mapChangePasswordHttpError(resp.code()))
+                return@launch
+            }
+
+            val payload = resp.body()
+            val ok = payload?.code == 200 && payload.data?.ok == true
+            if (!ok) {
+                changePasswordState.value = ChangePasswordUiState(error = "请求失败，请稍后重试。")
+                return@launch
+            }
+
+            if (settings.loginMode == LoginMode.BACKEND) {
+                val cred = flowBackendCredentialStorage.get()
+                if (cred != null) {
+                    flowBackendCredentialStorage.set(username = cred.username, password = new1)
+                }
+            }
+            changePasswordState.value = ChangePasswordUiState(successAt = System.currentTimeMillis())
+        }
+    }
+
+    private fun mapChangePasswordHttpError(status: Int): String {
+        return when (status) {
+            400 -> "新密码不一致或格式不正确。"
+            401 -> "当前密码不正确。"
+            403 -> "鉴权失败，请重新登录。"
+            409 -> "账号未配置 Memos 信息，请联系管理员。"
+            502 -> "同步 Memos 失败，请稍后再试。"
+            else -> "请求失败（HTTP $status），请稍后重试。"
         }
     }
 
