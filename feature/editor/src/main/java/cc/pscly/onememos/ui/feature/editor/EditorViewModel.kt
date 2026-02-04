@@ -180,7 +180,6 @@ class EditorViewModel @Inject constructor(
                 }
 
                 fun visible(m: Memo): Boolean {
-                    if (!loggedIn) return true
                     if (showPublicWorkspace) return true
                     if (m.serverId.isNullOrBlank()) return true
                     if (m.visibility == MemoVisibility.PUBLIC) return false

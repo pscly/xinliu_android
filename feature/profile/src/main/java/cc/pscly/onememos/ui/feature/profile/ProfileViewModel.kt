@@ -141,7 +141,6 @@ class ProfileViewModel @Inject constructor(
     private val dayIndex: StateFlow<NavigableMap<LocalDate, List<Memo>>> =
         combine(monthMemos, visibilityContext) { memos, ctx ->
             fun visible(m: Memo): Boolean {
-                if (!ctx.loggedIn) return true
                 if (ctx.showPublicWorkspace) return true
                 if (m.serverId.isNullOrBlank()) return true
                 if (m.visibility == MemoVisibility.PUBLIC) return false

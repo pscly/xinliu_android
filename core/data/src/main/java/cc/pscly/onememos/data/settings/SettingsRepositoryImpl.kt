@@ -179,7 +179,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                 val dev2Unlocked = prefs[Keys.DEV2_UNLOCKED] ?: false
                 val dev2ShowPublicWorkspaceMemos =
                     (prefs[Keys.DEV2_SHOW_PUBLIC_WORKSPACE_MEMOS]
-                        ?: false) && dev2Unlocked
+                        ?: false) && dev2Unlocked && token.isNotBlank()
                 val currentUserCreator = prefs[Keys.CURRENT_USER_CREATOR].orEmpty()
                 val welcomeCompleted =
                     prefs[Keys.WELCOME_COMPLETED]

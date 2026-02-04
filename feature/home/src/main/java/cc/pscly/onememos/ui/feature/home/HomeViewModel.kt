@@ -75,11 +75,9 @@ class HomeViewModel @Inject constructor(
     private val browseScopeFlow: Flow<MemoRepository.BrowseScope> =
         settingsRepository.settings
             .map { settings ->
-                val loggedIn = settings.token.isNotBlank()
                 val showPublicWorkspace = settings.dev2Unlocked && settings.dev2ShowPublicWorkspaceMemos
                 val creator = settings.currentUserCreator.trim()
                 computeBrowseScope(
-                    loggedIn = loggedIn,
                     showPublicWorkspace = showPublicWorkspace,
                     creator = creator,
                 )
@@ -156,8 +154,6 @@ class HomeViewModel @Inject constructor(
             }
 
             fun visible(m: Memo): Boolean {
-                // 未登录：离线期间的记录都属于“本机”，全部可见。
-                if (!loggedIn) return true
                 // 开发者模式2：可浏览公开/工作区内容（含他人）。
                 if (showPublicWorkspace) return true
                 // 本地未同步（serverId 为空）一定可见（包括刚创建的工作区笔记）。
@@ -204,7 +200,6 @@ class HomeViewModel @Inject constructor(
 
         val nextBrowseScope =
             computeBrowseScope(
-                loggedIn = settings.token.isNotBlank(),
                 showPublicWorkspace = settings.dev2Unlocked && settings.dev2ShowPublicWorkspaceMemos,
                 creator = settings.currentUserCreator.trim(),
             )
@@ -254,12 +249,10 @@ class HomeViewModel @Inject constructor(
 }
 
 private fun computeBrowseScope(
-    loggedIn: Boolean,
     showPublicWorkspace: Boolean,
     creator: String,
 ): MemoRepository.BrowseScope =
     when {
-        !loggedIn -> MemoRepository.BrowseScope.All
         showPublicWorkspace -> MemoRepository.BrowseScope.All
         creator.isNotBlank() -> MemoRepository.BrowseScope.Creator(creator)
         else -> MemoRepository.BrowseScope.LocalOnly
