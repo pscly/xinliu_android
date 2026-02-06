@@ -5,6 +5,7 @@ import android.net.Uri
 object Routes {
     const val WELCOME = "welcome"
     const val HOME = "home"
+    const val TODO = "todo"
     const val PROFILE = "profile"
     const val ARCHIVED = "archived"
     const val SETTINGS = "settings"

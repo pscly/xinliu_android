@@ -23,4 +23,7 @@ android {
 dependencies {
     api(project(":core:model"))
     api(libs.androidx.paging.runtime.ktx)
+
+    // 循环任务（RRULE）解析：用于计算下一次 occurrence（recurrence_id_local）。
+    implementation(libs.dmfs.lib.recur)
 }

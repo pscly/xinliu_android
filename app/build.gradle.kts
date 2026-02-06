@@ -94,6 +94,7 @@ dependencies {
     implementation(project(":feature:auth"))
     implementation(project(":feature:sharecard"))
     implementation(project(":feature:quickcapture"))
+    implementation(project(":feature:todo"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

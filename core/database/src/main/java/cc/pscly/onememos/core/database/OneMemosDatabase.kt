@@ -6,20 +6,34 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import cc.pscly.onememos.core.database.dao.MemoDao
+import cc.pscly.onememos.core.database.dao.TodoDao
+import cc.pscly.onememos.core.database.dao.TodoSyncDao
 import cc.pscly.onememos.core.database.entity.MemoAttachmentEntity
 import cc.pscly.onememos.core.database.entity.MemoEntity
+import cc.pscly.onememos.core.database.entity.TodoItemEntity
+import cc.pscly.onememos.core.database.entity.TodoListEntity
+import cc.pscly.onememos.core.database.entity.TodoOccurrenceEntity
+import cc.pscly.onememos.core.database.entity.TodoSyncOutboxEntity
+import cc.pscly.onememos.core.database.entity.TodoSyncStateEntity
 
 @Database(
     entities = [
         MemoEntity::class,
         MemoAttachmentEntity::class,
+        TodoListEntity::class,
+        TodoItemEntity::class,
+        TodoOccurrenceEntity::class,
+        TodoSyncOutboxEntity::class,
+        TodoSyncStateEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 @TypeConverters(RoomConverters::class)
 abstract class OneMemosDatabase : RoomDatabase() {
     abstract fun memoDao(): MemoDao
+    abstract fun todoDao(): TodoDao
+    abstract fun todoSyncDao(): TodoSyncDao
 
     companion object {
         val MIGRATION_3_4 =
@@ -163,6 +177,136 @@ abstract class OneMemosDatabase : RoomDatabase() {
 
                     db.execSQL(
                         "CREATE INDEX IF NOT EXISTS index_memo_attachments_memoUuid_remoteName ON memo_attachments(memoUuid, remoteName)",
+                    )
+                }
+            }
+
+        val MIGRATION_9_10 =
+            object : Migration(9, 10) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    // Todo（待办）离线表：本次仅新增表/索引，不改动既有 memo 表结构，降低升级风险。
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS todo_lists (
+                            ownerKey TEXT NOT NULL,
+                            id TEXT NOT NULL,
+                            name TEXT NOT NULL,
+                            color TEXT,
+                            sortOrder INTEGER NOT NULL,
+                            archived INTEGER NOT NULL,
+                            deletedAt TEXT,
+                            clientUpdatedAtMs INTEGER NOT NULL,
+                            updatedAt TEXT NOT NULL,
+                            PRIMARY KEY(ownerKey, id)
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_todo_lists_ownerKey_archived_sortOrder ON todo_lists(ownerKey, archived, sortOrder)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_todo_lists_ownerKey_deletedAt ON todo_lists(ownerKey, deletedAt)",
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS todo_items (
+                            ownerKey TEXT NOT NULL,
+                            id TEXT NOT NULL,
+                            listId TEXT NOT NULL,
+                            parentId TEXT,
+                            title TEXT NOT NULL,
+                            note TEXT NOT NULL,
+                            status TEXT NOT NULL,
+                            priority INTEGER NOT NULL,
+                            sortOrder INTEGER NOT NULL,
+                            tagsJson TEXT NOT NULL,
+                            tagsText TEXT NOT NULL,
+                            remindersJson TEXT NOT NULL,
+                            dueAtLocal TEXT,
+                            completedAtLocal TEXT,
+                            isRecurring INTEGER NOT NULL,
+                            rrule TEXT,
+                            dtstartLocal TEXT,
+                            tzid TEXT NOT NULL,
+                            deletedAt TEXT,
+                            clientUpdatedAtMs INTEGER NOT NULL,
+                            updatedAt TEXT NOT NULL,
+                            PRIMARY KEY(ownerKey, id)
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_todo_items_ownerKey_listId_status_sortOrder ON todo_items(ownerKey, listId, status, sortOrder)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_todo_items_ownerKey_deletedAt ON todo_items(ownerKey, deletedAt)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_todo_items_ownerKey_clientUpdatedAtMs ON todo_items(ownerKey, clientUpdatedAtMs)",
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS todo_occurrences (
+                            ownerKey TEXT NOT NULL,
+                            id TEXT NOT NULL,
+                            itemId TEXT NOT NULL,
+                            tzid TEXT NOT NULL,
+                            recurrenceIdLocal TEXT NOT NULL,
+                            statusOverride TEXT,
+                            titleOverride TEXT,
+                            noteOverride TEXT,
+                            dueAtOverrideLocal TEXT,
+                            completedAtLocal TEXT,
+                            deletedAt TEXT,
+                            clientUpdatedAtMs INTEGER NOT NULL,
+                            updatedAt TEXT NOT NULL,
+                            PRIMARY KEY(ownerKey, id)
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_todo_occurrences_ownerKey_itemId_recurrenceIdLocal ON todo_occurrences(ownerKey, itemId, recurrenceIdLocal)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_todo_occurrences_ownerKey_deletedAt ON todo_occurrences(ownerKey, deletedAt)",
+                    )
+                    db.execSQL(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS index_todo_occurrences_ownerKey_itemId_tzid_recurrenceIdLocal ON todo_occurrences(ownerKey, itemId, tzid, recurrenceIdLocal)",
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS todo_sync_outbox (
+                            ownerKey TEXT NOT NULL,
+                            resource TEXT NOT NULL,
+                            entityId TEXT NOT NULL,
+                            op TEXT NOT NULL,
+                            clientUpdatedAtMs INTEGER NOT NULL,
+                            dataJson TEXT,
+                            state TEXT NOT NULL,
+                            lastError TEXT,
+                            createdAtMs INTEGER NOT NULL,
+                            PRIMARY KEY(ownerKey, resource, entityId)
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_todo_sync_outbox_ownerKey_state_createdAtMs ON todo_sync_outbox(ownerKey, state, createdAtMs)",
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS todo_sync_state (
+                            ownerKey TEXT NOT NULL,
+                            cursor INTEGER NOT NULL,
+                            running INTEGER NOT NULL,
+                            lastSyncAtMs INTEGER NOT NULL,
+                            lastError TEXT,
+                            PRIMARY KEY(ownerKey)
+                        )
+                        """.trimIndent(),
                     )
                 }
             }

@@ -62,6 +62,7 @@ import cc.pscly.onememos.ui.feature.sharecard.ShareCardScreen
 import cc.pscly.onememos.ui.feature.settings.SettingsAppInfo
 import cc.pscly.onememos.ui.feature.settings.SettingsScreen
 import cc.pscly.onememos.ui.feature.start.AppStartViewModel
+import cc.pscly.onememos.ui.feature.todo.TodoScreen
 import cc.pscly.onememos.ui.feature.welcome.WelcomeScreen
 
 @Composable
@@ -78,6 +79,9 @@ fun OneMemosApp(
 
     val startViewModel: AppStartViewModel = hiltViewModel()
     val startUiState by startViewModel.uiState.collectAsStateWithLifecycle()
+
+    val shellViewModel: AppShellViewModel = hiltViewModel()
+    val shellUiState by shellViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(startEditorUuid) {
         if (!startHandled && !startEditorUuid.isNullOrBlank()) {
@@ -152,6 +156,21 @@ fun OneMemosApp(
                         },
                         colors = NavigationDrawerItemDefaults.colors(),
                     )
+                    if (shellUiState.showTodo) {
+                        NavigationDrawerItem(
+                            label = { Text("待办") },
+                            selected = current == Routes.TODO,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                if (current != Routes.TODO) {
+                                    navController.navigate(Routes.TODO) {
+                                        launchSingleTop = true
+                                    }
+                                }
+                            },
+                            colors = NavigationDrawerItemDefaults.colors(),
+                        )
+                    }
                     NavigationDrawerItem(
                         label = { Text("个人中心") },
                         selected = current == Routes.PROFILE,
@@ -221,6 +240,12 @@ fun OneMemosApp(
                     onCreateMemo = { navController.navigate(Routes.editor()) },
                     onOpenMemo = { uuid -> navController.navigate(Routes.editor(uuid)) },
                     onOpenShareCard = { uuid -> navController.navigate(Routes.shareCard(uuid)) },
+                )
+            }
+
+            composable(Routes.TODO) {
+                TodoScreen(
+                    onOpenDrawer = toggleDrawer,
                 )
             }
 
