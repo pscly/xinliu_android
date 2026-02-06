@@ -2,64 +2,71 @@
 
 package cc.pscly.onememos.ui.feature.todo
 
+import android.Manifest
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.model.TodoItem
 import cc.pscly.onememos.domain.model.TodoList
-import cc.pscly.onememos.domain.model.TodoStatuses
-import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.component.ScrollPaperSurface
+import cc.pscly.onememos.ui.component.SealButton
+import cc.pscly.onememos.ui.component.SealStampOverlay
+import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -80,7 +87,7 @@ fun TodoScreen(
         )
     }
     val permissionLauncher =
-        androidx.activity.compose.rememberLauncherForActivityResult(
+        rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
             onResult = { granted ->
                 notificationPermissionGranted = granted
@@ -98,8 +105,50 @@ fun TodoScreen(
 
     var showCreateItem by remember { mutableStateOf(false) }
     var createItemInitialListId by remember { mutableStateOf<String?>(null) }
-
     var editingItem by remember { mutableStateOf<TodoItem?>(null) }
+
+    var moreMenuExpanded by remember { mutableStateOf(false) }
+    var showTagInput by remember { mutableStateOf(false) }
+    var tagInputDraft by remember { mutableStateOf("") }
+
+    var stampVisible by remember { mutableStateOf(false) }
+    var lastDeletedItemId by remember { mutableStateOf<String?>(null) }
+    var undoVisible by remember { mutableStateOf(false) }
+
+    val listNameMap = remember(uiState.lists) { uiState.lists.associate { it.id to it.name } }
+    val sections = remember(uiState.items) { buildTodoSections(uiState.items) }
+
+    // 记录滚动 delta，用于驱动纸张横线偏移（LazyColumn 没法直接拿到连续 scroll）。
+    val paperScrollOffsetPx = remember { mutableFloatStateOf(0f) }
+    val paperScrollConnection =
+        remember {
+            object : NestedScrollConnection {
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    // consumed.y：用户向上滑动时为负；我们希望 scrollOffset 正向递增（更直觉）。
+                    paperScrollOffsetPx.floatValue -= consumed.y
+                    return Offset.Zero
+                }
+            }
+        }
+
+    // 撤销条：显示 6 秒后自动隐藏（每次删除都会刷新）。
+    LaunchedEffect(lastDeletedItemId) {
+        if (lastDeletedItemId == null) return@LaunchedEffect
+        undoVisible = true
+        delay(6_000)
+        undoVisible = false
+    }
+
+    // 盖章：短暂显示即可（避免持续遮挡）。
+    LaunchedEffect(stampVisible) {
+        if (!stampVisible) return@LaunchedEffect
+        delay(260)
+        stampVisible = false
+    }
 
     Scaffold(
         topBar = {
@@ -114,245 +163,249 @@ fun TodoScreen(
                     IconButton(onClick = viewModel::requestSync) {
                         Icon(imageVector = Icons.Filled.Refresh, contentDescription = "同步")
                     }
-                    IconButton(
-                        onClick = {
-                            createItemInitialListId = uiState.selectedListId ?: uiState.lists.firstOrNull()?.id
-                            showCreateItem = true
-                        },
+                    IconButton(onClick = { moreMenuExpanded = true }) {
+                        Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "更多")
+                    }
+                    DropdownMenu(
+                        expanded = moreMenuExpanded,
+                        onDismissRequest = { moreMenuExpanded = false },
                     ) {
-                        Icon(imageVector = Icons.Filled.Add, contentDescription = "新增任务")
+                        DropdownMenuItem(
+                            text = { Text("新增任务") },
+                            onClick = {
+                                moreMenuExpanded = false
+                                createItemInitialListId = uiState.selectedListId ?: uiState.lists.firstOrNull()?.id
+                                showCreateItem = true
+                            },
+                            leadingIcon = { Icon(imageVector = Icons.Filled.Add, contentDescription = null) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("新建清单") },
+                            onClick = {
+                                moreMenuExpanded = false
+                                showCreateList = true
+                            },
+                        )
+                        val selectedList = uiState.selectedListId?.let { id -> uiState.lists.firstOrNull { it.id == id } }
+                        if (selectedList != null) {
+                            DropdownMenuItem(
+                                text = { Text("管理当前清单") },
+                                onClick = {
+                                    moreMenuExpanded = false
+                                    managingList = selectedList
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("已删除清单") },
+                            onClick = {
+                                moreMenuExpanded = false
+                                showDeletedLists = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("已删除任务") },
+                            onClick = {
+                                moreMenuExpanded = false
+                                showDeletedItems = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("筛选标签…") },
+                            onClick = {
+                                moreMenuExpanded = false
+                                tagInputDraft = uiState.tagFilter
+                                showTagInput = true
+                            },
+                        )
                     }
                 },
             )
         },
+        floatingActionButton = {
+            SealButton(
+                text = "办",
+                onClick = {
+                    createItemInitialListId = uiState.selectedListId ?: uiState.lists.firstOrNull()?.id
+                    showCreateItem = true
+                },
+            )
+        },
     ) { padding ->
-        Column(
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
-            if (!uiState.enabled) {
-                Text(
-                    text = "待办功能需要使用“账号登录（BACKEND）”。请先在设置页登录。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                return@Column
-            }
-
-            if (hasAnyReminders && !notificationPermissionGranted) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(text = "待办提醒需要通知权限", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            text = "当前系统未授予通知权限（POST_NOTIFICATIONS），提醒将无法弹出。授权后会自动重排提醒。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
-                                Text("授权通知")
-                            }
-                            TextButton(
-                                onClick = {
-                                    val intent =
-                                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                        }
-                                    context.startActivity(intent)
-                                },
-                            ) {
-                                Text("打开系统设置")
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+            ScrollPaperSurface(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .nestedScroll(paperScrollConnection),
+                scrollOffsetPx = paperScrollOffsetPx.floatValue,
             ) {
-                Text("显示归档清单", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.weight(1f))
-                Switch(
-                    checked = uiState.includeArchivedLists,
-                    onCheckedChange = viewModel::setIncludeArchivedLists,
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("清单", style = MaterialTheme.typography.titleSmall)
-                Spacer(modifier = Modifier.weight(1f))
-                TextButton(onClick = { showCreateList = true }) {
-                    Text("新建清单")
-                }
-                TextButton(onClick = { showDeletedLists = true }) {
-                    Text("已删除清单")
-                }
-                TextButton(onClick = { showDeletedItems = true }) {
-                    Text("已删除任务")
-                }
-                val selectedList = uiState.selectedListId?.let { id -> uiState.lists.firstOrNull { it.id == id } }
-                if (selectedList != null) {
-                    IconButton(
-                        onClick = {
-                            managingList = selectedList
-                        },
-                    ) {
-                        Icon(imageVector = Icons.Filled.Edit, contentDescription = "管理清单")
-                    }
-                }
-            }
-
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                item {
-                    TodoFilterChip(
-                        label = "全部",
-                        selected = uiState.selectedListId == null,
-                        onClick = { viewModel.selectList(null) },
+                if (!uiState.enabled) {
+                    Text(
+                        text = "待办功能需要使用“账号登录（BACKEND）”。请先在设置页登录。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    return@ScrollPaperSurface
                 }
-                items(uiState.lists, key = { it.id }) { list ->
-                    TodoFilterChip(
-                        label =
-                            if (list.archived) {
-                                "${list.name}（归档）"
-                            } else {
-                                list.name
-                            },
-                        selected = uiState.selectedListId == list.id,
-                        onClick = { viewModel.selectList(list.id) },
-                    )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TodoFilterChip(
-                    label = "全部",
-                    selected = uiState.statusFilter == null,
-                    onClick = { viewModel.setStatusFilter(null) },
-                )
-                TodoFilterChip(
-                    label = "未完成",
-                    selected = uiState.statusFilter == TodoStatuses.OPEN,
-                    onClick = { viewModel.setStatusFilter(TodoStatuses.OPEN) },
-                )
-                TodoFilterChip(
-                    label = "已完成",
-                    selected = uiState.statusFilter == TodoStatuses.DONE,
-                    onClick = { viewModel.setStatusFilter(TodoStatuses.DONE) },
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = uiState.tagFilter,
-                onValueChange = viewModel::setTagFilter,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("按标签筛选（输入 tag）") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(10.dp))
-
-            val listNameMap = remember(uiState.lists) { uiState.lists.associate { it.id to it.name } }
-
-            if (uiState.items.isEmpty()) {
-                Text(
-                    text = "暂无任务。点击右上角 + 新增。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(uiState.items, key = { it.id }) { item ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                val isDone = item.status == TodoStatuses.DONE || !item.completedAtLocal.isNullOrBlank()
-                                Checkbox(
-                                    checked = isDone,
-                                    onCheckedChange = { checked -> viewModel.toggleDone(item, checked) },
-                                )
-                                Column(
-                                    modifier =
-                                        Modifier
-                                            .weight(1f)
-                                            .clickable {
-                                                editingItem = item
+                    if (hasAnyReminders && !notificationPermissionGranted) {
+                        item(key = "permission_banner") {
+                            InkCard {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(text = "待办提醒需要通知权限", style = MaterialTheme.typography.titleSmall)
+                                    Text(
+                                        text = "当前系统未授予通知权限（POST_NOTIFICATIONS），提醒将无法弹出。授权后会自动重排提醒。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
+                                            Text("授权通知")
+                                        }
+                                        TextButton(
+                                            onClick = {
+                                                val intent =
+                                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                                    }
+                                                context.startActivity(intent)
                                             },
-                                ) {
-                                    Text(text = item.title, style = MaterialTheme.typography.titleMedium)
-                                    if (!item.dueAtLocal.isNullOrBlank()) {
-                                        Text(
-                                            text = "到期：${item.dueAtLocal}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    } else if (item.isRecurring) {
-                                        Text(
-                                            text = "循环任务",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
+                                        ) {
+                                            Text("打开系统设置")
+                                        }
                                     }
+                                }
+                            }
+                        }
+                    }
+
+                    item(key = "filters") {
+                        TodoFilterBar(
+                            lists = uiState.lists,
+                            includeArchivedLists = uiState.includeArchivedLists,
+                            selectedListId = uiState.selectedListId,
+                            statusFilter = uiState.statusFilter,
+                            tagFilter = uiState.tagFilter,
+                            onSelectList = viewModel::selectList,
+                            onSetStatusFilter = viewModel::setStatusFilter,
+                            onSetTagFilter = viewModel::setTagFilter,
+                            onToggleIncludeArchived = viewModel::setIncludeArchivedLists,
+                            onOpenTagInput = {
+                                tagInputDraft = uiState.tagFilter
+                                showTagInput = true
+                            },
+                        )
+                    }
+
+                    if (uiState.items.isEmpty()) {
+                        item(key = "empty") {
+                            InkCard {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(text = "今日无事，可安心挥毫。", style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        text = "点击右下角「办」新增任务；也可以先新建一个清单，让待办更有条理。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        TextButton(onClick = { showCreateList = true }) {
+                                            Text("新建清单")
+                                        }
+                                        TextButton(
+                                            onClick = {
+                                                createItemInitialListId = uiState.selectedListId ?: uiState.lists.firstOrNull()?.id
+                                                showCreateItem = true
+                                            },
+                                        ) {
+                                            Text("新增任务")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        sections.forEach { section ->
+                            item(key = "section_${section.key}") {
+                                Text(
+                                    text = section.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            items(
+                                items = section.items,
+                                key = { it.item.id },
+                            ) { p ->
+                                val listName =
                                     if (uiState.selectedListId == null) {
-                                        val listName = listNameMap[item.listId]
-                                        if (!listName.isNullOrBlank()) {
-                                            Text(
-                                                text = "清单：$listName",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
+                                        listNameMap[p.item.listId]
+                                    } else {
+                                        null
                                     }
-                                    if (item.tags.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            items(item.tags, key = { it }) { tag ->
-                                                TagChip(
-                                                    tag = tag,
-                                                    onClick = { viewModel.setTagFilter(tag) },
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                IconButton(onClick = { viewModel.deleteItem(item.id) }) {
-                                    Icon(imageVector = Icons.Filled.Delete, contentDescription = "删除")
-                                }
+                                TodoItemRow(
+                                    p = p,
+                                    listName = listName,
+                                    onOpen = { item -> editingItem = item },
+                                    onToggleDone = viewModel::toggleDone,
+                                    onDelete = { item ->
+                                        lastDeletedItemId = item.id
+                                        viewModel.deleteItem(item.id)
+                                    },
+                                    onTagClick = viewModel::setTagFilter,
+                                    onStamp = { stampVisible = true },
+                                )
                             }
                         }
                     }
                 }
             }
+
+            if (undoVisible && !lastDeletedItemId.isNullOrBlank()) {
+                InkCard(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .offset(y = 8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "已删除 1 项",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        TextButton(
+                            onClick = {
+                                val id = lastDeletedItemId ?: return@TextButton
+                                viewModel.restoreItem(id)
+                                undoVisible = false
+                                lastDeletedItemId = null
+                            },
+                        ) {
+                            Text("撤销")
+                        }
+                    }
+                }
+            }
+
+            SealStampOverlay(
+                visible = stampVisible,
+                text = "已办",
+            )
         }
     }
 
@@ -408,6 +461,42 @@ fun TodoScreen(
         )
     }
 
+    if (showTagInput) {
+        AlertDialog(
+            onDismissRequest = { showTagInput = false },
+            title = { Text("筛选标签") },
+            text = {
+                OutlinedTextField(
+                    value = tagInputDraft,
+                    onValueChange = { tagInputDraft = it.trim() },
+                    label = { Text("输入 tag（不含 #）") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions =
+                        KeyboardOptions(
+                            imeAction = ImeAction.Done,
+                            keyboardType = KeyboardType.Text,
+                        ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.setTagFilter(tagInputDraft)
+                        showTagInput = false
+                    },
+                ) {
+                    Text("应用")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTagInput = false }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+
     if (showCreateItem) {
         TodoCreateItemDialog(
             lists = uiState.lists,
@@ -430,7 +519,10 @@ fun TodoScreen(
             occurrences = if (item.isRecurring) occurrences else emptyList(),
             onSave = viewModel::updateItem,
             onCompleteNextOccurrence = { viewModel.toggleDone(item, true) },
-            onDelete = { toDelete -> viewModel.deleteItem(toDelete.id) },
+            onDelete = { toDelete ->
+                lastDeletedItemId = toDelete.id
+                viewModel.deleteItem(toDelete.id)
+            },
             onDismiss = { editingItem = null },
         )
     }
@@ -449,45 +541,12 @@ fun TodoScreen(
     if (showDeletedItems) {
         val deletedItemsFlow = remember { viewModel.observeDeletedItems() }
         val deletedItems by deletedItemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
-        val listNameMap = remember(uiState.lists) { uiState.lists.associate { it.id to it.name } }
 
         TodoDeletedItemsDialog(
             deletedItems = deletedItems,
             listNameMap = listNameMap,
             onRestore = { item -> viewModel.restoreItem(item.id) },
             onDismiss = { showDeletedItems = false },
-        )
-    }
-}
-
-@Composable
-internal fun TodoFilterChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val bg =
-        if (selected) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        }
-    val fg =
-        if (selected) {
-            MaterialTheme.colorScheme.onPrimaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
-
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = bg),
-        modifier = Modifier,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            color = fg,
         )
     }
 }
@@ -521,3 +580,4 @@ internal fun showDateTimePicker(
         initial.dayOfMonth,
     ).show()
 }
+
