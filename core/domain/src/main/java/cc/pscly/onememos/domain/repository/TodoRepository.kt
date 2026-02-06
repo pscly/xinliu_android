@@ -11,7 +11,10 @@ import kotlinx.coroutines.flow.Flow
  * - 同步：实现层会把写入意图写入 outbox，并由 Worker 统一 push/pull。
  */
 interface TodoRepository {
-    fun observeLists(includeArchived: Boolean): Flow<List<TodoList>>
+    fun observeLists(
+        includeArchived: Boolean,
+        includeDeleted: Boolean = false,
+    ): Flow<List<TodoList>>
 
     suspend fun getList(listId: String): TodoList?
 
@@ -73,4 +76,3 @@ interface TodoRepository {
      */
     suspend fun completeNextOccurrence(itemId: String): String?
 }
-

@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
@@ -46,14 +45,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.model.TodoItem
+import cc.pscly.onememos.domain.model.TodoList
 import cc.pscly.onememos.domain.model.TodoStatuses
-import cc.pscly.onememos.domain.util.LocalDateTimes
 import cc.pscly.onememos.ui.component.TagChip
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -65,24 +63,16 @@ fun TodoScreen(
 ) {
     val viewModel: TodoViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
     var showCreateList by remember { mutableStateOf(false) }
     var newListName by remember { mutableStateOf("") }
-    var showManageList by remember { mutableStateOf(false) }
-    var editListName by remember { mutableStateOf("") }
-    var editListArchived by remember { mutableStateOf(false) }
+    var managingList by remember { mutableStateOf<TodoList?>(null) }
+    var showDeletedLists by remember { mutableStateOf(false) }
 
     var showCreateItem by remember { mutableStateOf(false) }
-    var newItemTitle by remember { mutableStateOf("") }
-    var newItemListId by remember { mutableStateOf<String?>(null) }
+    var createItemInitialListId by remember { mutableStateOf<String?>(null) }
 
     var editingItem by remember { mutableStateOf<TodoItem?>(null) }
-    var editItemTitle by remember { mutableStateOf("") }
-    var editItemNote by remember { mutableStateOf("") }
-    var editItemTagsText by remember { mutableStateOf("") }
-    var editItemDueAtLocal by remember { mutableStateOf<String?>(null) }
-    var editItemListId by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -99,7 +89,7 @@ fun TodoScreen(
                     }
                     IconButton(
                         onClick = {
-                            newItemListId = uiState.selectedListId ?: uiState.lists.firstOrNull()?.id
+                            createItemInitialListId = uiState.selectedListId ?: uiState.lists.firstOrNull()?.id
                             showCreateItem = true
                         },
                     ) {
@@ -146,13 +136,14 @@ fun TodoScreen(
                 TextButton(onClick = { showCreateList = true }) {
                     Text("新建清单")
                 }
+                TextButton(onClick = { showDeletedLists = true }) {
+                    Text("已删除")
+                }
                 val selectedList = uiState.selectedListId?.let { id -> uiState.lists.firstOrNull { it.id == id } }
                 if (selectedList != null) {
                     IconButton(
                         onClick = {
-                            editListName = selectedList.name
-                            editListArchived = selectedList.archived
-                            showManageList = true
+                            managingList = selectedList
                         },
                     ) {
                         Icon(imageVector = Icons.Filled.Edit, contentDescription = "管理清单")
@@ -165,14 +156,14 @@ fun TodoScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 item {
-                    FilterChip(
+                    TodoFilterChip(
                         label = "全部",
                         selected = uiState.selectedListId == null,
                         onClick = { viewModel.selectList(null) },
                     )
                 }
                 items(uiState.lists, key = { it.id }) { list ->
-                    FilterChip(
+                    TodoFilterChip(
                         label =
                             if (list.archived) {
                                 "${list.name}（归档）"
@@ -192,17 +183,17 @@ fun TodoScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                FilterChip(
+                TodoFilterChip(
                     label = "全部",
                     selected = uiState.statusFilter == null,
                     onClick = { viewModel.setStatusFilter(null) },
                 )
-                FilterChip(
+                TodoFilterChip(
                     label = "未完成",
                     selected = uiState.statusFilter == TodoStatuses.OPEN,
                     onClick = { viewModel.setStatusFilter(TodoStatuses.OPEN) },
                 )
-                FilterChip(
+                TodoFilterChip(
                     label = "已完成",
                     selected = uiState.statusFilter == TodoStatuses.DONE,
                     onClick = { viewModel.setStatusFilter(TodoStatuses.DONE) },
@@ -256,11 +247,6 @@ fun TodoScreen(
                                             .weight(1f)
                                             .clickable {
                                                 editingItem = item
-                                                editItemTitle = item.title
-                                                editItemNote = item.note
-                                                editItemTagsText = item.tags.joinToString(separator = ", ")
-                                                editItemDueAtLocal = item.dueAtLocal
-                                                editItemListId = item.listId
                                             },
                                 ) {
                                     Text(text = item.title, style = MaterialTheme.typography.titleMedium)
@@ -310,65 +296,14 @@ fun TodoScreen(
         }
     }
 
-    if (showManageList) {
-        val selectedList = uiState.selectedListId?.let { id -> uiState.lists.firstOrNull { it.id == id } }
-        if (selectedList != null) {
-            AlertDialog(
-                onDismissRequest = { showManageList = false },
-                title = { Text("管理清单") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = editListName,
-                            onValueChange = { editListName = it },
-                            label = { Text("清单名称") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("归档", style = MaterialTheme.typography.labelLarge)
-                            Spacer(modifier = Modifier.weight(1f))
-                            Switch(
-                                checked = editListArchived,
-                                onCheckedChange = { editListArchived = it },
-                            )
-                        }
-                        Text(
-                            text = "提示：归档清单默认会被隐藏；可在页面顶部打开“显示归档清单”。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.updateList(
-                                selectedList.copy(
-                                    name = editListName.trim().ifBlank { selectedList.name },
-                                    archived = editListArchived,
-                                ),
-                            )
-                            showManageList = false
-                        },
-                        enabled = editListName.trim().isNotBlank(),
-                    ) {
-                        Text("保存")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showManageList = false }) {
-                        Text("取消")
-                    }
-                },
-            )
-        } else {
-            showManageList = false
-        }
+    if (managingList != null) {
+        val list = managingList ?: return
+        TodoManageListDialog(
+            list = list,
+            onSave = viewModel::updateList,
+            onDelete = { toDelete -> viewModel.deleteList(toDelete.id) },
+            onDismiss = { managingList = null },
+        )
     }
 
     if (showCreateList) {
@@ -414,191 +349,46 @@ fun TodoScreen(
     }
 
     if (showCreateItem) {
-        AlertDialog(
-            onDismissRequest = {
-                showCreateItem = false
-                newItemTitle = ""
-                newItemListId = null
+        TodoCreateItemDialog(
+            lists = uiState.lists,
+            initialListId = createItemInitialListId,
+            onCreate = { listId, title ->
+                viewModel.createQuickItem(title = title, listId = listId)
             },
-            title = { Text("新增任务") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("选择清单", style = MaterialTheme.typography.labelLarge)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(uiState.lists, key = { it.id }) { list ->
-                            FilterChip(
-                                label = list.name,
-                                selected = newItemListId == list.id,
-                                onClick = { newItemListId = list.id },
-                            )
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = newItemTitle,
-                        onValueChange = { newItemTitle = it },
-                        label = { Text("标题") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val listId = newItemListId ?: return@Button
-                        viewModel.createQuickItem(newItemTitle, listId)
-                        showCreateItem = false
-                        newItemTitle = ""
-                        newItemListId = null
-                    },
-                    enabled = newItemTitle.trim().isNotBlank() && !newItemListId.isNullOrBlank(),
-                ) {
-                    Text("创建")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showCreateItem = false
-                        newItemTitle = ""
-                    },
-                ) {
-                    Text("取消")
-                }
-            },
+            onDismiss = { showCreateItem = false },
         )
     }
 
     if (editingItem != null) {
         val item = editingItem ?: return
-        AlertDialog(
-            onDismissRequest = { editingItem = null },
-            title = { Text("编辑任务") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = editItemTitle,
-                        onValueChange = { editItemTitle = it },
-                        label = { Text("标题") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    )
-                    OutlinedTextField(
-                        value = editItemNote,
-                        onValueChange = { editItemNote = it },
-                        label = { Text("备注") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3,
-                    )
+        val occurrencesFlow = remember(item.id) { viewModel.observeOccurrences(itemId = item.id, includeDeleted = false) }
+        val occurrences by occurrencesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
-                    Text("所属清单", style = MaterialTheme.typography.labelLarge)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(uiState.lists, key = { it.id }) { list ->
-                            FilterChip(
-                                label = list.name,
-                                selected = editItemListId == list.id,
-                                onClick = { editItemListId = list.id },
-                            )
-                        }
-                    }
+        TodoEditItemDialog(
+            item = item,
+            lists = uiState.lists,
+            occurrences = if (item.isRecurring) occurrences else emptyList(),
+            onSave = viewModel::updateItem,
+            onCompleteNextOccurrence = { viewModel.toggleDone(item, true) },
+            onDelete = { toDelete -> viewModel.deleteItem(toDelete.id) },
+            onDismiss = { editingItem = null },
+        )
+    }
 
-                    OutlinedTextField(
-                        value = editItemTagsText,
-                        onValueChange = { editItemTagsText = it },
-                        label = { Text("标签（逗号/空格分隔）") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    )
+    if (showDeletedLists) {
+        val deletedListsFlow = remember { viewModel.observeDeletedLists() }
+        val deletedLists by deletedListsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
-                    OutlinedTextField(
-                        value = editItemDueAtLocal.orEmpty(),
-                        onValueChange = { editItemDueAtLocal = it.trim().ifBlank { null } },
-                        label = { Text("到期时间（yyyy-MM-dd HH:mm:ss）") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        trailingIcon = {
-                            IconButton(
-                                onClick = {
-                                    val initial =
-                                        LocalDateTimes.parseOrNull(editItemDueAtLocal)
-                                            ?: LocalDateTime.now().withSecond(0).withNano(0)
-                                    showDateTimePicker(
-                                        context = context,
-                                        initial = initial,
-                                        onPicked = { picked ->
-                                            editItemDueAtLocal = LocalDateTimes.format(picked.withSecond(0).withNano(0))
-                                        },
-                                    )
-                                },
-                            ) {
-                                Icon(imageVector = Icons.Filled.Event, contentDescription = "选择日期")
-                            }
-                        },
-                    )
-                    if (!editItemDueAtLocal.isNullOrBlank()) {
-                        TextButton(onClick = { editItemDueAtLocal = null }) {
-                            Text("清除到期时间")
-                        }
-                    }
-
-                    if (item.isRecurring) {
-                        Text(
-                            text = "循环任务：当前仅支持“完成本次”。RRULE 编辑将在后续版本补齐。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Button(
-                            onClick = { viewModel.toggleDone(item, true) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("完成本次")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val tags =
-                            editItemTagsText
-                                .split(',', '，', ' ', '\n', '\t')
-                                .map { it.trim() }
-                                .filter { it.isNotBlank() }
-                                .distinct()
-                        val listId = editItemListId.trim()
-                        if (listId.isBlank()) return@Button
-
-                        viewModel.updateItem(
-                            item.copy(
-                                title = editItemTitle.trim().ifBlank { item.title },
-                                note = editItemNote,
-                                tags = tags,
-                                dueAtLocal = editItemDueAtLocal?.trim()?.takeIf { it.isNotBlank() },
-                                listId = listId,
-                            ),
-                        )
-                        editingItem = null
-                    },
-                    enabled = editItemTitle.trim().isNotBlank() && editItemListId.trim().isNotBlank(),
-                ) {
-                    Text("保存")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingItem = null }) {
-                    Text("取消")
-                }
-            },
+        TodoDeletedListsDialog(
+            deletedLists = deletedLists,
+            onRestore = { list -> viewModel.restoreList(list.id) },
+            onDismiss = { showDeletedLists = false },
         )
     }
 }
 
 @Composable
-private fun FilterChip(
+internal fun TodoFilterChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -629,7 +419,7 @@ private fun FilterChip(
     }
 }
 
-private fun showDateTimePicker(
+internal fun showDateTimePicker(
     context: android.content.Context,
     initial: LocalDateTime,
     onPicked: (LocalDateTime) -> Unit,

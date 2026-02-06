@@ -38,6 +38,7 @@ interface TodoDao {
             "INNER JOIN todo_lists l ON i.ownerKey = l.ownerKey AND i.listId = l.id " +
             "WHERE i.ownerKey = :ownerKey " +
             "AND (:includeDeleted = 1 OR i.deletedAt IS NULL) " +
+            "AND l.deletedAt IS NULL " +
             "AND (:listId IS NULL OR i.listId = :listId) " +
             "AND (:status IS NULL OR i.status = :status) " +
             "AND (:includeArchivedLists = 1 OR l.archived = 0) " +
@@ -84,4 +85,3 @@ interface TodoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertOccurrences(entities: List<TodoOccurrenceEntity>)
 }
-

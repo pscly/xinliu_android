@@ -8,16 +8,19 @@ import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.TodoItem
 import cc.pscly.onememos.domain.model.TodoList
 import cc.pscly.onememos.domain.model.TodoStatuses
+import cc.pscly.onememos.domain.model.TodoOccurrence
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.repository.TodoRepository
 import cc.pscly.onememos.domain.sync.TodoSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -50,6 +53,16 @@ class TodoViewModel @Inject constructor(
         settingsRepository.settings
             .map { s -> s.loginMode == LoginMode.BACKEND && s.token.isNotBlank() }
             .distinctUntilChanged()
+
+    private val deletedListsFlow =
+        enabledFlow.flatMapLatest { enabled ->
+            if (!enabled) {
+                flowOf(emptyList())
+            } else {
+                todoRepository.observeLists(includeArchived = true, includeDeleted = true)
+                    .map { lists -> lists.filter { it.deletedAt != null } }
+            }
+        }
 
     private val listsFlow =
         includeArchivedLists.flatMapLatest { include ->
@@ -139,9 +152,30 @@ class TodoViewModel @Inject constructor(
         todoSyncScheduler.requestSync()
     }
 
+    fun observeDeletedLists(): Flow<List<TodoList>> = deletedListsFlow
+
+    fun observeOccurrences(
+        itemId: String,
+        includeDeleted: Boolean = false,
+    ): Flow<List<TodoOccurrence>> = todoRepository.observeOccurrences(itemId = itemId, includeDeleted = includeDeleted)
+
     fun createList(name: String) {
         viewModelScope.launch {
             todoRepository.createList(name = name.trim(), color = null)
+            todoSyncScheduler.requestSync()
+        }
+    }
+
+    fun deleteList(listId: String) {
+        viewModelScope.launch {
+            todoRepository.deleteList(listId)
+            todoSyncScheduler.requestSync()
+        }
+    }
+
+    fun restoreList(listId: String) {
+        viewModelScope.launch {
+            todoRepository.restoreList(listId)
             todoSyncScheduler.requestSync()
         }
     }

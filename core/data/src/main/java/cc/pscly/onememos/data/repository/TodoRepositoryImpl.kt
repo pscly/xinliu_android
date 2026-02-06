@@ -60,7 +60,10 @@ class TodoRepositoryImpl @Inject constructor(
         return currentOwnerKeyOrNull() != null
     }
 
-    override fun observeLists(includeArchived: Boolean): Flow<List<TodoList>> =
+    override fun observeLists(
+        includeArchived: Boolean,
+        includeDeleted: Boolean,
+    ): Flow<List<TodoList>> =
         settingsRepository.settings
             .map { s -> s.loginMode == LoginMode.BACKEND && s.token.isNotBlank() }
             .distinctUntilChanged()
@@ -72,7 +75,7 @@ class TodoRepositoryImpl @Inject constructor(
                     todoDao.observeLists(
                         ownerKey = ownerKey,
                         includeArchived = includeArchived,
-                        includeDeleted = false,
+                        includeDeleted = includeDeleted,
                     )
                         .map { list -> list.map { it.toDomain() } }
                 }
