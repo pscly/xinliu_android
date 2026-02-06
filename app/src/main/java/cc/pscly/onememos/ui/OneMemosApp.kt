@@ -69,10 +69,13 @@ import cc.pscly.onememos.ui.feature.welcome.WelcomeScreen
 fun OneMemosApp(
     startEditorUuid: String? = null,
     onStartEditorHandled: (() -> Unit)? = null,
+    startRoute: String? = null,
+    onStartRouteHandled: (() -> Unit)? = null,
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     var startHandled by rememberSaveable(startEditorUuid) { mutableStateOf(false) }
+    var startRouteHandled by rememberSaveable(startRoute) { mutableStateOf(false) }
     var welcomeHandled by rememberSaveable { mutableStateOf(false) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -91,9 +94,20 @@ fun OneMemosApp(
         }
     }
 
-    LaunchedEffect(startUiState.showWelcome, startEditorUuid) {
-        // 有“外部启动意图”（分享/快捷记录）时优先进入编辑器，不打断用户。
-        if (startEditorUuid.isNullOrBlank() && startUiState.showWelcome && !welcomeHandled) {
+    LaunchedEffect(startRoute, startEditorUuid) {
+        // 有“外部启动意图”（例如通知）时：如果不需要进编辑器，就按 startRoute 导航。
+        if (!startRouteHandled && startEditorUuid.isNullOrBlank() && !startRoute.isNullOrBlank()) {
+            navController.navigate(startRoute) {
+                launchSingleTop = true
+            }
+            startRouteHandled = true
+            onStartRouteHandled?.invoke()
+        }
+    }
+
+    LaunchedEffect(startUiState.showWelcome, startEditorUuid, startRoute) {
+        // 有“外部启动意图”（分享/快捷记录/通知）时优先处理启动意图，不打断用户。
+        if (startEditorUuid.isNullOrBlank() && startRoute.isNullOrBlank() && startUiState.showWelcome && !welcomeHandled) {
             navController.navigate(Routes.WELCOME) {
                 popUpTo(Routes.HOME) { inclusive = false }
                 launchSingleTop = true

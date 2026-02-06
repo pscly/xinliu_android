@@ -1,7 +1,9 @@
 package cc.pscly.onememos.di
 
 import cc.pscly.onememos.domain.sync.SyncScheduler
+import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import cc.pscly.onememos.domain.sync.TodoSyncScheduler
+import cc.pscly.onememos.worker.WorkManagerTodoReminderScheduler
 import cc.pscly.onememos.worker.WorkManagerTodoSyncScheduler
 import cc.pscly.onememos.worker.WorkManagerSyncScheduler
 import dagger.Binds
@@ -17,4 +19,7 @@ abstract class WorkerModule {
 
     @Binds
     abstract fun bindTodoSyncScheduler(impl: WorkManagerTodoSyncScheduler): TodoSyncScheduler
+
+    @Binds
+    abstract fun bindTodoReminderScheduler(impl: WorkManagerTodoReminderScheduler): TodoReminderScheduler
 }

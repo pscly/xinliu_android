@@ -21,6 +21,7 @@ import cc.pscly.onememos.core.network.SyncTodoOccurrenceOut
 import cc.pscly.onememos.data.auth.FlowBackendCredentialStorage
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import cc.pscly.onememos.domain.todo.TodoTagsTextCodec
 import cc.pscly.onememos.domain.util.Hashing
 import com.google.gson.Gson
@@ -41,6 +42,7 @@ class FlowTodoSyncWorker @AssistedInject constructor(
     private val flowSyncApi: FlowSyncApi,
     private val settingsRepository: SettingsRepository,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
+    private val todoReminderScheduler: TodoReminderScheduler,
 ) : CoroutineWorker(appContext, params) {
     private val gson = Gson()
 
@@ -96,6 +98,11 @@ class FlowTodoSyncWorker @AssistedInject constructor(
                 lastError = lastError,
             ),
         )
+
+        if (result is Result.Success) {
+            // 同步完成后重排一次提醒，确保服务端下发的 reminders/due/rrule 能落到系统通知。
+            todoReminderScheduler.requestReschedule()
+        }
 
         return result
     }

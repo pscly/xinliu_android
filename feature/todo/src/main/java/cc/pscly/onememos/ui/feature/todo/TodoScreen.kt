@@ -4,6 +4,11 @@ package cc.pscly.onememos.ui.feature.todo
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,8 +50,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.model.TodoItem
@@ -63,6 +70,25 @@ fun TodoScreen(
 ) {
     val viewModel: TodoViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val hasAnyReminders by viewModel.hasAnyReminders.collectAsStateWithLifecycle()
+    var notificationPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    val permissionLauncher =
+        androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                notificationPermissionGranted = granted
+                if (granted) {
+                    viewModel.requestReminderReschedule()
+                }
+            },
+        )
 
     var showCreateList by remember { mutableStateOf(false) }
     var newListName by remember { mutableStateOf("") }
@@ -113,6 +139,36 @@ fun TodoScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 return@Column
+            }
+
+            if (hasAnyReminders && !notificationPermissionGranted) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(text = "待办提醒需要通知权限", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = "当前系统未授予通知权限（POST_NOTIFICATIONS），提醒将无法弹出。授权后会自动重排提醒。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
+                                Text("授权通知")
+                            }
+                            TextButton(
+                                onClick = {
+                                    val intent =
+                                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                        }
+                                    context.startActivity(intent)
+                                },
+                            ) {
+                                Text("打开系统设置")
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
             Row(

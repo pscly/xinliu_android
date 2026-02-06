@@ -1,0 +1,159 @@
+package cc.pscly.onememos.worker
+
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.hilt.work.HiltWorker
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import cc.pscly.onememos.core.database.dao.TodoDao
+import cc.pscly.onememos.data.auth.FlowBackendCredentialStorage
+import cc.pscly.onememos.domain.model.LoginMode
+import cc.pscly.onememos.domain.model.TodoStatuses
+import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.domain.util.Hashing
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.first
+
+/**
+ * Todo 单次提醒通知 Worker：到点后展示一条系统通知。
+ *
+ * 注意：
+ * - minSdk=33：通知权限为 POST_NOTIFICATIONS，必须在运行时授权。
+ * - 此处不会做“精确闹钟”（AlarmManager）模式；依赖 WorkManager 的调度可能被省电策略延迟。
+ */
+@HiltWorker
+class TodoReminderNotifyWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted params: WorkerParameters,
+    private val todoDao: TodoDao,
+    private val settingsRepository: SettingsRepository,
+    private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
+) : CoroutineWorker(appContext, params) {
+    override suspend fun doWork(): Result {
+        val hasPermission =
+            ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) return Result.success()
+
+        val settings = settingsRepository.settings.first()
+        if (settings.loginMode != LoginMode.BACKEND) return Result.success()
+        if (settings.token.trim().isBlank()) return Result.success()
+
+        val ownerKey = currentOwnerKeyOrNull() ?: return Result.success()
+
+        val itemId = inputData.getString(KEY_ITEM_ID)?.trim().orEmpty()
+        if (itemId.isBlank()) return Result.success()
+
+        // 读最新数据，避免“提醒到点但任务已完成/已删除”的误通知。
+        val item = todoDao.getItem(ownerKey, itemId) ?: return Result.success()
+        if (!item.deletedAt.isNullOrBlank()) return Result.success()
+
+        if (!item.isRecurring) {
+            val done = item.status == TodoStatuses.DONE || !item.completedAtLocal.isNullOrBlank()
+            if (done) return Result.success()
+        }
+
+        val minutes = inputData.getInt(KEY_BEFORE_MINUTES, 0).coerceAtLeast(0)
+        val dueAtLocal = inputData.getString(KEY_DUE_AT_LOCAL)?.trim().orEmpty()
+
+        val contentText =
+            when (minutes) {
+                0 -> "到期：$dueAtLocal"
+                else -> "提前 $minutes 分钟：$dueAtLocal"
+            }
+
+        ensureChannel()
+
+        val intent =
+            applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)?.apply {
+                // 单击通知直接进入待办页（当前不做“直接打开某条任务”的深链，先保证可用性）。
+                flags =
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(EXTRA_START_ROUTE, "todo")
+            }
+                ?: return Result.success()
+
+        val requestCode = itemId.hashCode()
+        val pendingIntent =
+            PendingIntent.getActivity(
+                applicationContext,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val notificationId = stableNotificationId(itemId = itemId, minutes = minutes, dueAtLocal = dueAtLocal)
+        val iconRes = applicationContext.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info
+        val notification =
+            NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                .setSmallIcon(iconRes)
+                .setContentTitle("待办提醒：${item.title}")
+                .setContentText(contentText)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .build()
+
+        NotificationManagerCompat.from(applicationContext).notify(notificationId, notification)
+        return Result.success()
+    }
+
+    private fun ensureChannel() {
+        val nm = applicationContext.getSystemService(NotificationManager::class.java) ?: return
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                "待办提醒",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "待办事项到期前的提醒通知"
+            }
+        nm.createNotificationChannel(channel)
+    }
+
+    private fun currentOwnerKeyOrNull(): String? {
+        val cred = flowBackendCredentialStorage.get() ?: return null
+        val username = cred.username.trim()
+        if (username.isBlank()) return null
+        return Hashing.sha256Hex(username.lowercase())
+    }
+
+    private fun stableNotificationId(
+        itemId: String,
+        minutes: Int,
+        dueAtLocal: String,
+    ): Int {
+        // 避免 Android 13+ 对 notificationId 的限制：保证为 Int 且稳定（同一条提醒只覆盖自身）。
+        val seed = "$itemId|$minutes|$dueAtLocal"
+        return seed.hashCode()
+    }
+
+    companion object {
+        const val TAG = "todo_reminder_notify"
+        const val CHANNEL_ID = "todo_reminders"
+
+        const val EXTRA_START_ROUTE = "cc.pscly.onememos.extra.START_ROUTE"
+
+        const val KEY_ITEM_ID = "itemId"
+        const val KEY_DUE_AT_LOCAL = "dueAtLocal"
+        const val KEY_BEFORE_MINUTES = "beforeMinutes"
+
+        fun uniqueWorkName(
+            itemId: String,
+            triggerAtMs: Long,
+            minutes: Int,
+        ): String = "todo_reminder_notify:$itemId:$triggerAtMs:$minutes"
+    }
+}

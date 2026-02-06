@@ -11,6 +11,7 @@ import cc.pscly.onememos.domain.model.TodoStatuses
 import cc.pscly.onememos.domain.model.TodoOccurrence
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.repository.TodoRepository
+import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import cc.pscly.onememos.domain.sync.TodoSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +43,7 @@ data class TodoUiState(
 class TodoViewModel @Inject constructor(
     private val todoRepository: TodoRepository,
     private val todoSyncScheduler: TodoSyncScheduler,
+    private val todoReminderScheduler: TodoReminderScheduler,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val selectedListId = MutableStateFlow<String?>(null)
@@ -113,6 +115,29 @@ class TodoViewModel @Inject constructor(
                 )
             }
 
+    val hasAnyReminders: StateFlow<Boolean> =
+        enabledFlow.flatMapLatest { enabled ->
+            if (!enabled) {
+                flowOf(false)
+            } else {
+                todoRepository.observeItems(
+                    listId = null,
+                    status = null,
+                    tag = null,
+                    includeArchivedLists = true,
+                    includeDeleted = false,
+                )
+                    .map { items ->
+                        items.any { it.remindersJson.trim().isNotBlank() && it.remindersJson.trim() != "[]" }
+                    }
+            }
+        }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = false,
+            )
+
     private val filtersFlow =
         combine(
             selectedListId,
@@ -172,6 +197,10 @@ class TodoViewModel @Inject constructor(
         todoSyncScheduler.requestSync()
     }
 
+    fun requestReminderReschedule() {
+        todoReminderScheduler.requestReschedule()
+    }
+
     fun observeDeletedLists(): Flow<List<TodoList>> = deletedListsFlow
 
     fun observeDeletedItems(): Flow<List<TodoItem>> = deletedItemsFlow
@@ -185,6 +214,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             todoRepository.createList(name = name.trim(), color = null)
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 
@@ -192,6 +222,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             todoRepository.deleteList(listId)
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 
@@ -199,6 +230,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             todoRepository.restoreList(listId)
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 
@@ -231,6 +263,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             todoRepository.createItem(item)
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 
@@ -238,6 +271,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             todoRepository.updateItem(item)
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 
@@ -245,6 +279,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             todoRepository.updateList(list)
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 
@@ -256,6 +291,7 @@ class TodoViewModel @Inject constructor(
                 todoRepository.setItemDone(item.id, done)
             }
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 
@@ -263,6 +299,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             todoRepository.deleteItem(itemId)
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 
@@ -270,6 +307,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             todoRepository.restoreItem(itemId)
             todoSyncScheduler.requestSync()
+            todoReminderScheduler.requestReschedule()
         }
     }
 

@@ -13,6 +13,7 @@ import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
 import cc.pscly.onememos.worker.MemoDerivedFieldsRebuildScheduler
 import cc.pscly.onememos.data.auth.FlowBackendTokenRefresher
+import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +27,7 @@ class OneMemosApplication : Application(), Configuration.Provider, ImageLoaderFa
     @Inject lateinit var workerFactoryLazy: Lazy<HiltWorkerFactory>
     @Inject lateinit var okHttpClientLazy: Lazy<OkHttpClient>
     @Inject lateinit var flowBackendTokenRefresherLazy: Lazy<FlowBackendTokenRefresher>
+    @Inject lateinit var todoReminderSchedulerLazy: Lazy<TodoReminderScheduler>
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -74,6 +76,12 @@ class OneMemosApplication : Application(), Configuration.Provider, ImageLoaderFa
                 context = this@OneMemosApplication,
                 initialDelaySeconds = 45,
             )
+        }
+
+        // Todo 提醒：应用启动后调度一次重排 + 启用周期兜底，避免“后台同步拉到提醒但未进入待办页”时不生效。
+        appScope.launch {
+            delay(3_000)
+            todoReminderSchedulerLazy.get().requestReschedule()
         }
     }
 

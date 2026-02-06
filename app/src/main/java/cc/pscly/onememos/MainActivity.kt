@@ -22,12 +22,14 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
     private var startEditorUuid: String? by mutableStateOf(null)
+    private var startRoute: String? by mutableStateOf(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestMaxRefreshRate()
         enableEdgeToEdge()
         startEditorUuid = intent.getStringExtra(EXTRA_START_EDITOR_UUID)
+        startRoute = intent.getStringExtra(EXTRA_START_ROUTE)
         val activity = this
         setContent {
             // 某些 ROM/依赖组合下，lifecycle-compose 的 LocalLifecycleOwner 可能未被自动注入，显式提供以避免启动崩溃。
@@ -37,6 +39,8 @@ class MainActivity : ComponentActivity() {
                     OneMemosApp(
                         startEditorUuid = startEditorUuid,
                         onStartEditorHandled = { startEditorUuid = null },
+                        startRoute = startRoute,
+                        onStartRouteHandled = { startRoute = null },
                     )
                 }
             }
@@ -46,9 +50,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         startEditorUuid = intent.getStringExtra(EXTRA_START_EDITOR_UUID)
+        startRoute = intent.getStringExtra(EXTRA_START_ROUTE)
     }
 
     companion object {
         const val EXTRA_START_EDITOR_UUID = "cc.pscly.onememos.extra.START_EDITOR_UUID"
+        const val EXTRA_START_ROUTE = "cc.pscly.onememos.extra.START_ROUTE"
     }
 }
