@@ -3,10 +3,16 @@
 package cc.pscly.onememos.ui.feature.settings
 
 import android.app.AlarmManager
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
+import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter as JavaTimeFormatter
 import java.util.Locale
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
@@ -46,6 +52,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +65,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.verticalScroll
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -74,6 +83,10 @@ import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.worker.MemoDerivedFieldsRebuildScheduler
 import androidx.work.ExistingWorkPolicy
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 data class SettingsAppInfo(
     val versionName: String,
@@ -98,6 +111,7 @@ fun SettingsScreen(
     val changePasswordState by viewModel.changePasswordUiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
     val alarmManager = remember(context) { context.getSystemService(AlarmManager::class.java) }
     var canDrawOverlays by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var canScheduleExactAlarms by remember { mutableStateOf(alarmManager?.canScheduleExactAlarms() == true) }
@@ -888,6 +902,53 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            InkCard {
+                Text(
+                    text = "备份与诊断",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "用于排障与问题定位。诊断文件不包含 Token，仅包含必要的版本/设备信息与开关状态。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            val uri =
+                                withContext(Dispatchers.IO) {
+                                    exportDiagnosticsFile(
+                                        context = context,
+                                        appInfo = appInfo,
+                                        uiState = uiState,
+                                        canDrawOverlays = canDrawOverlays,
+                                        canScheduleExactAlarms = canScheduleExactAlarms,
+                                    )
+                                }
+                            if (uri == null) {
+                                Toast.makeText(context, "导出失败，请稍后重试", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+
+                            val shareIntent =
+                                Intent(Intent.ACTION_SEND)
+                                    .setType("application/json")
+                                    .putExtra(Intent.EXTRA_SUBJECT, "1memos 诊断文件")
+                                    .putExtra(Intent.EXTRA_STREAM, uri)
+                                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            val chooser = Intent.createChooser(shareIntent, "分享诊断文件")
+                            context.startActivity(chooser)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(text = "导出诊断文件")
+                }
+            }
         }
     }
 
@@ -1152,6 +1213,103 @@ fun SettingsScreen(
             },
         )
     }
+}
+
+private fun exportDiagnosticsFile(
+    context: android.content.Context,
+    appInfo: SettingsAppInfo,
+    uiState: SettingsUiState,
+    canDrawOverlays: Boolean,
+    canScheduleExactAlarms: Boolean,
+): Uri? {
+    val now = LocalDateTime.now()
+    val ts = now.format(JavaTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss", Locale.getDefault()))
+
+    val notificationGranted =
+        runCatching {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }.getOrElse { false }
+
+    val ignoringBatteryOptimizations =
+        runCatching {
+            val pm = context.getSystemService(PowerManager::class.java)
+            pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+        }.getOrElse { false }
+
+    val root =
+        JSONObject()
+            .put("generatedAt", ts)
+            .put("generatedAtEpochMs", System.currentTimeMillis())
+            .put(
+                "app",
+                JSONObject()
+                    .put("packageName", context.packageName)
+                    .put("versionName", appInfo.versionName)
+                    .put("versionCode", appInfo.versionCode)
+                    .put("buildType", appInfo.buildType)
+                    .put("flowBackendBaseUrl", appInfo.flowBackendBaseUrl),
+            )
+            .put(
+                "device",
+                JSONObject()
+                    .put("manufacturer", Build.MANUFACTURER)
+                    .put("brand", Build.BRAND)
+                    .put("model", Build.MODEL)
+                    .put("device", Build.DEVICE)
+                    .put("product", Build.PRODUCT)
+                    .put("sdkInt", Build.VERSION.SDK_INT)
+                    .put("release", Build.VERSION.RELEASE),
+            )
+            .put(
+                "permissions",
+                JSONObject()
+                    .put("postNotificationsGranted", notificationGranted)
+                    .put("canDrawOverlays", canDrawOverlays)
+                    .put("canScheduleExactAlarms", canScheduleExactAlarms)
+                    .put("ignoringBatteryOptimizations", ignoringBatteryOptimizations),
+            )
+            .put(
+                "settings",
+                JSONObject()
+                    // 服务器地址对排障很关键；Token 不写入诊断文件（只记录是否存在）
+                    .put("serverUrl", uiState.serverUrl)
+                    .put("tokenSet", uiState.token.isNotBlank())
+                    .put("loginMode", uiState.loginMode.name)
+                    .put("dev2Unlocked", uiState.dev2Unlocked)
+                    .put("dev2ShowPublicWorkspaceMemos", uiState.dev2ShowPublicWorkspaceMemos)
+                    .put("themePalette", uiState.themePalette.name)
+                    .put("themeMode", uiState.themeMode.name)
+                    .put("defaultVisibility", uiState.defaultVisibility.name)
+                    .put("regexSearchEnabled", uiState.regexSearchEnabled)
+                    .put("showTagCountsInFilter", uiState.showTagCountsInFilter)
+                    .put("quickCaptureOverlayEnabled", uiState.quickCaptureOverlayEnabled)
+                    .put("sealStampDurationMs", uiState.sealStampDurationMs)
+                    .put("offlineImagePrefetchEnabled", uiState.offlineImagePrefetchEnabled)
+                    .put("offlineImagePrefetchMaxMemos", uiState.offlineImagePrefetchMaxMemos)
+                    .put("offlineImagePrefetchMaxImages", uiState.offlineImagePrefetchMaxImages)
+                    .put("attachmentCacheMaxMb", uiState.attachmentCacheMaxMb)
+                    .put("todoReminderMode", uiState.todoReminderMode.name)
+                    .put(
+                        "fullSync",
+                        JSONObject()
+                            .put("status", uiState.fullSyncStatus.name)
+                            .put("runId", uiState.fullSyncRunId)
+                            .put("stage", uiState.fullSyncStage.name)
+                            .put("pagesFetched", uiState.fullSyncPagesFetched)
+                            .put("itemsFetched", uiState.fullSyncItemsFetched)
+                            .put("lastSuccessAt", uiState.fullSyncLastSuccessAt)
+                            .put("lastError", uiState.fullSyncLastError)
+                            .put("key", uiState.fullSyncKey),
+                    ),
+            )
+
+    val sharedDir = File(context.filesDir, "shared").apply { mkdirs() }
+    val out = File(sharedDir, "diagnostics-${ts}.json")
+    out.writeText(root.toString(2), Charsets.UTF_8)
+
+    val authority = "${context.packageName}.fileprovider"
+    return runCatching { FileProvider.getUriForFile(context, authority, out) }.getOrNull()
 }
 
 @Composable

@@ -41,6 +41,11 @@ common_args=(
 ./gradlew :app:assembleDebug "${common_args[@]}" "$@"
 ./gradlew :app:testDebugUnitTest "${common_args[@]}" "$@"
 ./gradlew :app:lintDebug "${common_args[@]}" "$@"
+
+# 经验坑：lint/debug 等任务跑完后，Gradle daemon 可能因内存碎片化导致 benchmark 的 D8 mergeDex OOM。
+# 为了让门禁更稳定，这里主动 stop 一次，确保 benchmark 在“干净 daemon”下构建。
+./gradlew --stop >/dev/null 2>&1 || true
+
 ./gradlew :app:assembleBenchmark "${common_args[@]}" "$@"
 
 if [[ $all -eq 1 ]]; then
