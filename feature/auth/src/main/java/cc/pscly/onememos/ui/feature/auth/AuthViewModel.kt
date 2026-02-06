@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.core.network.FlowBackendApi
 import cc.pscly.onememos.core.network.FlowAuthRequest
+import cc.pscly.onememos.core.network.FlowAuthResponse
 import cc.pscly.onememos.core.network.MemosApi
 import cc.pscly.onememos.core.network.MemosIdentityParser
 import cc.pscly.onememos.core.network.MemosUrls
@@ -183,22 +184,26 @@ class AuthViewModel @Inject constructor(
             }
 
             val payload = result.body()
-            val data = payload?.data
-            if (payload?.code != 200 || data == null || data.token.isBlank() || data.serverUrl.isBlank()) {
-                _uiState.update { it.copy(loading = false, error = "服务返回异常，请稍后重试。") }
+            val (token, backendServerUrl) = extractAuthTokenAndServerUrl(payload)
+            if (token.isBlank()) {
+                _uiState.update { it.copy(loading = false, error = "服务返回异常：未返回 token。") }
                 return@launch
             }
 
             val dev2Unlocked = settingsRepository.settings.first().dev2Unlocked
             val serverUrl =
                 if (dev2Unlocked) {
-                    data.serverUrl
+                    backendServerUrl
                 } else {
                     MemosUrls.DEFAULT_MEMOS_SERVER_URL
                 }
+            if (dev2Unlocked && serverUrl.isBlank()) {
+                _uiState.update { it.copy(loading = false, error = "服务返回异常：未返回 server_url。") }
+                return@launch
+            }
 
             settingsRepository.setServerUrl(serverUrl)
-            settingsRepository.setToken(data.token)
+            settingsRepository.setToken(token)
             settingsRepository.setLoginMode(LoginMode.BACKEND)
             settingsRepository.setWelcomeCompleted(true)
             settingsRepository.setCurrentUserCreator(resolveCurrentUserCreator(serverUrl).orEmpty())
@@ -245,6 +250,15 @@ class AuthViewModel @Inject constructor(
             _uiState.update { it.copy(loading = false) }
             _events.tryEmit(AuthEvent.Authed)
         }
+    }
+
+    private fun extractAuthTokenAndServerUrl(payload: FlowAuthResponse?): Pair<String, String> {
+        // 兼容两种形态：
+        // 1) Envelope：{code,data:{token,server_url}}
+        // 2) 扁平：{token,server_url}
+        val token = payload?.data?.token?.trim().orEmpty().ifBlank { payload?.token?.trim().orEmpty() }
+        val serverUrl = payload?.data?.serverUrl?.trim().orEmpty().ifBlank { payload?.serverUrl?.trim().orEmpty() }
+        return token to serverUrl
     }
 
     private suspend fun resolveCurrentUserCreator(serverUrl: String): String? {

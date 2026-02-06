@@ -45,21 +45,22 @@ class FlowBackendTokenRefresher @Inject constructor(
 
             if (!resp.isSuccessful) return
             val payload = resp.body()
-            val data = payload?.data
-            if (payload?.code != 200 || data == null || data.token.isBlank() || data.serverUrl.isBlank()) {
-                return
-            }
+            val token = payload?.data?.token?.trim().orEmpty().ifBlank { payload?.token?.trim().orEmpty() }
+            val backendServerUrl =
+                payload?.data?.serverUrl?.trim().orEmpty().ifBlank { payload?.serverUrl?.trim().orEmpty() }
+            if (token.isBlank()) return
 
             // 普通用户无感：仍强制使用默认 memos 服务器；仅 dev2 解锁才允许使用后端返回的 server_url。
             val serverUrl =
                 if (settings.dev2Unlocked) {
-                    data.serverUrl
+                    backendServerUrl
                 } else {
                     MemosUrls.DEFAULT_MEMOS_SERVER_URL
                 }
+            if (settings.dev2Unlocked && serverUrl.isBlank()) return
 
             settingsRepository.setServerUrl(serverUrl)
-            settingsRepository.setToken(data.token)
+            settingsRepository.setToken(token)
         }
     }
 }

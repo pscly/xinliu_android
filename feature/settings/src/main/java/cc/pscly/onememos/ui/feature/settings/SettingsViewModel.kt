@@ -260,7 +260,14 @@ class SettingsViewModel @Inject constructor(
             }
 
             val payload = resp.body()
-            val ok = payload?.code == 200 && payload.data?.ok == true
+            val ok =
+                when {
+                    payload == null -> false
+                    payload.code != null && payload.code != 200 -> false
+                    payload.data?.ok == true -> true
+                    payload.ok == true -> true
+                    else -> false
+                }
             if (!ok) {
                 changePasswordState.value = ChangePasswordUiState(error = "请求失败，请稍后重试。")
                 return@launch
