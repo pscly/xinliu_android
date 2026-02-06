@@ -128,6 +128,9 @@ class MemosSyncWorker @AssistedInject constructor(
             // requestSync 使用 KEEP，运行中触发的新同步意图会被吞掉；
             // 因此在本轮成功结束时，如果仍有 DIRTY，则补跑一次（最多一次，避免无限循环）。
             maybeEnqueueFollowupSync(isPeriodic = isPeriodic, isFollowup = isFollowup)
+
+            // 仅当本轮整体无异常结束时，标记“最近一次同步成功”，并清空上次错误。
+            settingsRepository.setLastSyncSuccess()
             Result.success()
         } catch (e: CancellationException) {
             // 取消由 WorkManager/协程调度触发；必须透传，避免被当成失败后重试。
@@ -147,6 +150,7 @@ class MemosSyncWorker @AssistedInject constructor(
         } catch (e: HttpException) {
             // 401/403：大概率 token 无效，重试意义不大，等待用户修复后再触发
             if (e.code() == 401 || e.code() == 403) {
+                settingsRepository.setLastSyncError("鉴权失败，请重新登录", httpCode = e.code())
                 if (needFull && fullRunId != null) {
                     // 全量同步需要落盘失败状态；但不重试。
                     settingsRepository.setFullSyncFailed(
@@ -159,6 +163,7 @@ class MemosSyncWorker @AssistedInject constructor(
                 }
                 Result.success()
             } else {
+                settingsRepository.setLastSyncError(e.message?.take(200) ?: "同步失败", httpCode = e.code())
                 if (needFull && fullRunId != null) {
                     settingsRepository.setFullSyncFailed(
                         runId = fullRunId,
@@ -171,6 +176,7 @@ class MemosSyncWorker @AssistedInject constructor(
                 Result.retry()
             }
         } catch (e: Exception) {
+            settingsRepository.setLastSyncError(e.message?.take(200) ?: "同步失败")
             if (needFull && fullRunId != null) {
                 settingsRepository.setFullSyncFailed(
                     runId = fullRunId,

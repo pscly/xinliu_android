@@ -285,6 +285,74 @@ fun SettingsScreen(
                             }
                         }
 
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "同步状态",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+
+                            val g = uiState.globalSync
+                            val workText =
+                                when {
+                                    g.isSyncing -> "同步中"
+                                    g.isEnqueued -> "等待执行"
+                                    else -> "空闲"
+                                }
+                            val netText = if (g.networkOnline) "在线" else "离线"
+                            val pendingText = "待同步 ${g.pendingCount.coerceAtLeast(0)} 条"
+
+                            Text(
+                                text = "状态：$workText · 网络：$netText · $pendingText",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+
+                            val lastSuccessText =
+                                if (g.lastSuccessAt <= 0L) {
+                                    "从未"
+                                } else {
+                                    DateTimeFormatter.formatYmdHm(g.lastSuccessAt)
+                                }
+                            Text(
+                                text = "最近成功：$lastSuccessText",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+
+                            if (g.hasError) {
+                                val err = g.lastError.ifBlank { "未知错误" }
+                                val lastErrText =
+                                    if (g.lastErrorAt <= 0L) {
+                                        ""
+                                    } else {
+                                        "（${DateTimeFormatter.formatYmdHm(g.lastErrorAt)}）"
+                                    }
+                                Text(
+                                    text = "最近失败：$err$lastErrText",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+
+                                if (g.authInvalid) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
+                                    ) {
+                                        OutlinedButton(onClick = { onOpenAuth(null) }) {
+                                            Text("重新登录")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
@@ -1290,6 +1358,18 @@ private fun exportDiagnosticsFile(
                     .put("offlineImagePrefetchMaxImages", uiState.offlineImagePrefetchMaxImages)
                     .put("attachmentCacheMaxMb", uiState.attachmentCacheMaxMb)
                     .put("todoReminderMode", uiState.todoReminderMode.name)
+                    .put(
+                        "sync",
+                        JSONObject()
+                            .put("workState", uiState.globalSync.workState.name)
+                            .put("pendingCount", uiState.globalSync.pendingCount)
+                            .put("networkOnline", uiState.globalSync.networkOnline)
+                            .put("lastSuccessAt", uiState.globalSync.lastSuccessAt)
+                            .put("lastError", uiState.globalSync.lastError)
+                            .put("lastErrorAt", uiState.globalSync.lastErrorAt)
+                            .put("lastErrorHttpCode", uiState.globalSync.lastErrorHttpCode)
+                            .put("authInvalid", uiState.globalSync.authInvalid),
+                    )
                     .put(
                         "fullSync",
                         JSONObject()

@@ -251,6 +251,11 @@ fun OneMemosApp(
                     title = "随笔",
                     mode = HomeScreenMode.ACTIVE,
                     onOpenDrawer = toggleDrawer,
+                    onOpenAuth = {
+                        navController.navigate(Routes.auth()) {
+                            launchSingleTop = true
+                        }
+                    },
                     onCreateMemo = { navController.navigate(Routes.editor()) },
                     onOpenMemo = { uuid -> navController.navigate(Routes.editor(uuid)) },
                     onOpenShareCard = { uuid -> navController.navigate(Routes.shareCard(uuid)) },
@@ -275,6 +280,11 @@ fun OneMemosApp(
                     title = "已归档",
                     mode = HomeScreenMode.ARCHIVED,
                     onOpenDrawer = toggleDrawer,
+                    onOpenAuth = {
+                        navController.navigate(Routes.auth()) {
+                            launchSingleTop = true
+                        }
+                    },
                     onCreateMemo = { navController.navigate(Routes.editor()) },
                     onOpenMemo = { uuid -> navController.navigate(Routes.editor(uuid)) },
                     onOpenShareCard = { uuid -> navController.navigate(Routes.shareCard(uuid)) },

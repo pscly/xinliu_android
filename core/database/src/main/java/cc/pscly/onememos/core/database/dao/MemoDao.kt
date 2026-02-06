@@ -99,6 +99,9 @@ interface MemoDao {
     @Query("SELECT * FROM memos WHERE syncStatus != 'SYNCED' ORDER BY createdAt ASC")
     suspend fun listMemosNeedingSync(): List<MemoWithAttachments>
 
+    @Query("SELECT COUNT(1) FROM memos WHERE syncStatus != 'SYNCED'")
+    fun observeMemosNeedingSyncCount(): Flow<Int>
+
     @Transaction
     @Query("SELECT * FROM memos WHERE serverState != 'ARCHIVED' ORDER BY createdAt DESC LIMIT :limit")
     suspend fun listRecentActiveMemos(limit: Int): List<MemoWithAttachments>

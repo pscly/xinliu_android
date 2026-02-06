@@ -39,6 +39,11 @@ data class AppSettings(
     val todoReminderMode: TodoReminderMode = TodoReminderMode.SMART,
 
     // ----------------------------
+    // 同步（轻量状态）
+    // ----------------------------
+    val lastSync: LastSyncState = LastSyncState(),
+
+    // ----------------------------
     // 全量同步（手动重同步）状态
     // ----------------------------
     val fullSync: FullSyncState = FullSyncState(),

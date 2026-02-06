@@ -10,11 +10,13 @@ import androidx.paging.filter
 import cc.pscly.onememos.feature.home.BuildConfig
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.domain.model.AppSettings
+import cc.pscly.onememos.domain.model.GlobalSyncState
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
+import cc.pscly.onememos.domain.sync.SyncStatusMonitor
 import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.domain.tag.TagStat
 import cc.pscly.onememos.domain.tag.TagStats
@@ -58,6 +60,7 @@ class HomeViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val filterStore: MemoFilterStore,
     private val syncScheduler: SyncScheduler,
+    syncStatusMonitor: SyncStatusMonitor,
 ) : ViewModel() {
     private var creatorHintPushed: Boolean = false
 
@@ -185,6 +188,14 @@ class HomeViewModel @Inject constructor(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = HomeUiState(),
+            )
+
+    val globalSyncState: StateFlow<GlobalSyncState> =
+        syncStatusMonitor.globalState
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = GlobalSyncState(),
             )
 
     fun isRichPreviewSticky(uuid: String): Boolean = stickyRichPreviewIds.isSticky(uuid)

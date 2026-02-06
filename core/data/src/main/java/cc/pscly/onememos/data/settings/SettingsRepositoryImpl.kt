@@ -3,6 +3,7 @@ package cc.pscly.onememos.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -15,6 +16,7 @@ import cc.pscly.onememos.domain.model.AppSettings
 import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.FullSyncState
 import cc.pscly.onememos.domain.model.FullSyncStatus
+import cc.pscly.onememos.domain.model.LastSyncState
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.ThemeMode
@@ -67,6 +69,12 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 
         // Todo 提醒模式（SMART / EXACT）
         val TODO_REMINDER_MODE = stringPreferencesKey("todo_reminder_mode")
+
+        // 最近一次同步结果（轻量状态）
+        val LAST_SYNC_SUCCESS_AT = longPreferencesKey("last_sync_success_at")
+        val LAST_SYNC_ERROR = stringPreferencesKey("last_sync_error")
+        val LAST_SYNC_ERROR_AT = longPreferencesKey("last_sync_error_at")
+        val LAST_SYNC_ERROR_HTTP_CODE = intPreferencesKey("last_sync_error_http_code")
 
         // 全量同步（Full Sync）状态
         // 兼容迁移：历史版本的 fullSync 是单槽位存储。
@@ -206,6 +214,14 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     currentUserCreator = currentUserCreator,
                 )
 
+                val lastSync =
+                    LastSyncState(
+                        lastSuccessAt = prefs[Keys.LAST_SYNC_SUCCESS_AT] ?: 0L,
+                        lastError = prefs[Keys.LAST_SYNC_ERROR].orEmpty(),
+                        lastErrorAt = prefs[Keys.LAST_SYNC_ERROR_AT] ?: 0L,
+                        lastErrorHttpCode = prefs[Keys.LAST_SYNC_ERROR_HTTP_CODE] ?: 0,
+                    )
+
                 val slotKeys = fullSyncPreferenceKeys(currentFullSyncKey)
                 val slotFullSync =
                     FullSyncState(
@@ -258,6 +274,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     offlineImagePrefetchMaxImages = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_IMAGES] ?: 60).coerceIn(0, 5000),
                     attachmentCacheMaxMb = (prefs[Keys.ATTACHMENT_CACHE_MAX_MB] ?: 1024).coerceIn(0, 10 * 1024),
                     todoReminderMode = parseTodoReminderMode(prefs[Keys.TODO_REMINDER_MODE]),
+                    lastSync = lastSync,
                     fullSync = effectiveFullSync,
                     devAutoTagLineKeywords = prefs[Keys.DEV_AUTO_TAG_LINE_KEYWORDS] ?: "__Atags",
                     devShowAutoTagLineInHome = prefs[Keys.DEV_SHOW_AUTO_TAG_LINE_IN_HOME] ?: false,
@@ -279,6 +296,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     override suspend fun setServerUrl(url: String) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.SERVER_URL] = url.trim()
+            clearLastSyncStateLocked(prefs)
         }
     }
 
@@ -287,6 +305,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         context.settingsDataStore.edit { prefs ->
             prefs.remove(Keys.LEGACY_TOKEN)
             prefs[Keys.TOKEN_UPDATED_AT] = System.currentTimeMillis()
+            clearLastSyncStateLocked(prefs)
         }
     }
 
@@ -383,6 +402,26 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     override suspend fun setTodoReminderMode(mode: TodoReminderMode) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.TODO_REMINDER_MODE] = mode.name
+        }
+    }
+
+    override suspend fun setLastSyncSuccess() {
+        val now = System.currentTimeMillis()
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.LAST_SYNC_SUCCESS_AT] = now
+            prefs[Keys.LAST_SYNC_ERROR] = ""
+            prefs[Keys.LAST_SYNC_ERROR_AT] = 0L
+            prefs[Keys.LAST_SYNC_ERROR_HTTP_CODE] = 0
+        }
+    }
+
+    override suspend fun setLastSyncError(error: String, httpCode: Int) {
+        val err = error.trim().take(2000)
+        val now = System.currentTimeMillis()
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.LAST_SYNC_ERROR] = err
+            prefs[Keys.LAST_SYNC_ERROR_AT] = now
+            prefs[Keys.LAST_SYNC_ERROR_HTTP_CODE] = httpCode.coerceAtLeast(0)
         }
     }
 
@@ -552,6 +591,13 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         runCatching { if (raw.isNullOrBlank()) null else FullSyncStage.valueOf(raw) }
             .getOrNull()
             ?: FullSyncStage.NORMAL
+
+    private fun clearLastSyncStateLocked(prefs: MutablePreferences) {
+        prefs[Keys.LAST_SYNC_SUCCESS_AT] = 0L
+        prefs[Keys.LAST_SYNC_ERROR] = ""
+        prefs[Keys.LAST_SYNC_ERROR_AT] = 0L
+        prefs[Keys.LAST_SYNC_ERROR_HTTP_CODE] = 0
+    }
 
     private suspend fun computeFullSyncKey(): String {
         val s = settings.first()

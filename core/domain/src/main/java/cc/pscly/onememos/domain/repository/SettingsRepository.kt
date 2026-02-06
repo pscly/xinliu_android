@@ -47,6 +47,24 @@ interface SettingsRepository {
     // ----------------------------
     suspend fun setTodoReminderMode(mode: TodoReminderMode)
 
+    // ----------------------------
+    // 同步（轻量状态）
+    // ----------------------------
+    /**
+     * 写入“最近一次同步成功”的时间，并清空上次错误。
+     */
+    suspend fun setLastSyncSuccess()
+
+    /**
+     * 写入“最近一次同步失败”的错误信息（会保留 lastSuccessAt）。
+     *
+     * @param httpCode 可选：HTTP 状态码（401/403 可用于判断鉴权失效）。
+     */
+    suspend fun setLastSyncError(
+        error: String,
+        httpCode: Int = 0,
+    )
+
     // 开发者选项：自动标签元数据行（如 __Atags）
     suspend fun setDevAutoTagLineKeywords(raw: String)
 

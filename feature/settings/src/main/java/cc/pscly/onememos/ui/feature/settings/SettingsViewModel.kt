@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.domain.model.CacheStats
 import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.FullSyncStatus
+import cc.pscly.onememos.domain.model.GlobalSyncState
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.ThemeMode
@@ -13,6 +14,7 @@ import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.domain.repository.CacheRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
+import cc.pscly.onememos.domain.sync.SyncStatusMonitor
 import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import cc.pscly.onememos.core.network.ChangePasswordRequest
 import cc.pscly.onememos.core.network.FlowBackendApi
@@ -48,6 +50,9 @@ data class SettingsUiState(
     val offlineImagePrefetchMaxImages: Int = 60,
     val attachmentCacheMaxMb: Int = 1024,
     val todoReminderMode: TodoReminderMode = TodoReminderMode.SMART,
+
+    // 全局同步状态（轻量）
+    val globalSync: GlobalSyncState = GlobalSyncState(),
 
     // 全量同步（Full Sync）状态
     val fullSyncStatus: FullSyncStatus = FullSyncStatus.IDLE,
@@ -88,6 +93,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val cacheRepository: CacheRepository,
     private val syncScheduler: SyncScheduler,
+    private val syncStatusMonitor: SyncStatusMonitor,
     private val todoReminderScheduler: TodoReminderScheduler,
     private val flowBackendApi: FlowBackendApi,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
@@ -96,7 +102,7 @@ class SettingsViewModel @Inject constructor(
     private val changePasswordState = MutableStateFlow(ChangePasswordUiState())
 
     val uiState: StateFlow<SettingsUiState> =
-        combine(settingsRepository.settings, cacheState) { s, c ->
+        combine(settingsRepository.settings, cacheState, syncStatusMonitor.globalState) { s, c, g ->
             SettingsUiState(
                 serverUrl = s.serverUrl,
                 token = s.token,
@@ -115,6 +121,7 @@ class SettingsViewModel @Inject constructor(
                 offlineImagePrefetchMaxImages = s.offlineImagePrefetchMaxImages,
                 attachmentCacheMaxMb = s.attachmentCacheMaxMb,
                 todoReminderMode = s.todoReminderMode,
+                globalSync = g,
 
                 fullSyncStatus = s.fullSync.status,
                 fullSyncRunId = s.fullSync.runId,

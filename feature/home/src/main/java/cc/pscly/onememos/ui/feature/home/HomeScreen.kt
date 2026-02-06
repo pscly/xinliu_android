@@ -95,6 +95,7 @@ import cc.pscly.onememos.ui.component.TagChip
 import cc.pscly.onememos.ui.component.TagFilterBottomSheet
 import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.domain.model.SyncStatus
+import cc.pscly.onememos.domain.model.GlobalSyncState
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import cc.pscly.onememos.ui.util.DateTimeFormatter
@@ -108,12 +109,14 @@ fun HomeScreen(
     title: String,
     mode: HomeScreenMode,
     onOpenDrawer: () -> Unit,
+    onOpenAuth: () -> Unit,
     onCreateMemo: () -> Unit,
     onOpenMemo: (String) -> Unit,
     onOpenShareCard: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val globalSyncState by viewModel.globalSyncState.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSearchPopup by remember { mutableStateOf(false) }
     var shareTarget by remember { mutableStateOf<Memo?>(null) }
@@ -180,6 +183,7 @@ fun HomeScreen(
     val isRefreshing = refreshState is LoadState.Loading
     val refreshError = (refreshState as? LoadState.Error)?.error
     val hasItems = pagingItems.itemCount > 0
+    val isSyncing = globalSyncState.isSyncing
 
     Scaffold(
         topBar = {
@@ -198,8 +202,12 @@ fun HomeScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = viewModel::requestSync) {
-                            Icon(imageVector = Icons.Filled.Refresh, contentDescription = "同步")
+                        IconButton(onClick = viewModel::requestSync, enabled = !isSyncing) {
+                            if (isSyncing) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(imageVector = Icons.Filled.Refresh, contentDescription = "同步")
+                            }
                         }
                         IconButton(onClick = { showFilterSheet = true }) {
                             BadgedBox(
@@ -236,6 +244,22 @@ fun HomeScreen(
                             }
                         }
                     },
+                )
+
+                val showSyncBanner =
+                    uiState.isLoggedIn &&
+                        (
+                            globalSyncState.isSyncing ||
+                                globalSyncState.isEnqueued ||
+                                globalSyncState.pendingCount > 0 ||
+                                globalSyncState.hasError ||
+                                !globalSyncState.networkOnline
+                        )
+                SyncStatusBanner(
+                    visible = showSyncBanner,
+                    state = globalSyncState,
+                    onRetrySync = viewModel::requestSync,
+                    onOpenAuth = onOpenAuth,
                 )
 
                 FilterStatusBanner(
@@ -559,6 +583,77 @@ private fun FilterStatusBanner(
                             selected = true,
                             onClick = { onToggleTag(tag) },
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SyncStatusBanner(
+    visible: Boolean,
+    state: GlobalSyncState,
+    onRetrySync: () -> Unit,
+    onOpenAuth: () -> Unit,
+) {
+    AnimatedVisibility(visible = visible) {
+        InkCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (state.isSyncing) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+
+                val pendingText =
+                    if (state.pendingCount > 0) {
+                        "待同步 ${state.pendingCount} 条"
+                    } else {
+                        "无待同步"
+                    }
+
+                val message =
+                    when {
+                        state.authInvalid -> "鉴权失败，请重新登录。"
+                        !state.networkOnline -> "当前离线，联网后会自动同步。"
+                        state.isSyncing -> "同步中…"
+                        state.hasError -> "同步失败：${state.lastError.ifBlank { "未知错误" }}"
+                        state.pendingCount > 0 -> "有离线记录待同步。"
+                        state.isEnqueued -> "已排队，等待同步执行。"
+                        else -> "同步状态"
+                    }
+
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (state.authInvalid || state.hasError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                Text(
+                    text = pendingText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    when {
+                        state.authInvalid -> {
+                            TextButton(onClick = onOpenAuth) { Text("去登录") }
+                        }
+
+                        state.hasError -> {
+                            TextButton(onClick = onRetrySync) { Text("重试") }
+                        }
+
+                        state.pendingCount > 0 && state.networkOnline && !state.isSyncing -> {
+                            TextButton(onClick = onRetrySync) { Text("同步") }
+                        }
                     }
                 }
             }
