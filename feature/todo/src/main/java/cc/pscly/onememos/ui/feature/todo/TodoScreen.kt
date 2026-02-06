@@ -523,6 +523,8 @@ fun TodoScreen(
                 lastDeletedItemId = toDelete.id
                 viewModel.deleteItem(toDelete.id)
             },
+            onRequestTestReminder = viewModel::requestTestReminder,
+            onRequestReminderReschedule = viewModel::requestReminderReschedule,
             onDismiss = { editingItem = null },
         )
     }
@@ -580,4 +582,3 @@ internal fun showDateTimePicker(
         initial.dayOfMonth,
     ).show()
 }
-

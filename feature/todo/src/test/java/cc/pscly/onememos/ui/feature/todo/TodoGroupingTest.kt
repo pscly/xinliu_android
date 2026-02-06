@@ -89,5 +89,18 @@ class TodoGroupingTest {
         val sections = buildTodoSections(listOf(item), nowLocalProvider = nowProvider)
         assertEquals(listOf("done"), sections.map { it.key })
     }
-}
 
+    @Test
+    fun `提醒摘要 - before_due minutes`() {
+        val raw =
+            """[
+              {"type":"before_due","minutes":0},
+              {"type":"before_due","minutes":5},
+              {"type":"before_due","minutes":30}
+            ]""".trimIndent()
+
+        assertEquals("提醒：准时、提前5分（+1）", reminderSummary(raw))
+        assertEquals(null, reminderSummary("[]"))
+        assertEquals(null, reminderSummary(""))
+    }
+}

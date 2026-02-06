@@ -12,6 +12,7 @@ import cc.pscly.onememos.domain.model.TodoOccurrence
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.repository.TodoRepository
 import cc.pscly.onememos.domain.sync.TodoReminderScheduler
+import cc.pscly.onememos.domain.sync.TodoReminderTestScheduler
 import cc.pscly.onememos.domain.sync.TodoSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +45,7 @@ class TodoViewModel @Inject constructor(
     private val todoRepository: TodoRepository,
     private val todoSyncScheduler: TodoSyncScheduler,
     private val todoReminderScheduler: TodoReminderScheduler,
+    private val todoReminderTestScheduler: TodoReminderTestScheduler,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val selectedListId = MutableStateFlow<String?>(null)
@@ -199,6 +201,17 @@ class TodoViewModel @Inject constructor(
 
     fun requestReminderReschedule() {
         todoReminderScheduler.requestReschedule()
+    }
+
+    fun requestTestReminder(
+        itemId: String,
+        dueAtLocal: String,
+    ) {
+        todoReminderTestScheduler.requestTest(
+            itemId = itemId,
+            dueAtLocal = dueAtLocal,
+            delaySeconds = 10,
+        )
     }
 
     fun observeDeletedLists(): Flow<List<TodoList>> = deletedListsFlow

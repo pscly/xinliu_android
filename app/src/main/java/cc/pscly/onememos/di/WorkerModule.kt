@@ -3,8 +3,10 @@ package cc.pscly.onememos.di
 import cc.pscly.onememos.domain.sync.SyncScheduler
 import cc.pscly.onememos.domain.sync.SyncStatusMonitor
 import cc.pscly.onememos.domain.sync.TodoReminderScheduler
+import cc.pscly.onememos.domain.sync.TodoReminderTestScheduler
 import cc.pscly.onememos.domain.sync.TodoSyncScheduler
 import cc.pscly.onememos.worker.WorkManagerTodoReminderScheduler
+import cc.pscly.onememos.worker.WorkManagerTodoReminderTestScheduler
 import cc.pscly.onememos.worker.WorkManagerTodoSyncScheduler
 import cc.pscly.onememos.worker.WorkManagerSyncScheduler
 import cc.pscly.onememos.worker.WorkManagerSyncStatusMonitor
@@ -27,4 +29,7 @@ abstract class WorkerModule {
 
     @Binds
     abstract fun bindTodoReminderScheduler(impl: WorkManagerTodoReminderScheduler): TodoReminderScheduler
+
+    @Binds
+    abstract fun bindTodoReminderTestScheduler(impl: WorkManagerTodoReminderTestScheduler): TodoReminderTestScheduler
 }

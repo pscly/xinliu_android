@@ -2,7 +2,13 @@
 
 package cc.pscly.onememos.ui.feature.todo
 
+import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +37,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,11 +48,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import cc.pscly.onememos.domain.model.TodoItem
 import cc.pscly.onememos.domain.model.TodoList
 import cc.pscly.onememos.domain.model.TodoOccurrence
+import cc.pscly.onememos.domain.model.TodoStatuses
 import cc.pscly.onememos.domain.todo.TodoRecurrenceCalculator
 import cc.pscly.onememos.domain.util.LocalDateTimes
+import cc.pscly.onememos.ui.component.InkChip
+import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
+import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDateTime
@@ -339,6 +351,8 @@ internal fun TodoEditItemDialog(
     onSave: (TodoItem) -> Unit,
     onCompleteNextOccurrence: () -> Unit,
     onDelete: (TodoItem) -> Unit,
+    onRequestTestReminder: (itemId: String, dueAtLocal: String) -> Unit,
+    onRequestReminderReschedule: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -403,6 +417,50 @@ internal fun TodoEditItemDialog(
 
     // 提醒（reminders）编辑：客户端自定义结构，统一保存为 JSON 数组字符串
     var reminderEntries by remember(item.id) { mutableStateOf(parseReminders(item.remindersJson)) }
+
+    val haptics = rememberOneMemosHaptics()
+
+    var notificationPermissionGranted by remember(item.id) {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                notificationPermissionGranted = granted
+                if (granted) {
+                    // 可能存在“先设置提醒，后授权通知”的路径：授权后立即重排一次，减少用户困惑。
+                    onRequestReminderReschedule()
+                }
+            },
+        )
+
+    var reminderInlineHint by remember(item.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(reminderInlineHint) {
+        if (reminderInlineHint.isNullOrBlank()) return@LaunchedEffect
+        delay(2_200)
+        reminderInlineHint = null
+    }
+
+    fun ensureDueAtLocalForRemindersIfNeeded() {
+        if (recurring) return
+        if (!dueAtLocal.isNullOrBlank()) return
+
+        val base =
+            LocalDateTimes.parseOrNull(LocalDateTimes.nowString(tzid))
+                ?: LocalDateTime.now()
+        val picked =
+            base
+                .plusHours(1)
+                .withSecond(0)
+                .withNano(0)
+        val formatted = LocalDateTimes.format(picked)
+        dueAtLocal = formatted
+        reminderInlineHint = "已自动设置到期时间：$formatted（可修改）"
+    }
 
     var showDeleteConfirm by remember(item.id) { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -490,66 +548,109 @@ internal fun TodoEditItemDialog(
                 }
 
                 // reminders
-                Text("提醒", style = MaterialTheme.typography.labelLarge)
-                if (dueAtLocal.isNullOrBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("提醒", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = "提醒通常依赖“到期时间”。当前未设置到期时间，仍可先添加提醒（后续再补到期时间）。",
+                        text =
+                            when (val n = reminderEntries.size) {
+                                0 -> "未设置"
+                                else -> "已添加 $n 个（保存后生效）"
+                            },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(
-                        onClick = {
-                            reminderEntries = (reminderEntries + ReminderEntry.beforeDue(0)).dedupeReminderEntries()
-                        },
+
+                if (!notificationPermissionGranted) {
+                    Text(
+                        text = "未授予通知权限（POST_NOTIFICATIONS），提醒不会弹出。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(imageVector = Icons.Filled.Add, contentDescription = "新增提醒")
+                        InkChip(
+                            label = "授权通知",
+                            selected = true,
+                            onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                        )
+                        TextButton(
+                            onClick = {
+                                val intent =
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    }
+                                context.startActivity(intent)
+                            },
+                        ) {
+                            Text("打开系统设置")
+                        }
                     }
+                }
+
+                if (!recurring && dueAtLocal.isNullOrBlank()) {
                     Text(
-                        text = "快捷添加：",
+                        text = "提示：未设置到期时间。首次添加提醒时会自动设置到期时间为 1 小时后（可修改）。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    TextButton(onClick = { reminderEntries = (reminderEntries + ReminderEntry.beforeDue(5)).dedupeReminderEntries() }) { Text("5 分钟") }
-                    TextButton(onClick = { reminderEntries = (reminderEntries + ReminderEntry.beforeDue(30)).dedupeReminderEntries() }) { Text("30 分钟") }
-                    TextButton(onClick = { reminderEntries = (reminderEntries + ReminderEntry.beforeDue(60)).dedupeReminderEntries() }) { Text("1 小时") }
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+
+                fun addBeforeDue(minutes: Int) {
+                    ensureDueAtLocalForRemindersIfNeeded()
+                    reminderEntries = (reminderEntries + ReminderEntry.beforeDue(minutes)).dedupeReminderEntries()
+                    reminderInlineHint = "已添加提醒：${ReminderEntry.beforeDue(minutes).label()}（保存后生效）"
+                    haptics.tick()
+                }
+
+                LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    TextButton(onClick = { reminderEntries = (reminderEntries + ReminderEntry.beforeDue(24 * 60)).dedupeReminderEntries() }) { Text("1 天") }
+                    item {
+                        InkChip(label = "准时", selected = false, onClick = { addBeforeDue(0) })
+                    }
+                    item {
+                        InkChip(label = "5分钟", selected = false, onClick = { addBeforeDue(5) })
+                    }
+                    item {
+                        InkChip(label = "30分钟", selected = false, onClick = { addBeforeDue(30) })
+                    }
+                    item {
+                        InkChip(label = "1小时", selected = false, onClick = { addBeforeDue(60) })
+                    }
+                    item {
+                        InkChip(label = "1天", selected = false, onClick = { addBeforeDue(24 * 60) })
+                    }
                 }
 
                 if (reminderEntries.isNotEmpty()) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    Text(
+                        text = "已添加（点击可删除）：",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        reminderEntries.forEach { entry ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = entry.label(),
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                IconButton(
-                                    onClick = {
-                                        reminderEntries = reminderEntries.filterNot { it.stableKey == entry.stableKey }
-                                    },
-                                ) {
-                                    Icon(imageVector = Icons.Filled.Delete, contentDescription = "删除提醒")
-                                }
-                            }
+                        items(reminderEntries, key = { it.stableKey }) { entry ->
+                            InkChip(
+                                label = entry.label(),
+                                selected = true,
+                                onClick = {
+                                    reminderEntries = reminderEntries.filterNot { it.stableKey == entry.stableKey }
+                                    reminderInlineHint = "已删除提醒：${entry.label()}（保存后生效）"
+                                    haptics.tick()
+                                },
+                            )
                         }
                     }
                 } else {
@@ -557,6 +658,32 @@ internal fun TodoEditItemDialog(
                         text = "暂无提醒。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                val isItemDone = item.status == TodoStatuses.DONE || !item.completedAtLocal.isNullOrBlank()
+                InkChip(
+                    label = "测试提醒（10秒后）",
+                    selected = false,
+                    enabled = !isItemDone,
+                    onClick = {
+                        if (!notificationPermissionGranted) {
+                            reminderInlineHint = "请先授权通知权限，再测试提醒。"
+                            return@InkChip
+                        }
+                        val base = LocalDateTimes.parseOrNull(LocalDateTimes.nowString(tzid)) ?: LocalDateTime.now()
+                        val testDue = LocalDateTimes.format(base.plusSeconds(10).withNano(0))
+                        onRequestTestReminder(item.id, testDue)
+                        reminderInlineHint = "已安排测试提醒：$testDue（10 秒后）"
+                        haptics.tick()
+                    },
+                )
+
+                if (!reminderInlineHint.isNullOrBlank()) {
+                    Text(
+                        text = reminderInlineHint.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
 

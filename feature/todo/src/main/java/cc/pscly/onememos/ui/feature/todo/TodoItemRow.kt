@@ -284,6 +284,17 @@ private fun TodoMetaLines(
         )
     }
 
+    val reminderSummary = p.reminderSummary?.trim().orEmpty()
+    if (reminderSummary.isNotBlank()) {
+        Text(
+            text = reminderSummary,
+            style = MaterialTheme.typography.bodySmall,
+            color = metaColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+
     if (!listName.isNullOrBlank()) {
         Text(
             text = "清单：$listName",
