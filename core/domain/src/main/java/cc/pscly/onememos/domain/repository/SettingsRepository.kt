@@ -6,6 +6,7 @@ import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
+import cc.pscly.onememos.domain.model.TodoReminderMode
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
@@ -40,6 +41,11 @@ interface SettingsRepository {
     suspend fun setOfflineImagePrefetchMaxImages(count: Int)
 
     suspend fun setAttachmentCacheMaxMb(mb: Int)
+
+    // ----------------------------
+    // Todo（待办）提醒
+    // ----------------------------
+    suspend fun setTodoReminderMode(mode: TodoReminderMode)
 
     // 开发者选项：自动标签元数据行（如 __Atags）
     suspend fun setDevAutoTagLineKeywords(raw: String)

@@ -2,6 +2,7 @@
 
 package cc.pscly.onememos.ui.feature.settings
 
+import android.app.AlarmManager
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -66,6 +67,7 @@ import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
+import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.util.ByteSizeFormatter
 import cc.pscly.onememos.ui.util.DateTimeFormatter
@@ -96,7 +98,10 @@ fun SettingsScreen(
     val changePasswordState by viewModel.changePasswordUiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val alarmManager = remember(context) { context.getSystemService(AlarmManager::class.java) }
     var canDrawOverlays by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var canScheduleExactAlarms by remember { mutableStateOf(alarmManager?.canScheduleExactAlarms() == true) }
+    var lastExactAlarmAllowed by remember { mutableStateOf(canScheduleExactAlarms) }
     var showClearImagesConfirm by remember { mutableStateOf(false) }
     var showClearAttachmentsConfirm by remember { mutableStateOf(false) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
@@ -110,6 +115,7 @@ fun SettingsScreen(
             LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_RESUME) {
                     canDrawOverlays = Settings.canDrawOverlays(context)
+                    canScheduleExactAlarms = alarmManager?.canScheduleExactAlarms() == true
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -131,6 +137,14 @@ fun SettingsScreen(
         newPassword = ""
         newPassword2 = ""
         viewModel.resetChangePasswordState()
+    }
+
+    LaunchedEffect(canScheduleExactAlarms, uiState.todoReminderMode) {
+        val justGranted = canScheduleExactAlarms && !lastExactAlarmAllowed
+        lastExactAlarmAllowed = canScheduleExactAlarms
+        if (justGranted && uiState.todoReminderMode == TodoReminderMode.EXACT) {
+            viewModel.requestTodoReminderReschedule()
+        }
     }
 
     Scaffold(
@@ -476,6 +490,33 @@ fun SettingsScreen(
                 ShowTagCountsRow(
                     enabled = uiState.showTagCountsInFilter,
                     onToggle = viewModel::updateShowTagCountsInFilter,
+                )
+            }
+
+            InkCard {
+                Text(
+                    text = "待办提醒",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                TodoReminderModeRow(
+                    mode = uiState.todoReminderMode,
+                    canScheduleExactAlarms = canScheduleExactAlarms,
+                    onSelect = viewModel::updateTodoReminderMode,
+                    onRequestExactAlarmPermission = {
+                        val uri = Uri.parse("package:${context.packageName}")
+                        val intent =
+                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, uri)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        runCatching { context.startActivity(intent) }
+                            .onFailure {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                    },
                 )
             }
 
@@ -1141,6 +1182,69 @@ private fun MemoVisibilityRow(
                 onClick = { onSelect(MemoVisibility.PUBLIC) },
             )
             Text(text = "公开（所有人）")
+        }
+    }
+}
+
+@Composable
+private fun TodoReminderModeRow(
+    mode: TodoReminderMode,
+    canScheduleExactAlarms: Boolean,
+    onSelect: (TodoReminderMode) -> Unit,
+    onRequestExactAlarmPermission: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(
+                selected = mode == TodoReminderMode.SMART,
+                onClick = { onSelect(TodoReminderMode.SMART) },
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "智能（推荐）", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "基于 WorkManager，省心；但可能被省电/待机策略延迟。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(
+                selected = mode == TodoReminderMode.EXACT,
+                onClick = { onSelect(TodoReminderMode.EXACT) },
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "准点（实验）", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "基于 AlarmManager 精确闹钟；更准点，但需要系统允许“精确闹钟”。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+        }
+
+        if (mode == TodoReminderMode.EXACT) {
+            if (canScheduleExactAlarms) {
+                Text(
+                    text = "系统已允许精确闹钟：准点提醒将优先生效。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            } else {
+                Text(
+                    text = "系统未允许精确闹钟：当前会自动降级为“智能”调度（避免无效闹钟）。可在系统设置中开启。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = onRequestExactAlarmPermission,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("去开启精确闹钟")
+                }
+            }
         }
     }
 }

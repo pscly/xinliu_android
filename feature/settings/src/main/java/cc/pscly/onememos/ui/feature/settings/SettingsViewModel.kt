@@ -9,9 +9,11 @@ import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
+import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.domain.repository.CacheRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
+import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import cc.pscly.onememos.core.network.ChangePasswordRequest
 import cc.pscly.onememos.core.network.FlowBackendApi
 import cc.pscly.onememos.data.auth.FlowBackendCredentialStorage
@@ -45,6 +47,7 @@ data class SettingsUiState(
     val offlineImagePrefetchMaxMemos: Int = 30,
     val offlineImagePrefetchMaxImages: Int = 60,
     val attachmentCacheMaxMb: Int = 1024,
+    val todoReminderMode: TodoReminderMode = TodoReminderMode.SMART,
 
     // 全量同步（Full Sync）状态
     val fullSyncStatus: FullSyncStatus = FullSyncStatus.IDLE,
@@ -85,6 +88,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val cacheRepository: CacheRepository,
     private val syncScheduler: SyncScheduler,
+    private val todoReminderScheduler: TodoReminderScheduler,
     private val flowBackendApi: FlowBackendApi,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
 ) : ViewModel() {
@@ -110,6 +114,7 @@ class SettingsViewModel @Inject constructor(
                 offlineImagePrefetchMaxMemos = s.offlineImagePrefetchMaxMemos,
                 offlineImagePrefetchMaxImages = s.offlineImagePrefetchMaxImages,
                 attachmentCacheMaxMb = s.attachmentCacheMaxMb,
+                todoReminderMode = s.todoReminderMode,
 
                 fullSyncStatus = s.fullSync.status,
                 fullSyncRunId = s.fullSync.runId,
@@ -166,6 +171,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setToken(token) }
     }
 
+    fun updateTodoReminderMode(mode: TodoReminderMode) {
+        viewModelScope.launch {
+            settingsRepository.setTodoReminderMode(mode)
+            todoReminderScheduler.requestReschedule()
+        }
+    }
+
+    fun requestTodoReminderReschedule() {
+        todoReminderScheduler.requestReschedule()
+    }
+
     fun logout(clearServerUrl: Boolean = false) {
         viewModelScope.launch {
             settingsRepository.setToken("")
@@ -176,6 +192,7 @@ class SettingsViewModel @Inject constructor(
             if (clearServerUrl) {
                 settingsRepository.setServerUrl("")
             }
+            todoReminderScheduler.requestReschedule()
         }
     }
 

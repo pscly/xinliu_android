@@ -19,6 +19,7 @@ import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
+import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -63,6 +64,9 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         val OFFLINE_IMAGE_PREFETCH_MAX_MEMOS = intPreferencesKey("offline_image_prefetch_max_memos")
         val OFFLINE_IMAGE_PREFETCH_MAX_IMAGES = intPreferencesKey("offline_image_prefetch_max_images")
         val ATTACHMENT_CACHE_MAX_MB = intPreferencesKey("attachment_cache_max_mb")
+
+        // Todo 提醒模式（SMART / EXACT）
+        val TODO_REMINDER_MODE = stringPreferencesKey("todo_reminder_mode")
 
         // 全量同步（Full Sync）状态
         // 兼容迁移：历史版本的 fullSync 是单槽位存储。
@@ -253,6 +257,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     offlineImagePrefetchMaxMemos = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_MEMOS] ?: 30).coerceIn(0, 5000),
                     offlineImagePrefetchMaxImages = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_IMAGES] ?: 60).coerceIn(0, 5000),
                     attachmentCacheMaxMb = (prefs[Keys.ATTACHMENT_CACHE_MAX_MB] ?: 1024).coerceIn(0, 10 * 1024),
+                    todoReminderMode = parseTodoReminderMode(prefs[Keys.TODO_REMINDER_MODE]),
                     fullSync = effectiveFullSync,
                     devAutoTagLineKeywords = prefs[Keys.DEV_AUTO_TAG_LINE_KEYWORDS] ?: "__Atags",
                     devShowAutoTagLineInHome = prefs[Keys.DEV_SHOW_AUTO_TAG_LINE_IN_HOME] ?: false,
@@ -372,6 +377,12 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     override suspend fun setAttachmentCacheMaxMb(mb: Int) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.ATTACHMENT_CACHE_MAX_MB] = mb.coerceIn(0, 10 * 1024)
+        }
+    }
+
+    override suspend fun setTodoReminderMode(mode: TodoReminderMode) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.TODO_REMINDER_MODE] = mode.name
         }
     }
 
@@ -526,6 +537,11 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         runCatching { if (raw.isNullOrBlank()) null else ThemeMode.valueOf(raw) }
             .getOrNull()
             ?: ThemeMode.FOLLOW_SYSTEM
+
+    private fun parseTodoReminderMode(raw: String?): TodoReminderMode =
+        runCatching { if (raw.isNullOrBlank()) null else TodoReminderMode.valueOf(raw) }
+            .getOrNull()
+            ?: TodoReminderMode.SMART
 
     private fun parseFullSyncStatus(raw: String?): FullSyncStatus =
         runCatching { if (raw.isNullOrBlank()) null else FullSyncStatus.valueOf(raw) }

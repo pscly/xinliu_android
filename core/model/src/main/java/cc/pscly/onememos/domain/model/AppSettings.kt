@@ -34,6 +34,11 @@ data class AppSettings(
     val attachmentCacheMaxMb: Int = 1024,
 
     // ----------------------------
+    // Todo（待办）提醒：双模式
+    // ----------------------------
+    val todoReminderMode: TodoReminderMode = TodoReminderMode.SMART,
+
+    // ----------------------------
     // 全量同步（手动重同步）状态
     // ----------------------------
     val fullSync: FullSyncState = FullSyncState(),

@@ -7,6 +7,8 @@ plugins {
     kotlin("kapt")
 }
 
+import org.gradle.internal.os.OperatingSystem
+
 android {
     namespace = "cc.pscly.onememos"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -22,6 +24,16 @@ android {
 
         // Flow Backend：账号登录/注册用（App 拿到 token + server_url 后直接连接 Memos，不经 Backend 代理数据）。
         buildConfigField("String", "FLOW_BACKEND_BASE_URL", "\"https://xl.pscly.cc/\"")
+    }
+
+    // 统一 debug/benchmark 签名来源：不依赖 ~/.android/debug.keystore，便于在容器/CI/只读 HOME 环境下构建。
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file(".gradle-keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
@@ -162,4 +174,55 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = 1
     maxHeapSize = "384m"
     jvmArgs("-XX:ReservedCodeCacheSize=64m")
+
+    // Robolectric 会用 MavenDependencyResolver 拉取 android-all 等依赖，
+    // 默认落在 ~/.m2；为避免容器/CI/只读 HOME 触发 FileNotFound/AccessDenied，
+    // 单测 JVM 统一使用项目 build 目录作为 home + m2。
+    val testHome = rootProject.layout.buildDirectory.dir("test-home").get().asFile
+    testHome.mkdirs()
+    systemProperty("user.home", testHome.absolutePath)
+    systemProperty("maven.repo.local", testHome.resolve(".m2/repository").absolutePath)
+}
+
+val debugKeystoreFile = rootProject.file(".gradle-keystore/debug.keystore")
+val ensureDebugKeystore by tasks.registering {
+    outputs.file(debugKeystoreFile)
+    doLast {
+        if (debugKeystoreFile.exists()) return@doLast
+
+        debugKeystoreFile.parentFile?.mkdirs()
+        val keytool =
+            File(System.getProperty("java.home"))
+                .resolve("bin")
+                .resolve(if (OperatingSystem.current().isWindows) "keytool.exe" else "keytool")
+
+        exec {
+            commandLine(
+                keytool.absolutePath,
+                "-genkeypair",
+                "-keystore",
+                debugKeystoreFile.absolutePath,
+                "-storepass",
+                "android",
+                "-alias",
+                "androiddebugkey",
+                "-keypass",
+                "android",
+                "-keyalg",
+                "RSA",
+                "-keysize",
+                "2048",
+                "-validity",
+                "10000",
+                "-dname",
+                "CN=Android Debug,O=Android,C=US",
+                "-storetype",
+                "JKS",
+            )
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("validateSigning") }.configureEach {
+    dependsOn(ensureDebugKeystore)
 }
