@@ -205,6 +205,74 @@ internal fun TodoDeletedListsDialog(
 }
 
 @Composable
+internal fun TodoDeletedItemsDialog(
+    deletedItems: List<TodoItem>,
+    listNameMap: Map<String, String>,
+    onRestore: (TodoItem) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("已删除任务") },
+        text = {
+            if (deletedItems.isEmpty()) {
+                Text(
+                    text = "暂无已删除任务。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 520.dp),
+                ) {
+                    items(
+                        items = deletedItems.sortedByDescending { it.deletedAt.orEmpty() },
+                        key = { it.id },
+                    ) { item ->
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = item.title, style = MaterialTheme.typography.titleMedium)
+                                    val listLabel =
+                                        listNameMap[item.listId]
+                                            ?: "清单ID：${item.listId.take(8)}"
+                                    Text(
+                                        text = "清单：$listLabel",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    if (!item.deletedAt.isNullOrBlank()) {
+                                        Text(
+                                            text = "删除于：${item.deletedAt}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { onRestore(item) }) {
+                                    Icon(imageVector = Icons.Filled.RestoreFromTrash, contentDescription = "恢复")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("关闭")
+            }
+        },
+    )
+}
+
+@Composable
 internal fun TodoCreateItemDialog(
     lists: List<TodoList>,
     initialListId: String?,
@@ -766,7 +834,7 @@ internal fun TodoEditItemDialog(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("确认删除任务？") },
-            text = { Text("删除后可在后续版本的“最近删除”中恢复（当前版本未提供任务回收站）。") },
+            text = { Text("删除后可在“已删除任务”中恢复。") },
             confirmButton = {
                 Button(
                     onClick = {

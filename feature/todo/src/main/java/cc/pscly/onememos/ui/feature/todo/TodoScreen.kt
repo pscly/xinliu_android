@@ -68,6 +68,7 @@ fun TodoScreen(
     var newListName by remember { mutableStateOf("") }
     var managingList by remember { mutableStateOf<TodoList?>(null) }
     var showDeletedLists by remember { mutableStateOf(false) }
+    var showDeletedItems by remember { mutableStateOf(false) }
 
     var showCreateItem by remember { mutableStateOf(false) }
     var createItemInitialListId by remember { mutableStateOf<String?>(null) }
@@ -137,7 +138,10 @@ fun TodoScreen(
                     Text("新建清单")
                 }
                 TextButton(onClick = { showDeletedLists = true }) {
-                    Text("已删除")
+                    Text("已删除清单")
+                }
+                TextButton(onClick = { showDeletedItems = true }) {
+                    Text("已删除任务")
                 }
                 val selectedList = uiState.selectedListId?.let { id -> uiState.lists.firstOrNull { it.id == id } }
                 if (selectedList != null) {
@@ -383,6 +387,19 @@ fun TodoScreen(
             deletedLists = deletedLists,
             onRestore = { list -> viewModel.restoreList(list.id) },
             onDismiss = { showDeletedLists = false },
+        )
+    }
+
+    if (showDeletedItems) {
+        val deletedItemsFlow = remember { viewModel.observeDeletedItems() }
+        val deletedItems by deletedItemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+        val listNameMap = remember(uiState.lists) { uiState.lists.associate { it.id to it.name } }
+
+        TodoDeletedItemsDialog(
+            deletedItems = deletedItems,
+            listNameMap = listNameMap,
+            onRestore = { item -> viewModel.restoreItem(item.id) },
+            onDismiss = { showDeletedItems = false },
         )
     }
 }

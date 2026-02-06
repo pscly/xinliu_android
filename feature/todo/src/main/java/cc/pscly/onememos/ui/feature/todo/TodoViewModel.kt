@@ -64,6 +64,26 @@ class TodoViewModel @Inject constructor(
             }
         }
 
+    private val deletedItemsFlow =
+        enabledFlow.flatMapLatest { enabled ->
+            if (!enabled) {
+                flowOf(emptyList())
+            } else {
+                todoRepository.observeItems(
+                    listId = null,
+                    status = null,
+                    tag = null,
+                    includeArchivedLists = true,
+                    includeDeleted = true,
+                )
+                    .map { items ->
+                        items
+                            .filter { it.deletedAt != null }
+                            .sortedByDescending { it.deletedAt.orEmpty() }
+                    }
+            }
+        }
+
     private val listsFlow =
         includeArchivedLists.flatMapLatest { include ->
             todoRepository.observeLists(includeArchived = include)
@@ -154,6 +174,8 @@ class TodoViewModel @Inject constructor(
 
     fun observeDeletedLists(): Flow<List<TodoList>> = deletedListsFlow
 
+    fun observeDeletedItems(): Flow<List<TodoItem>> = deletedItemsFlow
+
     fun observeOccurrences(
         itemId: String,
         includeDeleted: Boolean = false,
@@ -240,6 +262,13 @@ class TodoViewModel @Inject constructor(
     fun deleteItem(itemId: String) {
         viewModelScope.launch {
             todoRepository.deleteItem(itemId)
+            todoSyncScheduler.requestSync()
+        }
+    }
+
+    fun restoreItem(itemId: String) {
+        viewModelScope.launch {
+            todoRepository.restoreItem(itemId)
             todoSyncScheduler.requestSync()
         }
     }
