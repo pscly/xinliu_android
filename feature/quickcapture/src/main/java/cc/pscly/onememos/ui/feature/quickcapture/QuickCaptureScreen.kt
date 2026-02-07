@@ -36,6 +36,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,6 +88,7 @@ fun QuickCaptureRoute(
         focusRequester = focusRequester,
         onClose = onClose,
         onContentChange = viewModel::updateContent,
+        onInsertTime = viewModel::insertCurrentTimeStamp,
         onSave = viewModel::save,
         onEditPrevious = viewModel::editPrevious,
         onRefreshHistory = viewModel::refreshHistory,
@@ -98,7 +102,8 @@ private fun QuickCaptureScreen(
     uiState: QuickCaptureUiState,
     focusRequester: FocusRequester,
     onClose: () -> Unit,
-    onContentChange: (String) -> Unit,
+    onContentChange: (TextFieldValue) -> Unit,
+    onInsertTime: () -> Unit,
     onSave: () -> Unit,
     onEditPrevious: () -> Unit,
     onRefreshHistory: () -> Unit,
@@ -107,6 +112,7 @@ private fun QuickCaptureScreen(
 ) {
     val scrimInteraction = remember { MutableInteractionSource() }
     var showHistory by remember { mutableStateOf(false) }
+    val haptics = rememberOneMemosHaptics()
 
     LaunchedEffect(showHistory) {
         if (showHistory) {
@@ -195,6 +201,18 @@ private fun QuickCaptureScreen(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        if (uiState.quickInsertTimeEnabled) {
+                            TextButton(
+                                modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "插入时间" },
+                                enabled = !uiState.isSaving,
+                                onClick = {
+                                    haptics.tick()
+                                    onInsertTime()
+                                },
+                            ) {
+                                Text(text = "时")
+                            }
+                        }
                         TextButton(onClick = onClose) {
                             Text(text = "取消")
                         }
