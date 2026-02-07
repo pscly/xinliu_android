@@ -70,6 +70,11 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         // Todo 提醒模式（SMART / EXACT）
         val TODO_REMINDER_MODE = stringPreferencesKey("todo_reminder_mode")
 
+        // 日历联动：Todo -> 系统日历
+        val CALENDAR_INTEGRATION_ENABLED = booleanPreferencesKey("calendar_integration_enabled")
+        val CALENDAR_INTEGRATION_CALENDAR_ID = longPreferencesKey("calendar_integration_calendar_id")
+        val CALENDAR_INTEGRATION_SYNC_REMINDERS = booleanPreferencesKey("calendar_integration_sync_reminders")
+
         // 最近一次同步结果（轻量状态）
         val LAST_SYNC_SUCCESS_AT = longPreferencesKey("last_sync_success_at")
         val LAST_SYNC_ERROR = stringPreferencesKey("last_sync_error")
@@ -274,6 +279,9 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     offlineImagePrefetchMaxImages = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_IMAGES] ?: 60).coerceIn(0, 5000),
                     attachmentCacheMaxMb = (prefs[Keys.ATTACHMENT_CACHE_MAX_MB] ?: 1024).coerceIn(0, 10 * 1024),
                     todoReminderMode = parseTodoReminderMode(prefs[Keys.TODO_REMINDER_MODE]),
+                    calendarIntegrationEnabled = prefs[Keys.CALENDAR_INTEGRATION_ENABLED] ?: false,
+                    calendarIntegrationCalendarId = prefs[Keys.CALENDAR_INTEGRATION_CALENDAR_ID],
+                    calendarIntegrationSyncReminders = prefs[Keys.CALENDAR_INTEGRATION_SYNC_REMINDERS] ?: true,
                     lastSync = lastSync,
                     fullSync = effectiveFullSync,
                     devAutoTagLineKeywords = prefs[Keys.DEV_AUTO_TAG_LINE_KEYWORDS] ?: "__Atags",
@@ -402,6 +410,28 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     override suspend fun setTodoReminderMode(mode: TodoReminderMode) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.TODO_REMINDER_MODE] = mode.name
+        }
+    }
+
+    override suspend fun setCalendarIntegrationEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.CALENDAR_INTEGRATION_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun setCalendarIntegrationCalendarId(calendarId: Long?) {
+        context.settingsDataStore.edit { prefs ->
+            if (calendarId == null) {
+                prefs.remove(Keys.CALENDAR_INTEGRATION_CALENDAR_ID)
+            } else {
+                prefs[Keys.CALENDAR_INTEGRATION_CALENDAR_ID] = calendarId.coerceAtLeast(0L)
+            }
+        }
+    }
+
+    override suspend fun setCalendarIntegrationSyncReminders(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.CALENDAR_INTEGRATION_SYNC_REMINDERS] = enabled
         }
     }
 

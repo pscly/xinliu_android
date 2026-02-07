@@ -50,6 +50,9 @@ data class SettingsUiState(
     val offlineImagePrefetchMaxImages: Int = 60,
     val attachmentCacheMaxMb: Int = 1024,
     val todoReminderMode: TodoReminderMode = TodoReminderMode.SMART,
+    val calendarIntegrationEnabled: Boolean = false,
+    val calendarIntegrationCalendarId: Long? = null,
+    val calendarIntegrationSyncReminders: Boolean = true,
 
     // 全局同步状态（轻量）
     val globalSync: GlobalSyncState = GlobalSyncState(),
@@ -121,6 +124,9 @@ class SettingsViewModel @Inject constructor(
                 offlineImagePrefetchMaxImages = s.offlineImagePrefetchMaxImages,
                 attachmentCacheMaxMb = s.attachmentCacheMaxMb,
                 todoReminderMode = s.todoReminderMode,
+                calendarIntegrationEnabled = s.calendarIntegrationEnabled,
+                calendarIntegrationCalendarId = s.calendarIntegrationCalendarId,
+                calendarIntegrationSyncReminders = s.calendarIntegrationSyncReminders,
                 globalSync = g,
 
                 fullSyncStatus = s.fullSync.status,
@@ -181,6 +187,30 @@ class SettingsViewModel @Inject constructor(
     fun updateTodoReminderMode(mode: TodoReminderMode) {
         viewModelScope.launch {
             settingsRepository.setTodoReminderMode(mode)
+            todoReminderScheduler.requestReschedule()
+        }
+    }
+
+    fun updateCalendarIntegrationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setCalendarIntegrationEnabled(enabled)
+            // 日历同步走 TodoReminderRescheduleWorker 的统一链路，开启后立即跑一次更符合用户预期。
+            if (enabled) {
+                todoReminderScheduler.requestReschedule()
+            }
+        }
+    }
+
+    fun updateCalendarIntegrationCalendarId(calendarId: Long?) {
+        viewModelScope.launch {
+            settingsRepository.setCalendarIntegrationCalendarId(calendarId)
+            todoReminderScheduler.requestReschedule()
+        }
+    }
+
+    fun updateCalendarIntegrationSyncReminders(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setCalendarIntegrationSyncReminders(enabled)
             todoReminderScheduler.requestReschedule()
         }
     }

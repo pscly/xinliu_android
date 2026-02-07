@@ -4,16 +4,20 @@ package cc.pscly.onememos.ui.feature.settings
 
 import android.app.AlarmManager
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
+import android.provider.CalendarContract
 import android.provider.Settings
 import android.widget.Toast
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter as JavaTimeFormatter
 import java.util.Locale
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -116,6 +121,11 @@ fun SettingsScreen(
     var canDrawOverlays by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var canScheduleExactAlarms by remember { mutableStateOf(alarmManager?.canScheduleExactAlarms() == true) }
     var lastExactAlarmAllowed by remember { mutableStateOf(canScheduleExactAlarms) }
+    var calendarPermissionGranted by remember { mutableStateOf(hasCalendarPermissions(context)) }
+    var calendarIntegrationPendingEnable by remember { mutableStateOf(false) }
+    var selectedCalendarLabel by remember { mutableStateOf<String?>(null) }
+    var availableCalendars by remember { mutableStateOf<List<WritableCalendar>>(emptyList()) }
+    var showCalendarPicker by remember { mutableStateOf(false) }
     var showClearImagesConfirm by remember { mutableStateOf(false) }
     var showClearAttachmentsConfirm by remember { mutableStateOf(false) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
@@ -130,6 +140,7 @@ fun SettingsScreen(
                 if (event == Lifecycle.Event.ON_RESUME) {
                     canDrawOverlays = Settings.canDrawOverlays(context)
                     canScheduleExactAlarms = alarmManager?.canScheduleExactAlarms() == true
+                    calendarPermissionGranted = hasCalendarPermissions(context)
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -142,6 +153,26 @@ fun SettingsScreen(
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var newPassword2 by remember { mutableStateOf("") }
+
+    val requestCalendarPermissions =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+            val granted =
+                (result[Manifest.permission.READ_CALENDAR] == true) &&
+                    (result[Manifest.permission.WRITE_CALENDAR] == true)
+            calendarPermissionGranted = granted
+
+            if (calendarIntegrationPendingEnable) {
+                calendarIntegrationPendingEnable = false
+                if (granted) {
+                    viewModel.updateCalendarIntegrationEnabled(true)
+                } else {
+                    Toast.makeText(context, "未授予日历权限，无法开启自动写入日历", Toast.LENGTH_SHORT).show()
+                }
+            } else if (granted && uiState.calendarIntegrationEnabled) {
+                // 授权成功后立即触发一次同步，减少“开关开了但没反应”的错觉。
+                viewModel.requestTodoReminderReschedule()
+            }
+        }
 
     LaunchedEffect(changePasswordState.successAt) {
         if (changePasswordState.successAt <= 0L) return@LaunchedEffect
@@ -159,6 +190,22 @@ fun SettingsScreen(
         if (justGranted && uiState.todoReminderMode == TodoReminderMode.EXACT) {
             viewModel.requestTodoReminderReschedule()
         }
+    }
+
+    LaunchedEffect(calendarPermissionGranted, uiState.calendarIntegrationCalendarId) {
+        val calendarId = uiState.calendarIntegrationCalendarId
+        if (!calendarPermissionGranted || calendarId == null || calendarId <= 0L) {
+            selectedCalendarLabel = null
+            return@LaunchedEffect
+        }
+
+        selectedCalendarLabel =
+            withContext(Dispatchers.IO) {
+                resolveCalendarLabelOrNull(
+                    context = context,
+                    calendarId = calendarId,
+                )
+            }
     }
 
     Scaffold(
@@ -600,6 +647,166 @@ fun SettingsScreen(
                             }
                     },
                 )
+            }
+
+            InkCard {
+                Text(
+                    text = "日历联动",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "把“已设置提醒”的待办自动写入系统日历（需要授权并选择一个可写日历）。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                val openCalendarPicker = {
+                    if (!calendarPermissionGranted) {
+                        Toast.makeText(context, "请先授权日历权限", Toast.LENGTH_SHORT).show()
+                    } else {
+                        scope.launch {
+                            val calendars =
+                                withContext(Dispatchers.IO) {
+                                    queryWritableCalendars(context)
+                                }
+                            if (calendars.isEmpty()) {
+                                Toast
+                                    .makeText(context, "未找到可写日历，请先在系统日历添加账号或开启可见", Toast.LENGTH_SHORT)
+                                    .show()
+                                return@launch
+                            }
+                            availableCalendars = calendars
+                            showCalendarPicker = true
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = "自动写入系统日历", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = uiState.calendarIntegrationEnabled,
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                viewModel.updateCalendarIntegrationEnabled(false)
+                                return@Switch
+                            }
+
+                            if (!calendarPermissionGranted) {
+                                calendarIntegrationPendingEnable = true
+                                requestCalendarPermissions.launch(
+                                    arrayOf(
+                                        Manifest.permission.READ_CALENDAR,
+                                        Manifest.permission.WRITE_CALENDAR,
+                                    ),
+                                )
+                                return@Switch
+                            }
+
+                            viewModel.updateCalendarIntegrationEnabled(true)
+                        },
+                    )
+                }
+
+                if (uiState.calendarIntegrationEnabled) {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (!calendarPermissionGranted) {
+                        Text(
+                            text = "未授予日历权限（READ/WRITE_CALENDAR），无法自动写入。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedButton(
+                            onClick = {
+                                requestCalendarPermissions.launch(
+                                    arrayOf(
+                                        Manifest.permission.READ_CALENDAR,
+                                        Manifest.permission.WRITE_CALENDAR,
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("授权日历权限")
+                        }
+                    } else {
+                        val calendarId = uiState.calendarIntegrationCalendarId
+                        val calendarReady = calendarId != null && calendarId > 0L
+
+                        Text(
+                            text =
+                                if (calendarReady) {
+                                    "当前日历：${selectedCalendarLabel ?: calendarId}"
+                                } else {
+                                    "未选择要写入的日历。"
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (calendarReady) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error,
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                onClick = { openCalendarPicker() },
+                            ) {
+                                Text(if (calendarReady) "更换日历" else "选择日历")
+                            }
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f),
+                                enabled = calendarReady,
+                                onClick = { viewModel.updateCalendarIntegrationCalendarId(null) },
+                            ) {
+                                Text("清除选择")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = "同步日历提醒", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    text = "把“提前 X 分钟”也写进日历提醒（可能与应用通知重复）。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                )
+                            }
+                            Switch(
+                                checked = uiState.calendarIntegrationSyncReminders,
+                                onCheckedChange = viewModel::updateCalendarIntegrationSyncReminders,
+                                enabled = calendarReady,
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.requestTodoReminderReschedule()
+                                Toast.makeText(context, "已触发后台同步", Toast.LENGTH_SHORT).show()
+                            },
+                            enabled = calendarReady,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("立即同步一次")
+                        }
+                    }
+                }
             }
 
             InkCard {
@@ -1213,6 +1420,70 @@ fun SettingsScreen(
         )
     }
 
+    if (showCalendarPicker) {
+        AlertDialog(
+            onDismissRequest = { showCalendarPicker = false },
+            title = { Text("选择要写入的日历") },
+            text = {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 360.dp)
+                            .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (availableCalendars.isEmpty()) {
+                        Text(
+                            text = "未找到可写日历。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    } else {
+                        availableCalendars.forEach { c ->
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.updateCalendarIntegrationCalendarId(c.id)
+                                            showCalendarPicker = false
+                                            Toast.makeText(context, "已选择日历：${c.displayName}", Toast.LENGTH_SHORT).show()
+                                        },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = c.id == uiState.calendarIntegrationCalendarId,
+                                    onClick = null,
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = c.displayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = c.subtitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.outline,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCalendarPicker = false }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+
     if (showClearImagesConfirm) {
         AlertDialog(
             onDismissRequest = { showClearImagesConfirm = false },
@@ -1283,6 +1554,134 @@ fun SettingsScreen(
     }
 }
 
+private data class WritableCalendar(
+    val id: Long,
+    val displayName: String,
+    val subtitle: String,
+    val isPrimary: Boolean,
+)
+
+private fun hasCalendarPermissions(context: Context): Boolean {
+    val readGranted =
+        runCatching {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }.getOrElse { false }
+    val writeGranted =
+        runCatching {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }.getOrElse { false }
+    return readGranted && writeGranted
+}
+
+private fun queryWritableCalendars(context: Context): List<WritableCalendar> {
+    return runCatching {
+        val cr = context.contentResolver
+        val projection =
+            arrayOf(
+                CalendarContract.Calendars._ID,
+                CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                CalendarContract.Calendars.ACCOUNT_NAME,
+                CalendarContract.Calendars.OWNER_ACCOUNT,
+                CalendarContract.Calendars.VISIBLE,
+                CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,
+                CalendarContract.Calendars.IS_PRIMARY,
+            )
+        val result = mutableListOf<WritableCalendar>()
+        cr.query(
+            CalendarContract.Calendars.CONTENT_URI,
+            projection,
+            null,
+            null,
+            null,
+        )
+            ?.use { cursor ->
+                val idIdx = cursor.getColumnIndex(CalendarContract.Calendars._ID)
+                val nameIdx = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
+                val accountIdx = cursor.getColumnIndex(CalendarContract.Calendars.ACCOUNT_NAME)
+                val ownerIdx = cursor.getColumnIndex(CalendarContract.Calendars.OWNER_ACCOUNT)
+                val visibleIdx = cursor.getColumnIndex(CalendarContract.Calendars.VISIBLE)
+                val accessIdx = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL)
+                val primaryIdx = cursor.getColumnIndex(CalendarContract.Calendars.IS_PRIMARY)
+
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idIdx)
+                    if (id <= 0L) continue
+
+                    val visible = cursor.getInt(visibleIdx)
+                    if (visible != 1) continue
+
+                    val accessLevel = cursor.getInt(accessIdx)
+                    if (accessLevel < CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR) continue
+
+                    val displayName = cursor.getString(nameIdx)?.trim().orEmpty().ifBlank { "日历 $id" }
+                    val accountName = cursor.getString(accountIdx)?.trim().orEmpty()
+                    val ownerAccount = cursor.getString(ownerIdx)?.trim().orEmpty()
+                    val subtitle =
+                        when {
+                            accountName.isNotBlank() && ownerAccount.isNotBlank() && accountName != ownerAccount ->
+                                "$accountName · $ownerAccount"
+
+                            accountName.isNotBlank() -> accountName
+                            ownerAccount.isNotBlank() -> ownerAccount
+                            else -> "本地日历"
+                        }
+
+                    val isPrimary = cursor.getInt(primaryIdx) == 1
+                    result += WritableCalendar(id = id, displayName = displayName, subtitle = subtitle, isPrimary = isPrimary)
+                }
+            }
+
+        result
+            .distinctBy { it.id }
+            .sortedWith(
+                compareByDescending<WritableCalendar> { it.isPrimary }
+                    .thenBy { it.displayName },
+            )
+    }.getOrElse { emptyList() }
+}
+
+private fun resolveCalendarLabelOrNull(
+    context: Context,
+    calendarId: Long,
+): String? {
+    if (calendarId <= 0L) return null
+    if (!hasCalendarPermissions(context)) return null
+
+    return runCatching {
+        val cr = context.contentResolver
+        val projection =
+            arrayOf(
+                CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                CalendarContract.Calendars.ACCOUNT_NAME,
+                CalendarContract.Calendars.OWNER_ACCOUNT,
+            )
+        cr.query(
+            CalendarContract.Calendars.CONTENT_URI,
+            projection,
+            "${CalendarContract.Calendars._ID}=?",
+            arrayOf(calendarId.toString()),
+            null,
+        )
+            ?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val name = cursor.getString(0)?.trim().orEmpty()
+                val account = cursor.getString(1)?.trim().orEmpty()
+                val owner = cursor.getString(2)?.trim().orEmpty()
+                val title = name.ifBlank { "日历 $calendarId" }
+                val subtitle =
+                    when {
+                        account.isNotBlank() && owner.isNotBlank() && account != owner -> "$account · $owner"
+                        account.isNotBlank() -> account
+                        owner.isNotBlank() -> owner
+                        else -> ""
+                    }
+                if (subtitle.isBlank()) title else "$title（$subtitle）"
+            }
+    }.getOrNull()
+}
+
 private fun exportDiagnosticsFile(
     context: android.content.Context,
     appInfo: SettingsAppInfo,
@@ -1296,6 +1695,18 @@ private fun exportDiagnosticsFile(
     val notificationGranted =
         runCatching {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }.getOrElse { false }
+
+    val calendarReadGranted =
+        runCatching {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }.getOrElse { false }
+
+    val calendarWriteGranted =
+        runCatching {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED
         }.getOrElse { false }
 
@@ -1333,6 +1744,8 @@ private fun exportDiagnosticsFile(
                 "permissions",
                 JSONObject()
                     .put("postNotificationsGranted", notificationGranted)
+                    .put("readCalendarGranted", calendarReadGranted)
+                    .put("writeCalendarGranted", calendarWriteGranted)
                     .put("canDrawOverlays", canDrawOverlays)
                     .put("canScheduleExactAlarms", canScheduleExactAlarms)
                     .put("ignoringBatteryOptimizations", ignoringBatteryOptimizations),
@@ -1358,6 +1771,9 @@ private fun exportDiagnosticsFile(
                     .put("offlineImagePrefetchMaxImages", uiState.offlineImagePrefetchMaxImages)
                     .put("attachmentCacheMaxMb", uiState.attachmentCacheMaxMb)
                     .put("todoReminderMode", uiState.todoReminderMode.name)
+                    .put("calendarIntegrationEnabled", uiState.calendarIntegrationEnabled)
+                    .put("calendarIntegrationCalendarId", uiState.calendarIntegrationCalendarId ?: 0)
+                    .put("calendarIntegrationSyncReminders", uiState.calendarIntegrationSyncReminders)
                     .put(
                         "sync",
                         JSONObject()

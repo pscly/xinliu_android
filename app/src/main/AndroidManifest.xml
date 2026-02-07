@@ -5,6 +5,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- minSdk=33：通知权限为运行时权限，必须在 manifest 声明后才能请求 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 日历联动：自动写入系统日历（需要运行时授权） -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <!-- 系统闹钟跳转：打开系统时钟 App 的“新建闹钟/计时器”界面（normal 权限） -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Todo 准点提醒（EXACT）：声明后用户可在系统设置中“允许精确闹钟” -->

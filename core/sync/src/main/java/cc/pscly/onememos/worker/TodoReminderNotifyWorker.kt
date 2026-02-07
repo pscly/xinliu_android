@@ -93,6 +93,20 @@ class TodoReminderNotifyWorker @AssistedInject constructor(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
+        val clockActionIntent =
+            Intent(applicationContext, TodoExternalActionsActivity::class.java).apply {
+                putExtra(TodoExternalActionsActivity.EXTRA_TODO_TITLE, item.title)
+                putExtra(TodoExternalActionsActivity.EXTRA_DUE_AT_LOCAL, dueAtLocal)
+            }
+        val clockActionRequestCode = "todo_clock:$itemId:$minutes:$dueAtLocal".hashCode()
+        val clockActionPendingIntent =
+            PendingIntent.getActivity(
+                applicationContext,
+                clockActionRequestCode,
+                clockActionIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
         val notificationId = stableNotificationId(itemId = itemId, minutes = minutes, dueAtLocal = dueAtLocal)
         val iconRes = applicationContext.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info
         val notification =
@@ -104,6 +118,11 @@ class TodoReminderNotifyWorker @AssistedInject constructor(
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .addAction(
+                    android.R.drawable.ic_lock_idle_alarm,
+                    "设为系统闹钟",
+                    clockActionPendingIntent,
+                )
                 .build()
 
         NotificationManagerCompat.from(applicationContext).notify(notificationId, notification)

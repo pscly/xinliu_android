@@ -39,6 +39,16 @@ data class AppSettings(
     val todoReminderMode: TodoReminderMode = TodoReminderMode.SMART,
 
     // ----------------------------
+    // 日历联动：Todo -> 系统日历
+    // ----------------------------
+    // 是否启用“自动写入系统日历”（需要用户授予 READ/WRITE_CALENDAR 权限，并选择一个可写日历）。
+    val calendarIntegrationEnabled: Boolean = false,
+    // 目标日历 id（CalendarContract.Calendars._ID）；null 表示尚未选择。
+    val calendarIntegrationCalendarId: Long? = null,
+    // 是否把 remindersJson（提前 X 分钟）同步到日历提醒（避免只写事件但不提醒）。
+    val calendarIntegrationSyncReminders: Boolean = true,
+
+    // ----------------------------
     // 同步（轻量状态）
     // ----------------------------
     val lastSync: LastSyncState = LastSyncState(),

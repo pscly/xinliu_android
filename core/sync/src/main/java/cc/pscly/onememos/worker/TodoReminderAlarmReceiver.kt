@@ -110,6 +110,20 @@ class TodoReminderAlarmReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
+        val clockActionIntent =
+            Intent(appContext, TodoExternalActionsActivity::class.java).apply {
+                putExtra(TodoExternalActionsActivity.EXTRA_TODO_TITLE, item.title)
+                putExtra(TodoExternalActionsActivity.EXTRA_DUE_AT_LOCAL, dueAtLocal)
+            }
+        val clockActionRequestCode = "todo_clock:$itemId:$minutes:$dueAtLocal".hashCode()
+        val clockActionPendingIntent =
+            PendingIntent.getActivity(
+                appContext,
+                clockActionRequestCode,
+                clockActionIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
         val notificationId = stableNotificationId(itemId = itemId, minutes = minutes, dueAtLocal = dueAtLocal)
         val iconRes = appContext.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info
         val notification =
@@ -121,6 +135,11 @@ class TodoReminderAlarmReceiver : BroadcastReceiver() {
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .addAction(
+                    android.R.drawable.ic_lock_idle_alarm,
+                    "设为系统闹钟",
+                    clockActionPendingIntent,
+                )
                 .build()
 
         NotificationManagerCompat.from(appContext).notify(notificationId, notification)
@@ -160,4 +179,3 @@ class TodoReminderAlarmReceiver : BroadcastReceiver() {
         const val EXTRA_OWNER_KEY = "cc.pscly.onememos.extra.TODO_OWNER_KEY"
     }
 }
-

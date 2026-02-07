@@ -48,6 +48,23 @@ interface SettingsRepository {
     suspend fun setTodoReminderMode(mode: TodoReminderMode)
 
     // ----------------------------
+    // 日历联动：Todo -> 系统日历
+    // ----------------------------
+    suspend fun setCalendarIntegrationEnabled(enabled: Boolean)
+
+    /**
+     * 设置要写入的目标日历 id（CalendarContract.Calendars._ID）。
+     *
+     * @param calendarId null 表示清空选择。
+     */
+    suspend fun setCalendarIntegrationCalendarId(calendarId: Long?)
+
+    /**
+     * 是否把 remindersJson（提前 X 分钟）同步到日历提醒（CalendarContract.Reminders）。
+     */
+    suspend fun setCalendarIntegrationSyncReminders(enabled: Boolean)
+
+    // ----------------------------
     // 同步（轻量状态）
     // ----------------------------
     /**
