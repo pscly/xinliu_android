@@ -68,6 +68,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -673,6 +674,11 @@ private fun SearchPopup(
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    var queryValue by remember { mutableStateOf(initialSearchFieldValue(query)) }
+
+    LaunchedEffect(query) {
+        queryValue = syncSearchFieldValueWithExternalQuery(current = queryValue, query = query)
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -704,8 +710,13 @@ private fun SearchPopup(
                             // 避免大字号/无障碍字体下文字被裁切：不要固定 44dp，高度至少按 Material 默认高度走。
                             .heightIn(min = 56.dp)
                             .focusRequester(focusRequester),
-                        value = query,
-                        onValueChange = onQueryChange,
+                        value = queryValue,
+                        onValueChange = { value: TextFieldValue ->
+                            queryValue = value
+                            if (value.text != query) {
+                                onQueryChange(value.text)
+                            }
+                        },
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyLarge,
                         leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
@@ -719,8 +730,13 @@ private fun SearchPopup(
                                         modifier = Modifier.padding(end = 8.dp),
                                     )
                                 }
-                                if (query.isNotBlank()) {
-                                    IconButton(onClick = onClear) {
+                                if (queryValue.text.isNotBlank()) {
+                                    IconButton(
+                                        onClick = {
+                                            queryValue = initialSearchFieldValue("")
+                                            onClear()
+                                        },
+                                    ) {
                                         Icon(imageVector = Icons.Filled.Close, contentDescription = "清空")
                                     }
                                 } else {

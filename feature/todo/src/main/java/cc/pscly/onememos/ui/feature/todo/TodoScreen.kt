@@ -468,7 +468,7 @@ fun TodoScreen(
             text = {
                 OutlinedTextField(
                     value = tagInputDraft,
-                    onValueChange = { tagInputDraft = it.trim() },
+                    onValueChange = { tagInputDraft = it },
                     label = { Text("输入 tag（不含 #）") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -482,7 +482,7 @@ fun TodoScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.setTagFilter(tagInputDraft)
+                        viewModel.setTagFilter(tagInputDraft.trim())
                         showTagInput = false
                     },
                 ) {
