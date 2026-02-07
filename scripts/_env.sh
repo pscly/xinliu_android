@@ -47,3 +47,34 @@ export GRADLE_USER_HOME="${GRADLE_USER_HOME:-/tmp/gradle-user-home}"
 export ANDROID_USER_HOME="${ANDROID_USER_HOME:-/tmp/android-user-home}"
 
 mkdir -p "$GRADLE_USER_HOME" "$ANDROID_USER_HOME"
+
+# 说明：
+# - 部分 Android/Gradle 组件会写入 "$user.home/.android"（例如 metrics/analytics.settings）。
+# - 在 Codex 沙箱中，/root 往往不在 writable roots，导致写入失败并产生 noisy warning。
+# - 注意：Java 的 user.home 来自系统用户信息（/etc/passwd），不一定受 $HOME 影响，因此这里同时兜底：
+#   1) 尝试让 $HOME 指向可写目录（兼容少数依赖 $HOME 的工具）
+#   2) 必要时通过 JVM 参数强制 -Duser.home 指向 ANDROID_USER_HOME（兼容依赖 user.home 的工具）
+
+append_java_tool_options() {
+  local opt="$1"
+  if [[ "${JAVA_TOOL_OPTIONS:-}" == *"$opt"* ]]; then
+    return 0
+  fi
+  if [[ -z "${JAVA_TOOL_OPTIONS:-}" ]]; then
+    export JAVA_TOOL_OPTIONS="$opt"
+  else
+    export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS} $opt"
+  fi
+}
+
+# 兜底：尽量避免把文件写到 /root（在沙箱里可能不可写）。
+if [[ -z "${HOME:-}" || "${HOME:-}" == "/root" || "${HOME:-}" == /root/* ]]; then
+  export HOME="$ANDROID_USER_HOME"
+fi
+
+# 若当前用户是 root：强制把 user.home 重定向到可写目录（ANDROID_USER_HOME），
+# 避免在受限环境（例如 Codex 沙箱）里写 /root/.android 失败导致 metrics 初始化告警。
+if [[ "$(id -u)" == "0" ]]; then
+  mkdir -p "${ANDROID_USER_HOME}/.android" >/dev/null 2>&1 || true
+  append_java_tool_options "-Duser.home=${ANDROID_USER_HOME}"
+fi

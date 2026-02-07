@@ -60,6 +60,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -572,8 +574,12 @@ fun EditorScreen(
                     ) {
                         if (uiState.canEdit && uiState.quickInsertTimeEnabled) {
                             IconButton(
+                                modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "插入时间" },
                                 enabled = uiState.canEdit && !uiState.isSaving,
-                                onClick = viewModel::insertCurrentTimeStamp,
+                                onClick = {
+                                    haptics.tick()
+                                    viewModel.insertCurrentTimeStamp()
+                                },
                             ) {
                                 Text(
                                     text = "时",

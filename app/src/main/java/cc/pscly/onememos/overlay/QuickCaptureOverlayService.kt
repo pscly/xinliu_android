@@ -68,6 +68,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.TextToolbarStatus
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -789,8 +791,12 @@ private fun QuickCaptureOverlayContent(
                     ) {
                         if (uiState.quickInsertTimeEnabled) {
                             IconButton(
+                                modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "插入时间" },
                                 enabled = !uiState.isSaving,
-                                onClick = onInsertTime,
+                                onClick = {
+                                    haptics.tick()
+                                    onInsertTime()
+                                },
                             ) {
                                 Text(
                                     text = "时",
