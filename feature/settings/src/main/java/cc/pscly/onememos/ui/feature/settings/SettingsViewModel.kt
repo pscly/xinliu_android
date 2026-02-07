@@ -44,6 +44,7 @@ data class SettingsUiState(
     val regexSearchEnabled: Boolean = false,
     val showTagCountsInFilter: Boolean = true,
     val quickCaptureOverlayEnabled: Boolean = false,
+    val quickInsertTimeEnabled: Boolean = false,
     val sealStampDurationMs: Int = 600,
     val offlineImagePrefetchEnabled: Boolean = true,
     val offlineImagePrefetchMaxMemos: Int = 30,
@@ -118,6 +119,7 @@ class SettingsViewModel @Inject constructor(
                 regexSearchEnabled = s.regexSearchEnabled,
                 showTagCountsInFilter = s.showTagCountsInFilter,
                 quickCaptureOverlayEnabled = s.quickCaptureOverlayEnabled,
+                quickInsertTimeEnabled = s.quickInsertTimeEnabled,
                 sealStampDurationMs = s.sealStampDurationMs,
                 offlineImagePrefetchEnabled = s.offlineImagePrefetchEnabled,
                 offlineImagePrefetchMaxMemos = s.offlineImagePrefetchMaxMemos,
@@ -367,6 +369,10 @@ class SettingsViewModel @Inject constructor(
 
     fun updateQuickCaptureOverlayEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setQuickCaptureOverlayEnabled(enabled) }
+    }
+
+    fun updateQuickInsertTimeEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setQuickInsertTimeEnabled(enabled) }
     }
 
     fun updateSealStampDurationMs(durationMs: Int) {

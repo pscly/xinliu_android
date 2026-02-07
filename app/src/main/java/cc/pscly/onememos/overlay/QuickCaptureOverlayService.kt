@@ -68,6 +68,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.TextToolbarStatus
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -102,6 +104,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -124,7 +127,7 @@ internal data class QuickCaptureOverlayAttachmentUi(
 )
 
 internal data class QuickCaptureOverlayUiState(
-    val content: String = "",
+    val content: TextFieldValue = TextFieldValue(""),
     val isSaving: Boolean = false,
     val error: String? = null,
     val editingUuid: String? = null,
@@ -132,6 +135,7 @@ internal data class QuickCaptureOverlayUiState(
     val history: List<QuickCaptureOverlayHistoryItem> = emptyList(),
     val attachments: List<QuickCaptureOverlayAttachmentUi> = emptyList(),
     val attachmentsEditable: Boolean = true,
+    val quickInsertTimeEnabled: Boolean = false,
     val source: QuickCaptureOverlaySource = QuickCaptureOverlaySource.NORMAL,
 )
 
@@ -180,6 +184,12 @@ class QuickCaptureOverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WindowManager::class.java)
+
+        serviceScope.launch {
+            settingsRepository.settings.collectLatest { settings ->
+                _uiState.update { it.copy(quickInsertTimeEnabled = settings.quickInsertTimeEnabled) }
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -245,7 +255,11 @@ class QuickCaptureOverlayService : Service() {
 
         if (prefillText.isNotBlank()) {
             _uiState.update { state ->
-                if (state.content.isBlank()) state.copy(content = prefillText) else state
+                if (state.content.text.isBlank()) {
+                    state.copy(content = TextFieldValue(text = prefillText, selection = TextRange(prefillText.length)))
+                } else {
+                    state
+                }
             }
         }
 
@@ -352,6 +366,7 @@ class QuickCaptureOverlayService : Service() {
                             onEditPrevious = ::editPrevious,
                             onRefreshHistory = ::refreshHistory,
                             onLoadForEdit = ::loadForEdit,
+                            onInsertTime = ::insertCurrentTimeStamp,
                             onPickImages = ::startPickImagesActivity,
                             onRemoveAttachment = ::removeAttachment,
                         )
@@ -421,8 +436,41 @@ class QuickCaptureOverlayService : Service() {
     private fun trimTrailingSpacesOnly(text: String): String =
         text.trimEnd { it == ' ' || it == '\t' }
 
-    private fun updateContent(value: String) {
+    private fun updateContent(value: TextFieldValue) {
         _uiState.update { it.copy(content = value, error = null) }
+    }
+
+    private fun insertCurrentTimeStamp() {
+        val state = _uiState.value
+        if (state.isSaving) return
+
+        val now = System.currentTimeMillis()
+        val stampLine = "> ${DateTimeFormatter.formatHms(now)}"
+        val next = insertLineAtSelection(value = state.content, line = stampLine)
+        _uiState.update { it.copy(content = next, error = null) }
+    }
+
+    private fun insertLineAtSelection(
+        value: TextFieldValue,
+        line: String,
+    ): TextFieldValue {
+        val text = value.text
+        val rawStart = value.selection.start
+        val rawEnd = value.selection.end
+        val start = minOf(rawStart, rawEnd).coerceIn(0, text.length)
+        val end = maxOf(rawStart, rawEnd).coerceIn(0, text.length)
+
+        val needsLeadingNewLine = start > 0 && text.getOrNull(start - 1) != '\n'
+        val insertText =
+            buildString {
+                if (needsLeadingNewLine) append('\n')
+                append(line)
+                append('\n')
+            }
+
+        val nextText = text.replaceRange(start, end, insertText)
+        val nextCursor = start + insertText.length
+        return TextFieldValue(text = nextText, selection = TextRange(nextCursor))
     }
 
     private fun refreshHistory(limit: Int = 20) {
@@ -441,7 +489,7 @@ class QuickCaptureOverlayService : Service() {
         val state = _uiState.value
         if (state.isSaving) return
 
-        if (state.editingUuid.isNullOrBlank() && state.content.isNotBlank()) {
+        if (state.editingUuid.isNullOrBlank() && state.content.text.isNotBlank()) {
             _uiState.update { it.copy(error = "当前已有内容，先点“盖”保存或“取消”退出。") }
             return
         }
@@ -484,7 +532,7 @@ class QuickCaptureOverlayService : Service() {
         val state = _uiState.value
         if (state.isSaving) return
 
-        val visible = trimTrailingSpacesOnly(state.content)
+        val visible = trimTrailingSpacesOnly(state.content.text)
         val uuid = state.editingUuid
         val attachments = state.attachments
         val localUris = attachments.mapNotNull { it.localUri }
@@ -562,7 +610,7 @@ class QuickCaptureOverlayService : Service() {
             }
         _uiState.update {
             it.copy(
-                content = split.visibleText,
+                content = TextFieldValue(text = split.visibleText, selection = TextRange(split.visibleText.length)),
                 editingUuid = memo.uuid,
                 hiddenAutoTagLines = split.hiddenLines,
                 attachments = attachmentsUi,
@@ -604,11 +652,12 @@ private fun QuickCaptureOverlayContent(
     eventsFlow: SharedFlow<QuickCaptureOverlayEvent>,
     imeBottomPxFlow: StateFlow<Int>,
     onClose: () -> Unit,
-    onUpdateContent: (String) -> Unit,
+    onUpdateContent: (TextFieldValue) -> Unit,
     onSave: () -> Unit,
     onEditPrevious: () -> Unit,
     onRefreshHistory: (Int) -> Unit,
     onLoadForEdit: (String) -> Unit,
+    onInsertTime: () -> Unit,
     onPickImages: () -> Unit,
     onRemoveAttachment: (String) -> Unit,
 ) {
@@ -738,6 +787,18 @@ private fun QuickCaptureOverlayContent(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        if (uiState.quickInsertTimeEnabled) {
+                            IconButton(
+                                enabled = !uiState.isSaving,
+                                onClick = onInsertTime,
+                            ) {
+                                Text(
+                                    text = "时",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
+                        }
+
                         IconButton(
                             enabled = uiState.attachmentsEditable && !uiState.isSaving,
                             onClick = onPickImages,

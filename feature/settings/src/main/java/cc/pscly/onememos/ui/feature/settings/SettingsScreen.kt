@@ -535,6 +535,12 @@ fun SettingsScreen(
                     },
                 )
 
+                Spacer(modifier = Modifier.height(12.dp))
+                QuickInsertTimeRow(
+                    enabled = uiState.quickInsertTimeEnabled,
+                    onToggle = viewModel::updateQuickInsertTimeEnabled,
+                )
+
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1765,6 +1771,7 @@ private fun exportDiagnosticsFile(
                     .put("regexSearchEnabled", uiState.regexSearchEnabled)
                     .put("showTagCountsInFilter", uiState.showTagCountsInFilter)
                     .put("quickCaptureOverlayEnabled", uiState.quickCaptureOverlayEnabled)
+                    .put("quickInsertTimeEnabled", uiState.quickInsertTimeEnabled)
                     .put("sealStampDurationMs", uiState.sealStampDurationMs)
                     .put("offlineImagePrefetchEnabled", uiState.offlineImagePrefetchEnabled)
                     .put("offlineImagePrefetchMaxMemos", uiState.offlineImagePrefetchMaxMemos)
@@ -2139,6 +2146,28 @@ private fun FloatingQuickCaptureRow(
                     Text("去授权")
                 }
             }
+        }
+        Switch(checked = enabled, onCheckedChange = onToggle)
+    }
+}
+
+@Composable
+private fun QuickInsertTimeRow(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "一键插入时间")
+            Text(
+                text = "开启后：编辑页与悬浮极速记录增加「时」按钮，点一下插入 > HH:mm:ss 并换行",
+                color = MaterialTheme.colorScheme.outline,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         Switch(checked = enabled, onCheckedChange = onToggle)
     }

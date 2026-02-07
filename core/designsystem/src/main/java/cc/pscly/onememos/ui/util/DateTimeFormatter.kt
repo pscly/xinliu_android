@@ -18,6 +18,9 @@ object DateTimeFormatter {
     @Volatile
     private var timeFormatter: JavaDateTimeFormatter = JavaDateTimeFormatter.ofPattern("HH:mm", cachedLocale)
 
+    @Volatile
+    private var timeHmsFormatter: JavaDateTimeFormatter = JavaDateTimeFormatter.ofPattern("HH:mm:ss", cachedLocale)
+
     private fun ensureLocaleUpToDate() {
         val current = Locale.getDefault()
         if (current == cachedLocale) return
@@ -26,6 +29,7 @@ object DateTimeFormatter {
         formatter = JavaDateTimeFormatter.ofPattern("yyyy-MM-dd/HH:mm", current)
         dateFormatter = JavaDateTimeFormatter.ofPattern("yyyy-MM-dd", current)
         timeFormatter = JavaDateTimeFormatter.ofPattern("HH:mm", current)
+        timeHmsFormatter = JavaDateTimeFormatter.ofPattern("HH:mm:ss", current)
     }
 
     fun formatYmdHm(epochMillis: Long): String =
@@ -44,5 +48,11 @@ object DateTimeFormatter {
         run {
             ensureLocaleUpToDate()
             timeFormatter.format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()))
+        }
+
+    fun formatHms(epochMillis: Long): String =
+        run {
+            ensureLocaleUpToDate()
+            timeHmsFormatter.format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()))
         }
 }

@@ -22,6 +22,8 @@ data class AppSettings(
     val showTagCountsInFilter: Boolean = true,
     // 极速记录是否使用“悬浮窗”模式（不跳转当前应用界面）。需要系统授予“在其他应用上层显示”权限。
     val quickCaptureOverlayEnabled: Boolean = false,
+    // 编辑页/悬浮极速记录：是否显示“一键插入当前时间”按钮（默认关闭）。
+    val quickInsertTimeEnabled: Boolean = false,
     // “盖章”浮层停留时长（毫秒）；越大越慢，建议 500~800ms。
     val sealStampDurationMs: Int = 600,
     // 是否自动预取最近随笔的图片附件（用于离线浏览时不“空白”）。

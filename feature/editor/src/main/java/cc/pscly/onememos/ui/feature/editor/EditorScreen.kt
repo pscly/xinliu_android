@@ -570,6 +570,18 @@ fun EditorScreen(
                                 .padding(end = rowEndPadding),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        if (uiState.canEdit && uiState.quickInsertTimeEnabled) {
+                            IconButton(
+                                enabled = uiState.canEdit && !uiState.isSaving,
+                                onClick = viewModel::insertCurrentTimeStamp,
+                            ) {
+                                Text(
+                                    text = "时",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
+                        }
+
                         IconButton(
                             enabled = uiState.canEdit && uiState.attachmentsEditable,
                             onClick = { pickImagesLauncher.launch(arrayOf("image/*")) },

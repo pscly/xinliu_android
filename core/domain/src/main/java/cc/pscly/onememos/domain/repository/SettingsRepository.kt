@@ -32,6 +32,8 @@ interface SettingsRepository {
 
     suspend fun setQuickCaptureOverlayEnabled(enabled: Boolean)
 
+    suspend fun setQuickInsertTimeEnabled(enabled: Boolean)
+
     suspend fun setSealStampDurationMs(durationMs: Int)
 
     suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean)

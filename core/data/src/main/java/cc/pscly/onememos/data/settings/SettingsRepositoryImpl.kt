@@ -61,6 +61,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         val REGEX_SEARCH_ENABLED = booleanPreferencesKey("regex_search_enabled")
         val SHOW_TAG_COUNTS_IN_FILTER = booleanPreferencesKey("show_tag_counts_in_filter")
         val QUICK_CAPTURE_OVERLAY_ENABLED = booleanPreferencesKey("quick_capture_overlay_enabled")
+        val QUICK_INSERT_TIME_ENABLED = booleanPreferencesKey("quick_insert_time_enabled")
         val SEAL_STAMP_DURATION_MS = intPreferencesKey("seal_stamp_duration_ms")
         val OFFLINE_IMAGE_PREFETCH_ENABLED = booleanPreferencesKey("offline_image_prefetch_enabled")
         val OFFLINE_IMAGE_PREFETCH_MAX_MEMOS = intPreferencesKey("offline_image_prefetch_max_memos")
@@ -273,6 +274,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     regexSearchEnabled = prefs[Keys.REGEX_SEARCH_ENABLED] ?: false,
                     showTagCountsInFilter = prefs[Keys.SHOW_TAG_COUNTS_IN_FILTER] ?: true,
                     quickCaptureOverlayEnabled = prefs[Keys.QUICK_CAPTURE_OVERLAY_ENABLED] ?: false,
+                    quickInsertTimeEnabled = prefs[Keys.QUICK_INSERT_TIME_ENABLED] ?: false,
                     sealStampDurationMs = (prefs[Keys.SEAL_STAMP_DURATION_MS] ?: 600).coerceIn(200, 2000),
                     offlineImagePrefetchEnabled = prefs[Keys.OFFLINE_IMAGE_PREFETCH_ENABLED] ?: true,
                     offlineImagePrefetchMaxMemos = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_MEMOS] ?: 30).coerceIn(0, 5000),
@@ -374,6 +376,12 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     override suspend fun setQuickCaptureOverlayEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.QUICK_CAPTURE_OVERLAY_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun setQuickInsertTimeEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.QUICK_INSERT_TIME_ENABLED] = enabled
         }
     }
 

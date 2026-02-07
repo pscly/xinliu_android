@@ -32,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import cc.pscly.onememos.ui.util.AutoTagLineHider
+import cc.pscly.onememos.ui.util.DateTimeFormatter
 import javax.inject.Inject
 
 data class EditorAttachmentUi(
@@ -67,6 +68,7 @@ data class EditorUiState(
     val allTagNames: List<String> = emptyList(),
     val tagSuggestions: List<String> = emptyList(),
     val showTagCountsInFilter: Boolean = true,
+    val quickInsertTimeEnabled: Boolean = false,
     val sealStampDurationMs: Int = 600,
     val devAutoTagLineKeywords: String = "__Atags",
     val devShowAutoTagLineInView: Boolean = false,
@@ -133,6 +135,7 @@ class EditorViewModel @Inject constructor(
                     it.copy(
                         serverBase = base,
                         showTagCountsInFilter = settings.showTagCountsInFilter,
+                        quickInsertTimeEnabled = settings.quickInsertTimeEnabled,
                         sealStampDurationMs = settings.sealStampDurationMs,
                         devAutoTagLineKeywords = keywordsRaw,
                         devShowAutoTagLineInView = showInView,
@@ -320,6 +323,39 @@ class EditorViewModel @Inject constructor(
             val path = parsed.path ?: return@runCatching false
             java.io.File(path).exists()
         }.getOrDefault(false)
+    }
+
+    fun insertCurrentTimeStamp() {
+        val state = _uiState.value
+        if (!state.canEdit || state.isSaving) return
+
+        val now = System.currentTimeMillis()
+        val stampLine = "> ${DateTimeFormatter.formatHms(now)}"
+        val next = insertLineAtSelection(value = state.content, line = stampLine)
+        onContentChange(next)
+    }
+
+    private fun insertLineAtSelection(
+        value: TextFieldValue,
+        line: String,
+    ): TextFieldValue {
+        val text = value.text
+        val rawStart = value.selection.start
+        val rawEnd = value.selection.end
+        val start = minOf(rawStart, rawEnd).coerceIn(0, text.length)
+        val end = maxOf(rawStart, rawEnd).coerceIn(0, text.length)
+
+        val needsLeadingNewLine = start > 0 && text.getOrNull(start - 1) != '\n'
+        val insertText =
+            buildString {
+                if (needsLeadingNewLine) append('\n')
+                append(line)
+                append('\n')
+            }
+
+        val nextText = text.replaceRange(start, end, insertText)
+        val nextCursor = start + insertText.length
+        return TextFieldValue(text = nextText, selection = TextRange(nextCursor))
     }
 
     fun onContentChange(value: TextFieldValue) {
