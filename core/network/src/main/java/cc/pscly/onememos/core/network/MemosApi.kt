@@ -9,6 +9,7 @@ import cc.pscly.onememos.core.network.dto.AttachmentDto
 import cc.pscly.onememos.core.network.dto.SetMemoAttachmentsRequestDto
 import cc.pscly.onememos.core.network.dto.UpdateMemoRequestDto
 import com.google.gson.JsonObject
+import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
@@ -66,5 +67,11 @@ interface MemosApi {
     suspend fun createAttachment(
         @Url url: String,
         @Body attachment: CreateAttachmentRequestDto,
+    ): AttachmentDto
+
+    @POST
+    suspend fun createAttachmentRaw(
+        @Url url: String,
+        @Body body: RequestBody,
     ): AttachmentDto
 }

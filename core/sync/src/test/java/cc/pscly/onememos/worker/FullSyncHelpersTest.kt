@@ -24,6 +24,7 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import okhttp3.RequestBody
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -313,6 +314,9 @@ class FullSyncHelpersTest {
             throw UnsupportedOperationException("not needed")
 
         override suspend fun createAttachment(url: String, attachment: CreateAttachmentRequestDto): AttachmentDto =
+            throw UnsupportedOperationException("not needed")
+
+        override suspend fun createAttachmentRaw(url: String, body: RequestBody): AttachmentDto =
             throw UnsupportedOperationException("not needed")
     }
 }

@@ -61,10 +61,17 @@ class MemosSyncWorker @AssistedInject constructor(
     private val memosApi: MemosApi,
     private val settingsRepository: SettingsRepository,
 ) : CoroutineWorker(appContext, params) {
+    private val syncWarnings = mutableListOf<String>()
+    private var attachmentUploadMaxBytes: Long = 0L
+
     override suspend fun doWork(): Result {
         val settings = settingsRepository.settings.first()
         val serverBase = MemosUrls.normalizeServerBase(settings.serverUrl) ?: return Result.success()
         if (settings.token.isBlank()) return Result.success()
+
+        syncWarnings.clear()
+        val maxMb = settings.attachmentUploadMaxMb.coerceAtLeast(0)
+        attachmentUploadMaxBytes = maxMb * 1024L * 1024L
 
         val isPeriodic = inputData.getBoolean(KEY_IS_PERIODIC, false)
         val forceFull = inputData.getBoolean(KEY_FORCE_FULL_SYNC, false)
@@ -129,8 +136,8 @@ class MemosSyncWorker @AssistedInject constructor(
             // 因此在本轮成功结束时，如果仍有 DIRTY，则补跑一次（最多一次，避免无限循环）。
             maybeEnqueueFollowupSync(isPeriodic = isPeriodic, isFollowup = isFollowup)
 
-            // 仅当本轮整体无异常结束时，标记“最近一次同步成功”，并清空上次错误。
             settingsRepository.setLastSyncSuccess()
+            persistSyncWarningsAfterSuccessIfAny()
             Result.success()
         } catch (e: CancellationException) {
             // 取消由 WorkManager/协程调度触发；必须透传，避免被当成失败后重试。
@@ -199,6 +206,14 @@ class MemosSyncWorker @AssistedInject constructor(
         if (current.isNotBlank()) return
         val resolved = resolveCurrentUserCreator(serverBase) ?: return
         settingsRepository.setCurrentUserCreator(resolved)
+    }
+
+    private suspend fun persistSyncWarningsAfterSuccessIfAny() {
+        if (syncWarnings.isEmpty()) return
+        val warningText = syncWarnings.joinToString(separator = "\n").trim().take(2000)
+        if (warningText.isNotBlank()) {
+            settingsRepository.setLastSyncError(warningText, httpCode = 0)
+        }
     }
 
     private suspend fun resolveCurrentUserCreator(serverBase: String): String? {
@@ -349,6 +364,12 @@ class MemosSyncWorker @AssistedInject constructor(
                         lastSyncError = null,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: HttpException) {
+                throw e
+            } catch (e: java.io.IOException) {
+                throw e
             } catch (e: Exception) {
                 val message = e.message?.take(200) ?: "同步失败"
                 val entityToUpdate = memoDao.getMemoEntity(originalMemo.uuid) ?: originalMemo
@@ -552,6 +573,12 @@ class MemosSyncWorker @AssistedInject constructor(
                     lastSyncError = null,
                 ),
             )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: HttpException) {
+            throw e
+        } catch (e: java.io.IOException) {
+            throw e
         } catch (e: Exception) {
             val message = e.message?.take(200) ?: "同步失败"
             val entityToUpdate = memoDao.getMemoEntity(conflictUuid) ?: conflictMemo
@@ -583,6 +610,8 @@ class MemosSyncWorker @AssistedInject constructor(
     ): List<MemoAttachmentEntity> {
         val serverId = memo.serverId ?: return attachments
 
+        val maxBytes = attachmentUploadMaxBytes
+
         val updated = attachments.toMutableList()
         for ((index, attachment) in attachments.withIndex()) {
             if (!attachment.remoteName.isNullOrBlank()) continue
@@ -592,27 +621,138 @@ class MemosSyncWorker @AssistedInject constructor(
             val originalFilename = attachment.filename ?: resolveFilename(uri) ?: "attachment_${attachment.id}"
             val originalMimeType = resolveMimeType(uri = uri, filename = originalFilename, explicitMime = attachment.mimeType)
 
-            val payload = prepareUploadPayload(uri = uri, filename = originalFilename, mimeType = originalMimeType)
-            val contentBase64 = Base64.encodeToString(payload.bytes, Base64.NO_WRAP)
-            val created =
-                memosApi.createAttachment(
-                    url = MemosUrls.createAttachment(serverBase),
-                    attachment = CreateAttachmentRequestDto(
-                        filename = payload.filename,
-                        contentBase64 = contentBase64,
-                        type = payload.mimeType,
-                        memo = serverId,
-                        externalLink = null,
-                    ),
+            val knownSizeBytes = resolveSizeBytes(uri)
+            if (maxBytes > 0 && knownSizeBytes != null && knownSizeBytes > maxBytes) {
+                syncWarnings += buildAttachmentOversizeWarning(
+                    filename = originalFilename,
+                    mimeType = originalMimeType,
+                    sizeBytes = knownSizeBytes,
+                    maxBytes = maxBytes,
                 )
+                continue
+            }
+
+            val (created, usedFilename, usedMimeType) =
+                try {
+                    if (!originalMimeType.startsWith("image/")) {
+                        val body =
+                            StreamingCreateAttachmentRequestBody(
+                                filename = originalFilename,
+                                type = originalMimeType,
+                                memo = serverId,
+                                externalLink = null,
+                                knownContentSizeBytes = knownSizeBytes,
+                                openInputStream = {
+                                    val raw = openInputStreamSmart(uri)
+                                    val limited =
+                                        if (maxBytes > 0 && knownSizeBytes == null) {
+                                            LimitCountingInputStream(raw, maxBytes)
+                                        } else {
+                                            raw
+                                        }
+                                    LocalReadWrappingInputStream(limited)
+                                },
+                            )
+                        memosApi.createAttachmentRaw(
+                            url = MemosUrls.createAttachment(serverBase),
+                            body = body,
+                        )
+                            .let { Triple(it, originalFilename, originalMimeType) }
+                    } else {
+                        val payload =
+                            prepareUploadPayload(
+                                uri = uri,
+                                filename = originalFilename,
+                                mimeType = originalMimeType,
+                                maxBytes = maxBytes,
+                                knownSizeBytes = knownSizeBytes,
+                            )
+
+                        if (maxBytes > 0 && payload.bytes.size.toLong() > maxBytes) {
+                            syncWarnings += buildAttachmentOversizeWarning(
+                                filename = payload.filename,
+                                mimeType = payload.mimeType,
+                                sizeBytes = payload.bytes.size.toLong(),
+                                maxBytes = maxBytes,
+                            )
+                            continue
+                        }
+
+                        val contentBase64 = Base64.encodeToString(payload.bytes, Base64.NO_WRAP)
+                        memosApi.createAttachment(
+                            url = MemosUrls.createAttachment(serverBase),
+                            attachment =
+                                CreateAttachmentRequestDto(
+                                    filename = payload.filename,
+                                    contentBase64 = contentBase64,
+                                    type = payload.mimeType,
+                                    memo = serverId,
+                                    externalLink = null,
+                                ),
+                        ).let { Triple(it, payload.filename, payload.mimeType) }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: HttpException) {
+                    val code = e.code()
+                    when {
+                        code == 401 || code == 403 -> throw e
+                        code in 400..499 -> {
+                            syncWarnings += buildAttachmentSkipWarning(
+                                filename = originalFilename,
+                                mimeType = originalMimeType,
+                                sizeBytes = knownSizeBytes,
+                                maxBytes = maxBytes,
+                                reason = "上传失败（HTTP $code）",
+                            )
+                            continue
+                        }
+                        else -> throw e
+                    }
+                } catch (e: AttachmentOversizeException) {
+                    syncWarnings += buildAttachmentOversizeWarning(
+                        filename = originalFilename,
+                        mimeType = originalMimeType,
+                        sizeBytes = e.seenBytes,
+                        maxBytes = e.maxBytes,
+                    )
+                    continue
+                } catch (e: SecurityException) {
+                    syncWarnings += buildAttachmentSkipWarning(
+                        filename = originalFilename,
+                        mimeType = originalMimeType,
+                        sizeBytes = knownSizeBytes,
+                        maxBytes = maxBytes,
+                        reason = "无权限读取附件",
+                    )
+                    continue
+                } catch (e: java.io.FileNotFoundException) {
+                    syncWarnings += buildAttachmentSkipWarning(
+                        filename = originalFilename,
+                        mimeType = originalMimeType,
+                        sizeBytes = knownSizeBytes,
+                        maxBytes = maxBytes,
+                        reason = "附件不存在或无法打开",
+                    )
+                    continue
+                } catch (e: LocalReadIOException) {
+                    syncWarnings += buildAttachmentSkipWarning(
+                        filename = originalFilename,
+                        mimeType = originalMimeType,
+                        sizeBytes = knownSizeBytes,
+                        maxBytes = maxBytes,
+                        reason = "附件读取失败",
+                    )
+                    continue
+                }
 
             val remoteName = created.name ?: throw IllegalStateException("服务端未返回 attachment.name")
 
             val newEntity =
                 attachment.copy(
                     remoteName = remoteName,
-                    filename = created.filename ?: payload.filename,
-                    mimeType = created.type ?: payload.mimeType,
+                    filename = created.filename ?: usedFilename,
+                    mimeType = created.type ?: usedMimeType,
                 )
             memoDao.upsertAttachments(listOf(newEntity))
             updated[index] = newEntity
@@ -626,7 +766,13 @@ class MemosSyncWorker @AssistedInject constructor(
         val mimeType: String,
     )
 
-    private fun prepareUploadPayload(uri: Uri, filename: String, mimeType: String): UploadPayload {
+    private fun prepareUploadPayload(
+        uri: Uri,
+        filename: String,
+        mimeType: String,
+        maxBytes: Long,
+        knownSizeBytes: Long?,
+    ): UploadPayload {
         // memos API 需要 base64；为避免大图直接读入内存导致 OOM，这里对图片做“降采样 + 压缩”。
         val isImage = mimeType.startsWith("image/")
         val isGif = mimeType.equals("image/gif", ignoreCase = true)
@@ -636,8 +782,19 @@ class MemosSyncWorker @AssistedInject constructor(
             if (compressed != null) return compressed
         }
 
-        val bytes = openInputStreamSmart(uri)?.use { it.readBytes() }
-            ?: throw IllegalStateException("无法读取附件（可能权限已失效）：$uri")
+        val bytes =
+            try {
+                val raw = openInputStreamSmart(uri)
+                val limited =
+                    if (maxBytes > 0 && knownSizeBytes == null) {
+                        LimitCountingInputStream(raw, maxBytes)
+                    } else {
+                        raw
+                    }
+                LocalReadWrappingInputStream(limited).use { it.readBytes() }
+            } catch (e: java.io.IOException) {
+                throw if (e is AttachmentOversizeException || e is LocalReadIOException) e else LocalReadIOException(e)
+            }
         return UploadPayload(bytes = bytes, filename = filename, mimeType = mimeType)
     }
 
@@ -680,13 +837,13 @@ class MemosSyncWorker @AssistedInject constructor(
         return UploadPayload(bytes = bytes, filename = outFilename, mimeType = outMime)
     }
 
-    private fun openInputStreamSmart(uri: Uri): java.io.InputStream? {
-        return if (uri.scheme.equals("file", ignoreCase = true)) {
-            val path = uri.path ?: return null
-            runCatching { FileInputStream(File(path)) }.getOrNull()
-        } else {
-            runCatching { applicationContext.contentResolver.openInputStream(uri) }.getOrNull()
+    private fun openInputStreamSmart(uri: Uri): java.io.InputStream {
+        if (uri.scheme.equals("file", ignoreCase = true)) {
+            val path = uri.path ?: throw java.io.FileNotFoundException("无法读取附件：$uri")
+            return FileInputStream(File(path))
         }
+        return applicationContext.contentResolver.openInputStream(uri)
+            ?: throw java.io.FileNotFoundException("无法读取附件：$uri")
     }
 
     private fun normalizeFilenameForMime(filename: String, mimeType: String): String {
@@ -726,6 +883,38 @@ class MemosSyncWorker @AssistedInject constructor(
         }
 
         return "application/octet-stream"
+    }
+
+    private fun resolveSizeBytes(uri: Uri): Long? {
+        return resolveAttachmentSizeBytes(applicationContext, uri)
+    }
+
+    private fun buildAttachmentOversizeWarning(
+        filename: String,
+        mimeType: String,
+        sizeBytes: Long,
+        maxBytes: Long,
+    ): String {
+        return buildAttachmentSkipWarning(
+            filename = filename,
+            mimeType = mimeType,
+            sizeBytes = sizeBytes,
+            maxBytes = maxBytes,
+            reason = "附件大小超限，已跳过",
+        )
+    }
+
+    private fun buildAttachmentSkipWarning(
+        filename: String,
+        mimeType: String,
+        sizeBytes: Long?,
+        maxBytes: Long,
+        reason: String,
+    ): String {
+        val safeName = filename.trim().take(120)
+        val sizePart = if (sizeBytes != null) "${sizeBytes}B" else "未知"
+        val maxPart = if (maxBytes > 0) "${maxBytes}B" else "不限制"
+        return "$reason：$safeName（$mimeType，大小 $sizePart，上限 $maxPart）"
     }
 
     private fun parseEpochMillis(raw: String?): Long? =
