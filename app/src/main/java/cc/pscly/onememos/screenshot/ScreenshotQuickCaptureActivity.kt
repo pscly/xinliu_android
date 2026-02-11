@@ -13,9 +13,11 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.VisibleForTesting
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import cc.pscly.onememos.overlay.QuickCaptureOverlayService
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -26,6 +28,27 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 class ScreenshotQuickCaptureActivity : ComponentActivity() {
+    companion object {
+        @VisibleForTesting
+        internal suspend fun saveBitmapToCacheFile(
+            cacheDir: File,
+            bitmap: Bitmap,
+            now: LocalDateTime = LocalDateTime.now(),
+            ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+        ): File =
+            withContext(ioDispatcher) {
+                val dir = File(cacheDir, "screenshots").apply { mkdirs() }
+                val ts = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss").format(now)
+                val file = File(dir, "screenshot-$ts.png")
+
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                }
+                bitmap.recycle()
+                file
+            }
+    }
+
     private val captureLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode != RESULT_OK || result.data == null) {
@@ -88,7 +111,7 @@ class ScreenshotQuickCaptureActivity : ComponentActivity() {
             val image =
                 waitForImage(reader) ?: throw IllegalStateException("未获取到截图数据")
             try {
-                val bitmap = withContext(Dispatchers.Default) { toBitmap(image, width, height) }
+                val bitmap = withContext(Dispatchers.IO) { toBitmap(image, width, height) }
                 return saveBitmapToCache(bitmap)
             } finally {
                 runCatching { image.close() }
@@ -127,16 +150,8 @@ class ScreenshotQuickCaptureActivity : ComponentActivity() {
         return cropped
     }
 
-    private fun saveBitmapToCache(bitmap: Bitmap): Uri {
-        val dir = File(cacheDir, "screenshots").apply { mkdirs() }
-        val ts = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss").format(LocalDateTime.now())
-        val file = File(dir, "screenshot-$ts.png")
-
-        FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        bitmap.recycle()
-
+    private suspend fun saveBitmapToCache(bitmap: Bitmap): Uri {
+        val file = saveBitmapToCacheFile(cacheDir = cacheDir, bitmap = bitmap)
         return FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
     }
 
