@@ -154,46 +154,26 @@ class MemosSyncWorker @AssistedInject constructor(
                 }
             }
             throw e
-        } catch (e: HttpException) {
-            // 401/403：大概率 token 无效，重试意义不大，等待用户修复后再触发
-            if (e.code() == 401 || e.code() == 403) {
-                settingsRepository.setLastSyncError("鉴权失败，请重新登录", httpCode = e.code())
-                if (needFull && fullRunId != null) {
-                    // 全量同步需要落盘失败状态；但不重试。
-                    settingsRepository.setFullSyncFailed(
-                        runId = fullRunId,
-                        stage = fullTracker.stage,
-                        pagesFetched = fullTracker.pagesFetchedTotal,
-                        itemsFetched = fullTracker.itemsFetchedTotal,
-                        error = "鉴权失败，请重新登录",
+        } catch (e: Throwable) {
+            when (val decision = WorkerRetryPolicy.classify(err = e, runAttemptCount = runAttemptCount)) {
+                is WorkerRetryPolicy.Decision.PropagateCancellation -> throw e
+                is WorkerRetryPolicy.Decision.Classified -> {
+                    settingsRepository.setLastSyncError(
+                        decision.userMessage,
+                        httpCode = decision.httpCode,
                     )
+                    if (needFull && fullRunId != null) {
+                        settingsRepository.setFullSyncFailed(
+                            runId = fullRunId,
+                            stage = fullTracker.stage,
+                            pagesFetched = fullTracker.pagesFetchedTotal,
+                            itemsFetched = fullTracker.itemsFetchedTotal,
+                            error = decision.userMessage,
+                        )
+                    }
+                    if (decision.retry) Result.retry() else Result.success()
                 }
-                Result.success()
-            } else {
-                settingsRepository.setLastSyncError(e.message?.take(200) ?: "同步失败", httpCode = e.code())
-                if (needFull && fullRunId != null) {
-                    settingsRepository.setFullSyncFailed(
-                        runId = fullRunId,
-                        stage = fullTracker.stage,
-                        pagesFetched = fullTracker.pagesFetchedTotal,
-                        itemsFetched = fullTracker.itemsFetchedTotal,
-                        error = e.message?.take(200) ?: "全量同步失败",
-                    )
-                }
-                Result.retry()
             }
-        } catch (e: Exception) {
-            settingsRepository.setLastSyncError(e.message?.take(200) ?: "同步失败")
-            if (needFull && fullRunId != null) {
-                settingsRepository.setFullSyncFailed(
-                    runId = fullRunId,
-                    stage = fullTracker.stage,
-                    pagesFetched = fullTracker.pagesFetchedTotal,
-                    itemsFetched = fullTracker.itemsFetchedTotal,
-                    error = e.message?.take(200) ?: "全量同步失败",
-                )
-            }
-            Result.retry()
         }
     }
 

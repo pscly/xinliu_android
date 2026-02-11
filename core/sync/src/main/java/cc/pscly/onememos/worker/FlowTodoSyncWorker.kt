@@ -28,8 +28,9 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
-import retrofit2.HttpException
 import java.time.Instant
 import java.util.UUID
 
@@ -45,6 +46,19 @@ class FlowTodoSyncWorker @AssistedInject constructor(
     private val todoReminderScheduler: TodoReminderScheduler,
 ) : CoroutineWorker(appContext, params) {
     private val gson = Gson()
+
+    private sealed interface StepResult {
+        data class Ok(val cursor: Long) : StepResult
+
+        data class Stop(
+            val cursor: Long,
+            val decision: WorkerRetryPolicy.Decision.Classified,
+        ) : StepResult
+    }
+
+    private fun resultFromDecision(decision: WorkerRetryPolicy.Decision.Classified): Result {
+        return if (decision.retry) Result.retry() else Result.success()
+    }
 
     override suspend fun doWork(): Result {
         val settings = settingsRepository.settings.first()
@@ -63,30 +77,39 @@ class FlowTodoSyncWorker @AssistedInject constructor(
 
         val result =
             try {
-                val pushedCursor = pushOutbox(ownerKey = ownerKey, token = token, cursor = cursor)
-                if (pushedCursor == null) {
-                    lastError = "网络异常：push 失败"
-                    Result.retry()
-                } else {
-                    cursor = pushedCursor
-                    val pulledCursor = pullChanges(ownerKey = ownerKey, token = token, cursor = cursor)
-                    if (pulledCursor == null) {
-                        lastError = "网络异常：pull 失败"
-                        Result.retry()
-                    } else {
-                        cursor = pulledCursor
-                        Result.success()
+                when (val pushed = pushOutbox(ownerKey = ownerKey, token = token, cursor = cursor, runAttemptCount = runAttemptCount)) {
+                    is StepResult.Ok -> {
+                        cursor = pushed.cursor
+                        when (val pulled = pullChanges(ownerKey = ownerKey, token = token, cursor = cursor, runAttemptCount = runAttemptCount)) {
+                            is StepResult.Ok -> {
+                                cursor = pulled.cursor
+                                Result.success()
+                            }
+
+                            is StepResult.Stop -> {
+                                cursor = pulled.cursor
+                                lastError = pulled.decision.userMessage
+                                resultFromDecision(pulled.decision)
+                            }
+                        }
+                    }
+
+                    is StepResult.Stop -> {
+                        cursor = pushed.cursor
+                        lastError = pushed.decision.userMessage
+                        resultFromDecision(pushed.decision)
                     }
                 }
-            } catch (e: HttpException) {
-                val status = e.code()
-                val msg = e.message?.take(200) ?: "同步失败"
-                lastError = "HTTP $status：$msg"
-                // 401/403：等待用户重新登录；不重试。
-                if (status == 401 || status == 403) Result.success() else Result.retry()
-            } catch (e: Exception) {
-                lastError = e.message?.take(200) ?: "同步失败"
-                Result.retry()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                when (val d = WorkerRetryPolicy.classify(err = e, runAttemptCount = runAttemptCount)) {
+                    WorkerRetryPolicy.Decision.PropagateCancellation -> throw e
+                    is WorkerRetryPolicy.Decision.Classified -> {
+                        lastError = d.userMessage
+                        resultFromDecision(d)
+                    }
+                }
             }
 
         todoSyncDao.upsertSyncState(
@@ -118,9 +141,10 @@ class FlowTodoSyncWorker @AssistedInject constructor(
         ownerKey: String,
         token: String,
         cursor: Long,
-    ): Long? {
+        runAttemptCount: Int,
+    ): StepResult {
         val pending = todoSyncDao.listPendingOutbox(ownerKey = ownerKey, limit = 200)
-        if (pending.isEmpty()) return cursor
+        if (pending.isEmpty()) return StepResult.Ok(cursor)
 
         val mutations =
             pending.mapNotNull { row ->
@@ -135,21 +159,18 @@ class FlowTodoSyncWorker @AssistedInject constructor(
             }
 
         val resp =
-            runCatching {
-                flowSyncApi.push(
-                    token = "Bearer $token",
-                    body = FlowSyncPushRequest(mutations = mutations),
-                    requestId = UUID.randomUUID().toString(),
-                )
-            }.getOrNull() ?: return null
+            flowSyncApi.push(
+                token = "Bearer $token",
+                body = FlowSyncPushRequest(mutations = mutations),
+                requestId = UUID.randomUUID().toString(),
+            )
 
         if (!resp.isSuccessful) {
-            // 401/403：不重试；其它重试
-            if (resp.code() == 401 || resp.code() == 403) return cursor
-            return null
+            val decision = WorkerRetryPolicy.classifyHttpCode(code = resp.code(), runAttemptCount = runAttemptCount)
+            return StepResult.Stop(cursor = cursor, decision = decision)
         }
 
-        val payload = resp.body() ?: return null
+        val payload = resp.body() ?: throw IOException("push 响应为空")
         val nextCursor = maxOf(cursor, payload.cursor)
 
         payload.applied.orEmpty().forEach { applied ->
@@ -164,7 +185,7 @@ class FlowTodoSyncWorker @AssistedInject constructor(
             handleRejected(ownerKey = ownerKey, rejected = rejected)
         }
 
-        return nextCursor
+        return StepResult.Ok(nextCursor)
     }
 
     private suspend fun handleRejected(
@@ -221,28 +242,27 @@ class FlowTodoSyncWorker @AssistedInject constructor(
         ownerKey: String,
         token: String,
         cursor: Long,
-    ): Long? {
+        runAttemptCount: Int,
+    ): StepResult {
         var current = cursor.coerceAtLeast(0L)
         var pages = 0
 
         while (pages < 20) {
             pages++
             val resp =
-                runCatching {
-                    flowSyncApi.pull(
-                        token = "Bearer $token",
-                        cursor = current,
-                        limit = 200,
-                        requestId = UUID.randomUUID().toString(),
-                    )
-                }.getOrNull() ?: return null
+                flowSyncApi.pull(
+                    token = "Bearer $token",
+                    cursor = current,
+                    limit = 200,
+                    requestId = UUID.randomUUID().toString(),
+                )
 
             if (!resp.isSuccessful) {
-                if (resp.code() == 401 || resp.code() == 403) return current
-                return null
+                val decision = WorkerRetryPolicy.classifyHttpCode(code = resp.code(), runAttemptCount = runAttemptCount)
+                return StepResult.Stop(cursor = current, decision = decision)
             }
 
-            val payload: FlowSyncPullResponse = resp.body() ?: return null
+            val payload: FlowSyncPullResponse = resp.body() ?: throw IOException("pull 响应为空")
             applyChanges(ownerKey = ownerKey, payload = payload)
 
             current = payload.nextCursor
@@ -257,7 +277,7 @@ class FlowTodoSyncWorker @AssistedInject constructor(
             if (!payload.hasMore) break
         }
 
-        return current
+        return StepResult.Ok(current)
     }
 
     private suspend fun applyChanges(
