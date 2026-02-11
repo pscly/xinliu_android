@@ -34,6 +34,8 @@ data class AppSettings(
     val offlineImagePrefetchMaxImages: Int = 60,
     // 附件持久缓存上限（MB）。0 表示不限制（不推荐）。
     val attachmentCacheMaxMb: Int = 1024,
+    // 附件上传大小上限（MB）。dev2 可按需提升，最高 1024（1GB）。
+    val attachmentUploadMaxMb: Int = 50,
 
     // ----------------------------
     // Todo（待办）提醒：双模式

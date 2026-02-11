@@ -93,6 +93,8 @@ class AppSettingsStateTest {
 
         override suspend fun setAttachmentCacheMaxMb(mb: Int) = Unit
 
+        override suspend fun setAttachmentUploadMaxMb(mb: Int) = Unit
+
         override suspend fun setTodoReminderMode(mode: TodoReminderMode) = Unit
 
         override suspend fun setCalendarIntegrationEnabled(enabled: Boolean) = Unit

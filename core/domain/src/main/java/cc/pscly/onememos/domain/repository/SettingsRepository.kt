@@ -44,6 +44,8 @@ interface SettingsRepository {
 
     suspend fun setAttachmentCacheMaxMb(mb: Int)
 
+    suspend fun setAttachmentUploadMaxMb(mb: Int)
+
     // ----------------------------
     // Todo（待办）提醒
     // ----------------------------

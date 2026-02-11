@@ -50,6 +50,7 @@ data class SettingsUiState(
     val offlineImagePrefetchMaxMemos: Int = 30,
     val offlineImagePrefetchMaxImages: Int = 60,
     val attachmentCacheMaxMb: Int = 1024,
+    val attachmentUploadMaxMb: Int = 50,
     val todoReminderMode: TodoReminderMode = TodoReminderMode.SMART,
     val calendarIntegrationEnabled: Boolean = false,
     val calendarIntegrationCalendarId: Long? = null,
@@ -125,6 +126,7 @@ class SettingsViewModel @Inject constructor(
                 offlineImagePrefetchMaxMemos = s.offlineImagePrefetchMaxMemos,
                 offlineImagePrefetchMaxImages = s.offlineImagePrefetchMaxImages,
                 attachmentCacheMaxMb = s.attachmentCacheMaxMb,
+                attachmentUploadMaxMb = s.attachmentUploadMaxMb,
                 todoReminderMode = s.todoReminderMode,
                 calendarIntegrationEnabled = s.calendarIntegrationEnabled,
                 calendarIntegrationCalendarId = s.calendarIntegrationCalendarId,
@@ -393,6 +395,10 @@ class SettingsViewModel @Inject constructor(
 
     fun updateAttachmentCacheMaxMb(mb: Int) {
         viewModelScope.launch { settingsRepository.setAttachmentCacheMaxMb(mb) }
+    }
+
+    fun updateAttachmentUploadMaxMb(mb: Int) {
+        viewModelScope.launch { settingsRepository.setAttachmentUploadMaxMb(mb) }
     }
 
     fun updateDevAutoTagLineKeywords(raw: String) {

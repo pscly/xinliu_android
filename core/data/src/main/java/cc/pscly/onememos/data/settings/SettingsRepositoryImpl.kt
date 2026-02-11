@@ -67,6 +67,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         val OFFLINE_IMAGE_PREFETCH_MAX_MEMOS = intPreferencesKey("offline_image_prefetch_max_memos")
         val OFFLINE_IMAGE_PREFETCH_MAX_IMAGES = intPreferencesKey("offline_image_prefetch_max_images")
         val ATTACHMENT_CACHE_MAX_MB = intPreferencesKey("attachment_cache_max_mb")
+        val ATTACHMENT_UPLOAD_MAX_MB = intPreferencesKey("attachment_upload_max_mb")
 
         // Todo 提醒模式（SMART / EXACT）
         val TODO_REMINDER_MODE = stringPreferencesKey("todo_reminder_mode")
@@ -280,6 +281,12 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     offlineImagePrefetchMaxMemos = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_MEMOS] ?: 30).coerceIn(0, 5000),
                     offlineImagePrefetchMaxImages = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_IMAGES] ?: 60).coerceIn(0, 5000),
                     attachmentCacheMaxMb = (prefs[Keys.ATTACHMENT_CACHE_MAX_MB] ?: 1024).coerceIn(0, 10 * 1024),
+                    attachmentUploadMaxMb =
+                        if (dev2Unlocked) {
+                            (prefs[Keys.ATTACHMENT_UPLOAD_MAX_MB] ?: 50).coerceIn(1, 1024)
+                        } else {
+                            50
+                        },
                     todoReminderMode = parseTodoReminderMode(prefs[Keys.TODO_REMINDER_MODE]),
                     calendarIntegrationEnabled = prefs[Keys.CALENDAR_INTEGRATION_ENABLED] ?: false,
                     calendarIntegrationCalendarId = prefs[Keys.CALENDAR_INTEGRATION_CALENDAR_ID],
@@ -412,6 +419,12 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     override suspend fun setAttachmentCacheMaxMb(mb: Int) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.ATTACHMENT_CACHE_MAX_MB] = mb.coerceIn(0, 10 * 1024)
+        }
+    }
+
+    override suspend fun setAttachmentUploadMaxMb(mb: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.ATTACHMENT_UPLOAD_MAX_MB] = mb.coerceIn(1, 1024)
         }
     }
 

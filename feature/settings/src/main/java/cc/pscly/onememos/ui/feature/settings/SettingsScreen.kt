@@ -1159,6 +1159,45 @@ fun SettingsScreen(
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = "附件上传",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = "提示：上传会用 base64 编码，体积会膨胀；上限设得越大越耗时、耗流量。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    var attachmentUploadMaxMbText by
+                        remember(uiState.attachmentUploadMaxMb) {
+                            mutableStateOf(uiState.attachmentUploadMaxMb.toString())
+                        }
+                    OutlinedTextField(
+                        value = attachmentUploadMaxMbText,
+                        onValueChange = { raw ->
+                            val digits = raw.filter { it.isDigit() }
+                            val parsed = digits.toIntOrNull()
+                            val clamped =
+                                when {
+                                    parsed == null -> 50
+                                    parsed < 1 -> 1
+                                    parsed > 1024 -> 1024
+                                    else -> parsed
+                                }
+                            attachmentUploadMaxMbText = if (digits.isBlank()) "" else clamped.toString()
+                            viewModel.updateAttachmentUploadMaxMb(clamped)
+                        },
+                        label = { Text("附件上传大小上限（MB）") },
+                        placeholder = { Text("50") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1777,6 +1816,7 @@ private fun exportDiagnosticsFile(
                     .put("offlineImagePrefetchMaxMemos", uiState.offlineImagePrefetchMaxMemos)
                     .put("offlineImagePrefetchMaxImages", uiState.offlineImagePrefetchMaxImages)
                     .put("attachmentCacheMaxMb", uiState.attachmentCacheMaxMb)
+                    .put("attachmentUploadMaxMb", uiState.attachmentUploadMaxMb)
                     .put("todoReminderMode", uiState.todoReminderMode.name)
                     .put("calendarIntegrationEnabled", uiState.calendarIntegrationEnabled)
                     .put("calendarIntegrationCalendarId", uiState.calendarIntegrationCalendarId ?: 0)
