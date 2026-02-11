@@ -8,6 +8,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -19,11 +21,14 @@ import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.util.Hashing
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 /**
  * Todo 准点提醒（EXACT）接收器：
@@ -42,7 +47,9 @@ class TodoReminderAlarmReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                handleReceive(appContext = context.applicationContext, intent = safeIntent)
+                TodoReminderAlarmReceiver.runWithTimeoutAndLog(timeoutMs = RECEIVER_TIMEOUT_MS) {
+                    handleReceive(appContext = context.applicationContext, intent = safeIntent)
+                }
             } finally {
                 pendingResult.finish()
             }
@@ -175,7 +182,30 @@ class TodoReminderAlarmReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        private const val TAG = "todo_reminder_alarm_receiver"
+
+        @VisibleForTesting
+        internal suspend fun runWithTimeoutAndLog(
+            timeoutMs: Long,
+            block: suspend () -> Unit,
+        ) {
+            try {
+                withTimeout(timeoutMs) {
+                    block()
+                }
+            } catch (e: TimeoutCancellationException) {
+                Log.w(TAG, "TodoReminderAlarmReceiver 处理超时：timeoutMs=$timeoutMs", e)
+            } catch (e: CancellationException) {
+                Log.w(TAG, "TodoReminderAlarmReceiver 协程被取消", e)
+                throw e
+            } catch (t: Throwable) {
+                Log.e(TAG, "TodoReminderAlarmReceiver 处理异常", t)
+            }
+        }
+
         const val ACTION_NOTIFY = "cc.pscly.onememos.action.TODO_REMINDER_NOTIFY"
         const val EXTRA_OWNER_KEY = "cc.pscly.onememos.extra.TODO_OWNER_KEY"
+
+        private const val RECEIVER_TIMEOUT_MS = 10_000L
     }
 }
