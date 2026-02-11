@@ -2,6 +2,7 @@ package cc.pscly.onememos.data.cache
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import cc.pscly.onememos.domain.model.CacheStats
 import cc.pscly.onememos.domain.repository.CacheRepository
 import cc.pscly.onememos.core.database.dao.MemoDao
@@ -32,6 +33,16 @@ class CacheRepositoryImpl @Inject constructor(
     private val imageDiskCacheDir = File(context.cacheDir, "one_memos_image_cache")
     private val attachmentCacheRootDir = File(context.filesDir, "one_memos_attachment_cache")
 
+    // 附件缓存 trim 可能被高频触发；用“估算 + 时间/次数节流 + slack + 到期强制收敛”降低全量扫描/排序频率。
+    private val attachmentTrimLock = Any()
+    @Volatile private var lastAttachmentTrimAtMs: Long = 0L
+    @Volatile private var attachmentTrimSinceLastScan: Int = 0
+    @Volatile private var attachmentCacheBytesEstimate: Long = -1L
+    private val attachmentTrimMinIntervalMs: Long = 2_000L
+    private val attachmentTrimHardIntervalMs: Long = 30_000L
+    private val attachmentTrimMinCallsBeforeScan: Int = 8
+    private val attachmentTrimSlackBytes: Long = 16L * 1024L * 1024L
+
     override suspend fun getCacheStats(): CacheStats =
         withContext(Dispatchers.IO) {
             val dbBytes = databaseBytes()
@@ -61,6 +72,11 @@ class CacheRepositoryImpl @Inject constructor(
             runCatching { attachmentCacheRootDir.deleteRecursively() }
             runCatching { attachmentCacheRootDir.mkdirs() }
             runCatching { memoDao.clearAllAttachmentCacheUris() }
+            synchronized(attachmentTrimLock) {
+                attachmentCacheBytesEstimate = 0L
+                attachmentTrimSinceLastScan = 0
+                lastAttachmentTrimAtMs = 0L
+            }
             Unit
         }
 
@@ -79,6 +95,11 @@ class CacheRepositoryImpl @Inject constructor(
             runCatching { attachmentCacheRootDir.deleteRecursively() }
             runCatching { attachmentCacheRootDir.mkdirs() }
             runCatching { memoDao.clearAllAttachmentCacheUris() }
+            synchronized(attachmentTrimLock) {
+                attachmentCacheBytesEstimate = 0L
+                attachmentTrimSinceLastScan = 0
+                lastAttachmentTrimAtMs = 0L
+            }
             Unit
         }
 
@@ -150,9 +171,12 @@ class CacheRepositoryImpl @Inject constructor(
             if (!outFile.exists() || outFile.length() <= 0L) return@withContext null
             memoDao.updateAttachmentCacheUri(memoUuid = memoUuid, remoteName = remoteName, cacheUri = outUri)
 
+            // 用新增文件大小做估算，尽量避免频繁全量扫描。
+            val addedBytes = runCatching { outFile.length() }.getOrDefault(0L)
+
             val maxMb = runCatching { settingsRepository.settings.first().attachmentCacheMaxMb }.getOrDefault(1024)
             val maxBytes = if (maxMb <= 0) Long.MAX_VALUE else maxMb.toLong() * 1024L * 1024L
-            trimAttachmentCacheIfNeeded(maxBytes = maxBytes)
+            trimAttachmentCacheIfNeeded(maxBytes = maxBytes, addedBytes = addedBytes)
             outUri
         }
 
@@ -182,30 +206,94 @@ class CacheRepositoryImpl @Inject constructor(
         return sum
     }
 
-    private suspend fun trimAttachmentCacheIfNeeded(maxBytes: Long) {
+    private suspend fun trimAttachmentCacheIfNeeded(
+        maxBytes: Long,
+        addedBytes: Long = 0L,
+    ) {
         if (maxBytes <= 0L || maxBytes == Long.MAX_VALUE) return
         if (!attachmentCacheRootDir.exists()) return
 
-        var total = dirBytes(attachmentCacheRootDir)
-        if (total <= maxBytes) return
-
-        val files =
-            attachmentCacheRootDir
-                .walkTopDown()
-                .filter { it.isFile }
-                .toList()
-                .sortedBy { it.lastModified() }
-
-        for (f in files) {
-            if (total <= maxBytes) break
-            val len = runCatching { f.length() }.getOrDefault(0L)
-            val remoteId = f.name.substringBefore('_', missingDelimiterValue = f.name).trim()
-            runCatching { f.delete() }
-            total = (total - len).coerceAtLeast(0L)
-            if (remoteId.isNotBlank()) {
-                // 即使不清理 DB，UI 也会以“文件是否存在”为准；这里额外清一把，减少脏数据。
-                runCatching { memoDao.clearAttachmentCacheUriByRemoteId(remoteId) }
+        val now = SystemClock.elapsedRealtime()
+        synchronized(attachmentTrimLock) {
+            attachmentTrimSinceLastScan += 1
+            if (attachmentCacheBytesEstimate >= 0L && addedBytes > 0L) {
+                attachmentCacheBytesEstimate = (attachmentCacheBytesEstimate + addedBytes).coerceAtLeast(0L)
             }
+
+            val elapsed = now - lastAttachmentTrimAtMs
+            val hardDue = lastAttachmentTrimAtMs != 0L && elapsed >= attachmentTrimHardIntervalMs
+            val minIntervalOk = elapsed >= attachmentTrimMinIntervalMs
+            val estimate = attachmentCacheBytesEstimate
+
+            // 超限判定：允许短暂 slack，但 hard interval 到期后仍会强制收敛到 <= max。
+            if (estimate >= 0L) {
+                if (estimate <= maxBytes) return
+                val withinSlack = estimate <= maxBytes + attachmentTrimSlackBytes
+                if (withinSlack && !hardDue) return
+                val overSlack = !withinSlack
+                if (!hardDue) {
+                    if (!minIntervalOk) return
+                    if (!overSlack && attachmentTrimSinceLastScan < attachmentTrimMinCallsBeforeScan) return
+                }
+            } else {
+                // 无估算值：仅按“时间+次数”做周期性扫描，避免每次都 walkTopDown。
+                val singleFileOverLimit = addedBytes > maxBytes
+                if (singleFileOverLimit) {
+                    if (!minIntervalOk) return
+                } else
+                if (!hardDue) {
+                    if (!minIntervalOk) return
+                    if (attachmentTrimSinceLastScan < attachmentTrimMinCallsBeforeScan) return
+                }
+            }
+
+            lastAttachmentTrimAtMs = now
+            attachmentTrimSinceLastScan = 0
+        }
+
+        // 单遍历：同时统计 total，并收集 (file,lastModified,length,remoteId)；避免先 dirBytes 再 walkTopDown 再 length 的重复 IO。
+        data class AttachmentCacheEntry(
+            val file: File,
+            val lastModified: Long,
+            val length: Long,
+            val remoteId: String,
+        )
+
+        var total = 0L
+        val entries = ArrayList<AttachmentCacheEntry>()
+        attachmentCacheRootDir
+            .walkTopDown()
+            .forEach { f ->
+                if (!f.isFile) return@forEach
+                val len = runCatching { f.length() }.getOrDefault(0L)
+                total += len
+                entries +=
+                    AttachmentCacheEntry(
+                        file = f,
+                        lastModified = runCatching { f.lastModified() }.getOrDefault(0L),
+                        length = len,
+                        remoteId = f.name.substringBefore('_', missingDelimiterValue = f.name).trim(),
+                    )
+            }
+
+        synchronized(attachmentTrimLock) {
+            attachmentCacheBytesEstimate = total
+        }
+        if (total <= maxBytes) return
+        entries.sortBy { it.lastModified }
+
+        for (e in entries) {
+            if (total <= maxBytes) break
+            runCatching { e.file.delete() }
+            total = (total - e.length).coerceAtLeast(0L)
+            if (e.remoteId.isNotBlank()) {
+                // 即使不清理 DB，UI 也会以“文件是否存在”为准；这里额外清一把，减少脏数据。
+                runCatching { memoDao.clearAttachmentCacheUriByRemoteId(e.remoteId) }
+            }
+        }
+
+        synchronized(attachmentTrimLock) {
+            attachmentCacheBytesEstimate = total
         }
     }
 
