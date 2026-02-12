@@ -1,5 +1,6 @@
 package cc.pscly.onememos.ui.feature.quickcapture
 
+import android.content.Context
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
@@ -7,9 +8,15 @@ import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.ui.feature.quickcapture.draft.DraftAutoSaver
+import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraft
+import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftAttachment
+import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftStore
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -19,6 +26,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 data class QuickCaptureHistoryItem(
@@ -35,6 +45,8 @@ data class QuickCaptureUiState(
     val hiddenAutoTagLines: List<String> = emptyList(),
     val history: List<QuickCaptureHistoryItem> = emptyList(),
     val quickInsertTimeEnabled: Boolean = false,
+    val draftBannerVisible: Boolean = false,
+    val draftOverwriteDialogVisible: Boolean = false,
 )
 
 sealed interface QuickCaptureEvent {
@@ -45,6 +57,7 @@ sealed interface QuickCaptureEvent {
 class QuickCaptureViewModel @Inject constructor(
     private val memoRepository: MemoRepository,
     private val settingsRepository: SettingsRepository,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     // 只去掉行尾空格/Tab，不吞掉换行（否则用户很难插入换行/空行）。
     private fun trimTrailingSpacesOnly(text: String): String =
@@ -58,16 +71,41 @@ class QuickCaptureViewModel @Inject constructor(
     private val _events = MutableSharedFlow<QuickCaptureEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<QuickCaptureEvent> = _events.asSharedFlow()
 
+    private val draftStore: QuickCaptureDraftStore by lazy { QuickCaptureDraftStore(appContext) }
+    private val draftAutoSaver: DraftAutoSaver by lazy {
+        DraftAutoSaver(
+            scope = viewModelScope,
+            save = { text, attachments ->
+                saveDraftFromAutoSaver(text = text, attachments = attachments)
+            },
+        )
+    }
+
+    private val draftWriteEnabled = AtomicBoolean(true)
+    private var pendingOverwriteContent: TextFieldValue? = null
+
     init {
         viewModelScope.launch {
             settingsRepository.settings.collectLatest { settings ->
                 _uiState.update { it.copy(quickInsertTimeEnabled = settings.quickInsertTimeEnabled) }
             }
         }
+
+        refreshDraftBannerOnStart()
     }
 
     fun updateContent(value: TextFieldValue) {
+        val state = _uiState.value
+        if (isDraftEnabled(state) && shouldAskOverwriteConfirm(state, incomingText = value.text)) {
+            pendingOverwriteContent = value
+            _uiState.update { it.copy(draftOverwriteDialogVisible = true, error = null) }
+            return
+        }
+
         _uiState.update { it.copy(content = value, error = null) }
+        if (isDraftEnabled(state) && draftWriteEnabled.get()) {
+            draftAutoSaver.onTextChanged(value.text)
+        }
     }
 
     fun refreshHistory(limit: Int = 20) {
@@ -194,6 +232,9 @@ class QuickCaptureViewModel @Inject constructor(
                         content = content,
                         resourceUris = emptyList(),
                     )
+                    if (isDraftEnabled(state)) {
+                        clearDraftAfterLocalMemoSaved()
+                    }
                 } else {
                     memoRepository.updateMemoContent(uuid = uuid, content = content)
                 }
@@ -207,6 +248,7 @@ class QuickCaptureViewModel @Inject constructor(
     }
 
     private fun applyMemoForEdit(memo: Memo) {
+        disableDraft()
         val split = AutoTagLineHider.split(text = memo.content, keywords = defaultAutoTagKeywords)
         val visible = split.visibleText
         _uiState.update {
@@ -217,6 +259,150 @@ class QuickCaptureViewModel @Inject constructor(
                 error = null,
             )
         }
+    }
+
+    fun restoreDraft() {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) return
+
+        viewModelScope.launch {
+            val draft = runCatching { draftStore.loadDraft() }.getOrNull()
+            if (draft == null) {
+                refreshDraftBannerOnStart()
+                return@launch
+            }
+
+            val text = draft.text
+            draftWriteEnabled.set(true)
+            _uiState.update {
+                it.copy(
+                    content = TextFieldValue(text = text, selection = TextRange(text.length)),
+                    draftBannerVisible = false,
+                    draftOverwriteDialogVisible = false,
+                    error = null,
+                )
+            }
+            draftAutoSaver.onTextChanged(text)
+        }
+    }
+
+    fun clearDraft() {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) return
+
+        viewModelScope.launch {
+            runCatching { draftStore.clearDraft() }
+            draftWriteEnabled.set(true)
+            _uiState.update { it.copy(draftBannerVisible = false, draftOverwriteDialogVisible = false) }
+            draftAutoSaver.onTextChanged("")
+        }
+    }
+
+    fun confirmOverwriteAndApplyPending() {
+        val pendingText = pendingOverwriteContent
+        pendingOverwriteContent = null
+
+        draftWriteEnabled.set(true)
+        _uiState.update { it.copy(draftBannerVisible = false, draftOverwriteDialogVisible = false, error = null) }
+
+        if (pendingText != null) {
+            _uiState.update { it.copy(content = pendingText, error = null) }
+            draftAutoSaver.onTextChanged(pendingText.text)
+            viewModelScope.launch { flushDraftNowSuspend() }
+        }
+    }
+
+    fun dismissOverwriteDialog() {
+        pendingOverwriteContent = null
+        _uiState.update { it.copy(draftOverwriteDialogVisible = false) }
+    }
+
+    fun flushDraftNow() {
+        viewModelScope.launch { flushDraftNowSuspend() }
+    }
+
+    override fun onCleared() {
+        runCatching {
+            runBlocking {
+                kotlinx.coroutines.withContext(NonCancellable) {
+                    flushDraftNowSuspend()
+                }
+            }
+        }
+        super.onCleared()
+    }
+
+    private fun refreshDraftBannerOnStart() {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) {
+            draftWriteEnabled.set(true)
+            _uiState.update { it.copy(draftBannerVisible = false, draftOverwriteDialogVisible = false) }
+            return
+        }
+
+        val dir = File(appContext.noBackupFilesDir, "quick_capture_draft")
+        val exists = File(dir, "draft.json").isFile || File(dir, "draft.json.bak").isFile
+        draftWriteEnabled.set(!exists)
+        _uiState.update { it.copy(draftBannerVisible = exists, draftOverwriteDialogVisible = false) }
+    }
+
+    private fun disableDraft() {
+        pendingOverwriteContent = null
+        draftWriteEnabled.set(true)
+        draftAutoSaver.cancel()
+        _uiState.update { it.copy(draftBannerVisible = false, draftOverwriteDialogVisible = false) }
+    }
+
+    private fun isDraftEnabled(state: QuickCaptureUiState): Boolean = state.editingUuid.isNullOrBlank()
+
+    private fun shouldAskOverwriteConfirm(
+        state: QuickCaptureUiState,
+        incomingText: String? = null,
+    ): Boolean {
+        if (!isDraftEnabled(state)) return false
+        if (draftWriteEnabled.get()) return false
+        if (!state.draftBannerVisible) return false
+        if (state.draftOverwriteDialogVisible) return true
+        if (incomingText != null && incomingText != state.content.text) return true
+        return false
+    }
+
+    private suspend fun flushDraftNowSuspend() {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) return
+        if (!draftWriteEnabled.get()) return
+        draftAutoSaver.flushNow()
+    }
+
+    private suspend fun saveDraftFromAutoSaver(
+        text: String,
+        attachments: List<QuickCaptureDraftAttachment>,
+    ) {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) return
+        if (!draftWriteEnabled.get()) return
+
+        if (text.isBlank() && attachments.isEmpty()) {
+            runCatching { draftStore.clearDraft() }
+            _uiState.update { it.copy(draftBannerVisible = false) }
+            return
+        }
+
+        draftStore.saveDraft(
+            QuickCaptureDraft(
+                schemaVersion = 1,
+                updatedAt = 0L,
+                text = text,
+                attachments = attachments,
+            ),
+        )
+    }
+
+    private suspend fun clearDraftAfterLocalMemoSaved() {
+        runCatching { draftStore.clearDraft() }
+        draftWriteEnabled.set(true)
+        _uiState.update { it.copy(draftBannerVisible = false) }
+        draftAutoSaver.onTextChanged("")
     }
 
     private fun Memo.toHistoryItem(): QuickCaptureHistoryItem {

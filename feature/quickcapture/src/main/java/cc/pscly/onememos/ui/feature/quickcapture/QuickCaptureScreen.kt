@@ -14,33 +14,47 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.SealButton
@@ -59,6 +73,7 @@ fun QuickCaptureRoute(
     val keyboardController = LocalSoftwareKeyboardController.current
     var showStamp by remember { mutableStateOf(false) }
     val haptics = rememberOneMemosHaptics()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -83,6 +98,17 @@ fun QuickCaptureRoute(
         keyboardController?.show()
     }
 
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_STOP) {
+                    viewModel.flushDraftNow()
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     QuickCaptureScreen(
         uiState = uiState,
         focusRequester = focusRequester,
@@ -93,6 +119,10 @@ fun QuickCaptureRoute(
         onEditPrevious = viewModel::editPrevious,
         onRefreshHistory = viewModel::refreshHistory,
         onLoadForEdit = viewModel::loadForEdit,
+        onRestoreDraft = viewModel::restoreDraft,
+        onClearDraft = viewModel::clearDraft,
+        onConfirmOverwrite = viewModel::confirmOverwriteAndApplyPending,
+        onDismissOverwrite = viewModel::dismissOverwriteDialog,
         showStamp = showStamp,
     )
 }
@@ -108,10 +138,15 @@ private fun QuickCaptureScreen(
     onEditPrevious: () -> Unit,
     onRefreshHistory: () -> Unit,
     onLoadForEdit: (String) -> Unit,
+    onRestoreDraft: () -> Unit,
+    onClearDraft: () -> Unit,
+    onConfirmOverwrite: () -> Unit,
+    onDismissOverwrite: () -> Unit,
     showStamp: Boolean,
 ) {
     val scrimInteraction = remember { MutableInteractionSource() }
     var showHistory by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
     val haptics = rememberOneMemosHaptics()
 
     LaunchedEffect(showHistory) {
@@ -146,10 +181,38 @@ private fun QuickCaptureScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    text = "极速记录",
-                    style = MaterialTheme.typography.titleLarge,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "极速记录",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+
+                    Box {
+                        IconButton(
+                            modifier = Modifier.semantics { contentDescription = "更多" },
+                            onClick = { showMenu = true },
+                        ) {
+                            Icon(imageVector = Icons.Filled.MoreVert, contentDescription = null)
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(text = "清空草稿") },
+                                onClick = {
+                                    showMenu = false
+                                    onClearDraft()
+                                },
+                            )
+                        }
+                    }
+                }
 
                 Text(
                     text = "点“续写”可编辑上一条，长按“续写”可选择历史。",
@@ -183,6 +246,42 @@ private fun QuickCaptureScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
+                }
+
+                if (uiState.draftBannerVisible) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "有草稿，可恢复",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "恢复草稿",
+                                modifier = Modifier
+                                    .clickable { onRestoreDraft() }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.size(4.dp))
+                            Text(
+                                text = "清空",
+                                modifier = Modifier
+                                    .clickable { onClearDraft() }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                        }
+                    }
                 }
 
                 Row(
@@ -241,6 +340,20 @@ private fun QuickCaptureScreen(
                     showHistory = false
                 },
                 onDismiss = { showHistory = false },
+            )
+        }
+
+        if (uiState.draftOverwriteDialogVisible) {
+            AlertDialog(
+                onDismissRequest = onDismissOverwrite,
+                confirmButton = {
+                    TextButton(onClick = onConfirmOverwrite) { Text(text = "覆盖") }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismissOverwrite) { Text(text = "取消") }
+                },
+                title = { Text(text = "检测到草稿") },
+                text = { Text(text = "当前存在未恢复的草稿。继续操作会覆盖它，是否继续？") },
             )
         }
     }
