@@ -39,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -85,6 +86,10 @@ import cc.pscly.onememos.domain.model.MemoAttachmentDraft
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.ui.feature.quickcapture.draft.DraftAutoSaver
+import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraft
+import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftAttachment
+import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftStore
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.SealStampOverlay
@@ -95,6 +100,7 @@ import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import coil.compose.AsyncImage
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -111,6 +117,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 
 internal enum class QuickCaptureOverlaySource {
@@ -139,6 +146,8 @@ internal data class QuickCaptureOverlayUiState(
     val attachmentsEditable: Boolean = true,
     val quickInsertTimeEnabled: Boolean = false,
     val source: QuickCaptureOverlaySource = QuickCaptureOverlaySource.NORMAL,
+    val draftBannerVisible: Boolean = false,
+    val draftOverwriteDialogVisible: Boolean = false,
 )
 
 internal data class QuickCaptureOverlayHistoryItem(
@@ -183,6 +192,21 @@ class QuickCaptureOverlayService : Service() {
 
     private val imeBottomPx = MutableStateFlow(0)
 
+    private val draftStore: QuickCaptureDraftStore by lazy { QuickCaptureDraftStore(applicationContext) }
+    private val draftAutoSaver: DraftAutoSaver by lazy {
+        DraftAutoSaver(
+            scope = serviceScope,
+            save = { text, attachments ->
+                saveDraftFromAutoSaver(text = text, attachments = attachments)
+            },
+        )
+    }
+
+    private var draftWriteEnabled: Boolean = true
+    private var pendingOverwriteContent: TextFieldValue? = null
+    private var pendingOverwriteAttachmentUris: List<String> = emptyList()
+    private var pendingOverwriteReplaceAttachments: Boolean = false
+
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WindowManager::class.java)
@@ -192,12 +216,31 @@ class QuickCaptureOverlayService : Service() {
                 _uiState.update { it.copy(quickInsertTimeEnabled = settings.quickInsertTimeEnabled) }
             }
         }
+
+        refreshDraftBannerOnStart()
     }
 
     override fun onDestroy() {
+        runCatching {
+            kotlinx.coroutines.runBlocking {
+                withContext(NonCancellable) {
+                    flushDraftNowSuspend()
+                }
+            }
+        }
         removeOverlay()
         serviceScope.cancel()
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        serviceScope.launch { flushDraftNowSuspend() }
+        super.onTaskRemoved(rootIntent)
+    }
+
+    override fun onTrimMemory(level: Int) {
+        serviceScope.launch { flushDraftNowSuspend() }
+        super.onTrimMemory(level)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -212,7 +255,7 @@ class QuickCaptureOverlayService : Service() {
         val action = intent?.action
         if (action == ACTION_ADD_ATTACHMENTS) {
             val attachments = intent.getStringArrayListExtra(EXTRA_ATTACHMENTS).orEmpty()
-            addLocalAttachments(attachments)
+            addAttachmentsFromExternal(uris = attachments, replace = false)
             showOverlayIfNeeded()
             return START_NOT_STICKY
         }
@@ -234,34 +277,22 @@ class QuickCaptureOverlayService : Service() {
                 QuickCaptureOverlaySource.NORMAL
             }
 
-        val attachmentsUi =
-            attachments.mapNotNull { uri ->
-                newLocalAttachmentUi(uri = uri)
-            }
-
-        // 截图/附件场景：强制进入“新建记录”模式，避免误覆盖上一条。
-        _uiState.update { state ->
-            val next =
-                state.copy(
-                    attachments = attachmentsUi,
-                    attachmentsEditable = true,
-                    source = source,
-                    error = null,
-                )
-            if (attachmentsUi.isNotEmpty()) {
-                next.copy(editingUuid = null, hiddenAutoTagLines = emptyList())
-            } else {
-                next
-            }
+        if (attachments.isNotEmpty()) {
+            addAttachmentsFromExternal(uris = attachments, replace = true)
+        } else {
+            _uiState.update { it.copy(attachments = emptyList(), attachmentsEditable = true, source = source, error = null) }
         }
 
+        // 截图/附件场景：强制进入“新建记录”模式，避免误覆盖上一条。
+        if (attachments.isNotEmpty()) {
+            _uiState.update { it.copy(editingUuid = null, hiddenAutoTagLines = emptyList()) }
+        }
+        _uiState.update { it.copy(source = source, error = null) }
+
         if (prefillText.isNotBlank()) {
-            _uiState.update { state ->
-                if (state.content.text.isBlank()) {
-                    state.copy(content = TextFieldValue(text = prefillText, selection = TextRange(prefillText.length)))
-                } else {
-                    state
-                }
+            val state = _uiState.value
+            if (state.content.text.isBlank()) {
+                updateContent(TextFieldValue(text = prefillText, selection = TextRange(prefillText.length)))
             }
         }
 
@@ -309,6 +340,11 @@ class QuickCaptureOverlayService : Service() {
         _uiState.update { state ->
             if (!state.attachmentsEditable) return@update state
             state.copy(attachments = state.attachments.filterNot { it.key == key }, error = null)
+        }
+
+        val state = _uiState.value
+        if (isDraftEnabled(state) && draftWriteEnabled) {
+            draftAutoSaver.onAttachmentsChanged(state.attachments.toDraftAttachments())
         }
     }
 
@@ -360,6 +396,13 @@ class QuickCaptureOverlayService : Service() {
                             eventsFlow = events,
                             imeBottomPxFlow = imeBottomPx,
                             onClose = {
+                                runCatching {
+                                    kotlinx.coroutines.runBlocking {
+                                        withContext(NonCancellable) {
+                                            flushDraftNowSuspend()
+                                        }
+                                    }
+                                }
                                 removeOverlay()
                                 stopSelf()
                             },
@@ -371,6 +414,10 @@ class QuickCaptureOverlayService : Service() {
                             onInsertTime = ::insertCurrentTimeStamp,
                             onPickImages = ::startPickImagesActivity,
                             onRemoveAttachment = ::removeAttachment,
+                            onRestoreDraft = ::restoreDraft,
+                            onClearDraft = ::clearDraft,
+                            onConfirmOverwrite = ::confirmOverwriteAndApplyPending,
+                            onDismissOverwrite = ::dismissOverwriteDialog,
                         )
                     }
                 }
@@ -439,7 +486,19 @@ class QuickCaptureOverlayService : Service() {
         text.trimEnd { it == ' ' || it == '\t' }
 
     private fun updateContent(value: TextFieldValue) {
+        val state = _uiState.value
+        if (isDraftEnabled(state) && shouldAskOverwriteConfirm(state, incomingText = value.text)) {
+            pendingOverwriteContent = value
+            pendingOverwriteAttachmentUris = emptyList()
+            pendingOverwriteReplaceAttachments = false
+            _uiState.update { it.copy(draftOverwriteDialogVisible = true, error = null) }
+            return
+        }
+
         _uiState.update { it.copy(content = value, error = null) }
+        if (isDraftEnabled(state) && draftWriteEnabled) {
+            draftAutoSaver.onTextChanged(value.text)
+        }
     }
 
     private fun insertCurrentTimeStamp() {
@@ -449,7 +508,7 @@ class QuickCaptureOverlayService : Service() {
         val now = System.currentTimeMillis()
         val stampLine = "> ${DateTimeFormatter.formatHms(now)}"
         val next = insertLineAtSelection(value = state.content, line = stampLine)
-        _uiState.update { it.copy(content = next, error = null) }
+        updateContent(next)
     }
 
     private fun insertLineAtSelection(
@@ -585,6 +644,9 @@ class QuickCaptureOverlayService : Service() {
                         }
                     }
                 }
+                if (uuid.isNullOrBlank() && isDraftEnabled(state)) {
+                    clearDraftAfterLocalMemoSaved()
+                }
                 _events.tryEmit(QuickCaptureOverlayEvent.Saved)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message?.take(200) ?: "保存失败") }
@@ -595,6 +657,7 @@ class QuickCaptureOverlayService : Service() {
     }
 
     private fun applyMemoForEdit(memo: Memo) {
+        disableDraft()
         val split = AutoTagLineHider.split(text = memo.content, keywords = defaultAutoTagKeywords)
         val localOnly = memo.serverId.isNullOrBlank()
         val editable = localOnly || (memo.syncStatus != SyncStatus.SYNCED && memo.syncStatus != SyncStatus.SYNCING)
@@ -646,6 +709,289 @@ class QuickCaptureOverlayService : Service() {
             val s = withContext(Dispatchers.IO) { settingsRepository.settings.first() }
             value = OneMemosThemeConfig(palette = s.themePalette, themeMode = s.themeMode)
         }
+
+    private fun refreshDraftBannerOnStart() {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) {
+            draftWriteEnabled = true
+            _uiState.update { it.copy(draftBannerVisible = false, draftOverwriteDialogVisible = false) }
+            return
+        }
+
+        val dir = File(noBackupFilesDir, "quick_capture_draft")
+        val exists = File(dir, "draft.json").isFile || File(dir, "draft.json.bak").isFile
+        draftWriteEnabled = !exists
+        _uiState.update { it.copy(draftBannerVisible = exists, draftOverwriteDialogVisible = false) }
+    }
+
+    private fun disableDraft() {
+        pendingOverwriteContent = null
+        pendingOverwriteAttachmentUris = emptyList()
+        pendingOverwriteReplaceAttachments = false
+        draftWriteEnabled = true
+        draftAutoSaver.cancel()
+        _uiState.update { it.copy(draftBannerVisible = false, draftOverwriteDialogVisible = false) }
+    }
+
+    private fun isDraftEnabled(state: QuickCaptureOverlayUiState): Boolean = state.editingUuid.isNullOrBlank()
+
+    private fun shouldAskOverwriteConfirm(
+        state: QuickCaptureOverlayUiState,
+        incomingText: String? = null,
+        incomingAttachments: List<String>? = null,
+    ): Boolean {
+        if (!isDraftEnabled(state)) return false
+        if (draftWriteEnabled) return false
+        if (!state.draftBannerVisible) return false
+        if (state.draftOverwriteDialogVisible) return true
+        if (incomingText != null && incomingText != state.content.text) return true
+        if (incomingAttachments != null && incomingAttachments.isNotEmpty()) return true
+        return false
+    }
+
+    private fun confirmOverwriteAndApplyPending() {
+        val pendingText = pendingOverwriteContent
+        val pendingUris = pendingOverwriteAttachmentUris
+        val replace = pendingOverwriteReplaceAttachments
+
+        pendingOverwriteContent = null
+        pendingOverwriteAttachmentUris = emptyList()
+        pendingOverwriteReplaceAttachments = false
+
+        draftWriteEnabled = true
+        _uiState.update { it.copy(draftBannerVisible = false, draftOverwriteDialogVisible = false, error = null) }
+
+        if (pendingText != null) {
+            _uiState.update { it.copy(content = pendingText, error = null) }
+            draftAutoSaver.onTextChanged(pendingText.text)
+        }
+        if (pendingUris.isNotEmpty()) {
+            addAttachmentsFromExternal(uris = pendingUris, replace = replace)
+        }
+    }
+
+    private fun dismissOverwriteDialog() {
+        pendingOverwriteContent = null
+        pendingOverwriteAttachmentUris = emptyList()
+        pendingOverwriteReplaceAttachments = false
+        _uiState.update { it.copy(draftOverwriteDialogVisible = false) }
+    }
+
+    private fun restoreDraft() {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) return
+
+        serviceScope.launch {
+            val draft = runCatching { draftStore.loadDraft() }.getOrNull()
+            if (draft == null) {
+                refreshDraftBannerOnStart()
+                return@launch
+            }
+
+            val attachments =
+                draft.attachments.mapNotNull { a ->
+                    val f = File(filesDir, "quick_capture_draft_attachments/${a.fileName}")
+                    if (!f.isFile) return@mapNotNull null
+                    QuickCaptureOverlayAttachmentUi(
+                        key = a.fileName,
+                        localUri = android.net.Uri.fromFile(f).toString(),
+                        cacheUri = null,
+                        remoteName = null,
+                        filename = a.originalName,
+                        mimeType = null,
+                        createdAt = draft.updatedAt.takeIf { it > 0L } ?: System.currentTimeMillis(),
+                    )
+                }
+
+            val text = draft.text
+            draftWriteEnabled = true
+            _uiState.update {
+                it.copy(
+                    content = TextFieldValue(text = text, selection = TextRange(text.length)),
+                    attachments = attachments,
+                    attachmentsEditable = true,
+                    draftBannerVisible = false,
+                    draftOverwriteDialogVisible = false,
+                    error = null,
+                )
+            }
+
+            draftAutoSaver.onTextChanged(text)
+            draftAutoSaver.onAttachmentsChanged(attachments.toDraftAttachments())
+        }
+    }
+
+    private fun clearDraft() {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) return
+
+        serviceScope.launch {
+            runCatching { draftStore.clearDraft() }
+            draftWriteEnabled = true
+            _uiState.update { it.copy(draftBannerVisible = false, draftOverwriteDialogVisible = false) }
+
+            draftAutoSaver.onTextChanged("")
+            draftAutoSaver.onAttachmentsChanged(emptyList())
+        }
+    }
+
+    private fun addAttachmentsFromExternal(
+        uris: List<String>,
+        replace: Boolean,
+    ) {
+        if (uris.isEmpty()) return
+
+        val state = _uiState.value
+        if (!state.attachmentsEditable) return
+        if (!isDraftEnabled(state)) {
+            addLocalAttachments(uris)
+            return
+        }
+
+        if (shouldAskOverwriteConfirm(state, incomingAttachments = uris)) {
+            pendingOverwriteContent = null
+            pendingOverwriteAttachmentUris = uris
+            pendingOverwriteReplaceAttachments = replace
+            _uiState.update { it.copy(draftOverwriteDialogVisible = true, error = null) }
+            return
+        }
+
+        val createdAt = System.currentTimeMillis()
+        serviceScope.launch {
+            val copied =
+                uris.mapNotNull { raw ->
+                    val trimmed = raw.trim()
+                    if (trimmed.isBlank()) return@mapNotNull null
+                    val attachment = runCatching { draftStore.copyInAttachment(android.net.Uri.parse(trimmed)) }.getOrNull() ?: return@mapNotNull null
+                    val f = File(filesDir, "quick_capture_draft_attachments/${attachment.fileName}")
+                    if (!f.isFile) return@mapNotNull null
+                    QuickCaptureOverlayAttachmentUi(
+                        key = attachment.fileName,
+                        localUri = android.net.Uri.fromFile(f).toString(),
+                        cacheUri = null,
+                        remoteName = null,
+                        filename = attachment.originalName,
+                        mimeType = null,
+                        createdAt = createdAt,
+                    )
+                }
+
+            if (copied.isEmpty()) return@launch
+
+            _uiState.update { s ->
+                val next =
+                    if (replace) {
+                        copied
+                    } else {
+                        val seen = s.attachments.map { it.key }.toHashSet()
+                        s.attachments + copied.filter { seen.add(it.key) }
+                    }
+                s.copy(attachments = next, error = null)
+            }
+            draftAutoSaver.onAttachmentsChanged(_uiState.value.attachments.toDraftAttachments())
+        }
+    }
+
+    private suspend fun flushDraftNowSuspend() {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) return
+        if (!draftWriteEnabled) return
+        draftAutoSaver.flushNow()
+    }
+
+    private suspend fun saveDraftFromAutoSaver(
+        text: String,
+        attachments: List<QuickCaptureDraftAttachment>,
+    ) {
+        val state = _uiState.value
+        if (!isDraftEnabled(state)) return
+        if (!draftWriteEnabled) return
+
+        if (text.isBlank() && attachments.isEmpty()) {
+            runCatching { draftStore.clearDraft() }
+            _uiState.update { it.copy(draftBannerVisible = false) }
+            return
+        }
+
+        draftStore.saveDraft(
+            QuickCaptureDraft(
+                schemaVersion = 1,
+                updatedAt = 0L,
+                text = text,
+                attachments = attachments,
+            ),
+        )
+    }
+
+    private suspend fun clearDraftAfterLocalMemoSaved() {
+        runCatching { draftStore.clearDraft() }
+        draftWriteEnabled = true
+        _uiState.update { it.copy(draftBannerVisible = false) }
+
+        draftAutoSaver.onTextChanged("")
+        draftAutoSaver.onAttachmentsChanged(emptyList())
+    }
+
+    internal fun debugUiState(): QuickCaptureOverlayUiState = _uiState.value
+
+    internal fun debugUpdateContent(value: TextFieldValue) {
+        updateContent(value)
+    }
+
+    internal fun debugRestoreDraft() {
+        restoreDraft()
+    }
+
+    internal fun debugClearDraft() {
+        clearDraft()
+    }
+
+    internal fun debugConfirmOverwrite() {
+        confirmOverwriteAndApplyPending()
+    }
+
+    internal fun debugDismissOverwrite() {
+        dismissOverwriteDialog()
+    }
+
+    internal fun debugSetEditingUuid(uuid: String?) {
+        if (uuid.isNullOrBlank()) {
+            _uiState.update { it.copy(editingUuid = null) }
+            refreshDraftBannerOnStart()
+            return
+        }
+
+        _uiState.update { it.copy(editingUuid = uuid) }
+        disableDraft()
+    }
+
+    internal fun debugRefreshDraftBannerOnStart() {
+        refreshDraftBannerOnStart()
+    }
+
+    internal fun debugAddAttachments(uris: List<String>, replace: Boolean) {
+        addAttachmentsFromExternal(uris = uris, replace = replace)
+    }
+
+    internal fun debugFlushDraftNow() {
+        runCatching {
+            kotlinx.coroutines.runBlocking {
+                withContext(NonCancellable) {
+                    flushDraftNowSuspend()
+                }
+            }
+        }
+    }
+
+    internal fun debugSimulateSaveSuccess() {
+        runCatching {
+            kotlinx.coroutines.runBlocking {
+                withContext(NonCancellable) {
+                    clearDraftAfterLocalMemoSaved()
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -662,6 +1008,10 @@ private fun QuickCaptureOverlayContent(
     onInsertTime: () -> Unit,
     onPickImages: () -> Unit,
     onRemoveAttachment: (String) -> Unit,
+    onRestoreDraft: () -> Unit,
+    onClearDraft: () -> Unit,
+    onConfirmOverwrite: () -> Unit,
+    onDismissOverwrite: () -> Unit,
 ) {
     val uiState by uiStateFlow.collectAsState()
     val imeBottomPx by imeBottomPxFlow.collectAsState()
@@ -840,6 +1190,42 @@ private fun QuickCaptureOverlayContent(
                         )
                     }
 
+                    if (uiState.draftBannerVisible) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "有草稿，可恢复",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "恢复草稿",
+                                    modifier = Modifier
+                                        .clickable { onRestoreDraft() }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(modifier = Modifier.size(4.dp))
+                                Text(
+                                    text = "清空",
+                                    modifier = Modifier
+                                        .clickable { onClearDraft() }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.outline,
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -886,10 +1272,31 @@ private fun QuickCaptureOverlayContent(
                     onDismiss = { showHistory = false },
                 )
             }
+
+            if (uiState.draftOverwriteDialogVisible) {
+                AlertDialog(
+                    onDismissRequest = onDismissOverwrite,
+                    confirmButton = {
+                        TextButton(onClick = onConfirmOverwrite) { Text(text = "覆盖") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismissOverwrite) { Text(text = "取消") }
+                    },
+                    title = { Text(text = "检测到草稿") },
+                    text = { Text(text = "当前存在未恢复的草稿。继续操作会覆盖它，是否继续？") },
+                )
+            }
         }
     }
 
 }
+
+private fun List<QuickCaptureOverlayAttachmentUi>.toDraftAttachments(): List<QuickCaptureDraftAttachment> =
+    mapNotNull { item ->
+        val name = item.key.trim()
+        if (name.isBlank()) return@mapNotNull null
+        QuickCaptureDraftAttachment(fileName = name, originalName = item.filename)
+    }
 
 @Composable
 private fun OverlayAttachmentThumb(
