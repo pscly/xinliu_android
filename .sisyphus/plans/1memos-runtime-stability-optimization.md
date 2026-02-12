@@ -7,7 +7,7 @@
 - [x] Task 4: MemosSyncWorker 附件上传：流式 base64 JSON RequestBody + 超限跳过 + 错误分类 + 单测覆盖
 - [x] Task 5: Worker 重试治理（FlowTodoSyncWorker + MemosSyncWorker）+ 单测覆盖
 - [x] Task 6 (optional): 附件缓存 trim 抖动优化（降低全量扫描/排序频率）
-- [ ] Task 7: 门禁/benchmark/ADB 交付 + 更新 `.ai_session.md` + git 提交
+- [x] Task 7: 门禁/benchmark/ADB 交付 + 更新 `.ai_session.md` + git 提交
 
 ## TL;DR
 
