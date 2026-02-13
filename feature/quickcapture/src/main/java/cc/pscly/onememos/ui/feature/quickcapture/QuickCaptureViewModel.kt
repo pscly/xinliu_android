@@ -127,7 +127,7 @@ class QuickCaptureViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         val stampLine = "> ${DateTimeFormatter.formatHms(now)}"
         val next = insertLineAtSelection(value = state.content, line = stampLine)
-        _uiState.update { it.copy(content = next, error = null) }
+        updateContent(next)
     }
 
     private fun insertLineAtSelection(
