@@ -124,7 +124,7 @@ Wave 3（收尾：构建、安装、基准验证）：Task 5
 
 > 每个任务都要求：实现 + 测试（TDD）+ 可执行验收命令。
 
-- [ ] 1. 新增 QuickCapture 草稿存储层（JSON + 原子写 + 附件文件管理）
+- [x] 1. 新增 QuickCapture 草稿存储层（JSON + 原子写 + 附件文件管理）
 
   **要做什么**：
   - 新增一个独立的草稿存储组件（例如 `QuickCaptureDraftStore` / `QuickCaptureDraftRepository`），提供：
@@ -158,7 +158,7 @@ Wave 3（收尾：构建、安装、基准验证）：Task 5
   - 命令：`./gradlew :app:testDebugUnitTest` → PASS
 
 
-- [ ] 2. 新增“1 秒防抖 + flush”保存调度器（纯逻辑层，可复用在 Service/VM）
+- [x] 2. 新增“1 秒防抖 + flush”保存调度器（纯逻辑层，可复用在 Service/VM）
 
   **要做什么**：
   - 抽一个小型的 `DraftAutoSaver`（或类似组件），对外暴露：
@@ -184,7 +184,7 @@ Wave 3（收尾：构建、安装、基准验证）：Task 5
   - 命令：`./gradlew :app:testDebugUnitTest` → PASS
 
 
-- [ ] 3. 接入悬浮窗：QuickCaptureOverlayService 增加草稿提示条、手动恢复、清空与覆盖确认
+- [x] 3. 接入悬浮窗：QuickCaptureOverlayService 增加草稿提示条、手动恢复、清空与覆盖确认
 
   **要做什么**：
   - 在 `app/src/main/java/cc/pscly/onememos/overlay/QuickCaptureOverlayService.kt`：
@@ -216,7 +216,7 @@ Wave 3（收尾：构建、安装、基准验证）：Task 5
   - 命令：`./gradlew :app:testDebugUnitTest` → PASS
 
 
-- [ ] 4. 接入普通极速记录页：QuickCaptureViewModel/Screen 同步草稿体验
+- [x] 4. 接入普通极速记录页：QuickCaptureViewModel/Screen 同步草稿体验
 
   **要做什么**：
   - 在 `feature/quickcapture/.../QuickCaptureViewModel.kt`：
@@ -248,7 +248,7 @@ Wave 3（收尾：构建、安装、基准验证）：Task 5
   - 命令：`./gradlew :app:testDebugUnitTest`（或对应 module 的 `testDebugUnitTest`）→ PASS
 
 
-- [ ] 5. 收尾：构建 benchmark APK、ADB 安装、提交与记录
+- [x] 5. 收尾：构建 benchmark APK、ADB 安装、提交与记录
 
   **要做什么**：
   - 更新 `.ai_session.md` 记录本次架构与关键决策（由执行者在实现阶段完成，确保可追溯）。

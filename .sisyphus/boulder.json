@@ -1,9 +1,9 @@
 {
-  "active_plan": "/root/1codes/xinliu_android/.sisyphus/plans/1memos-runtime-stability-optimization.md",
-  "started_at": "2026-02-12T01:36:52.329Z",
+  "active_plan": "/root/1codes/xinliu_android/.sisyphus/plans/quick-capture-draft-autosave.md",
+  "started_at": "2026-02-13T13:06:07.009Z",
   "session_ids": [
-    "ses_3b0818ff0ffeDg6Nao6gX0xoqJ",
-    "ses_3b01fb348ffelk9RfZkyqjanm6"
+    "ses_3a90def3bffeA755bBAHwYESHi"
   ],
-  "plan_name": "1memos-runtime-stability-optimization"
+  "plan_name": "quick-capture-draft-autosave",
+  "agent": "atlas"
 }
