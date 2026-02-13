@@ -4,12 +4,16 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import cc.pscly.onememos.core.database.dao.CollectionDao
 import cc.pscly.onememos.core.database.dao.TodoDao
 import cc.pscly.onememos.core.database.dao.TodoSyncDao
+import cc.pscly.onememos.core.database.entity.CollectionItemEntity
 import cc.pscly.onememos.core.database.entity.TodoItemEntity
 import cc.pscly.onememos.core.database.entity.TodoListEntity
 import cc.pscly.onememos.core.database.entity.TodoOccurrenceEntity
+import cc.pscly.onememos.core.database.entity.TodoSyncOutboxEntity
 import cc.pscly.onememos.core.database.entity.TodoSyncStateEntity
+import cc.pscly.onememos.core.network.CollectionItemOut
 import cc.pscly.onememos.core.network.FlowSyncApi
 import cc.pscly.onememos.core.network.FlowSyncMutation
 import cc.pscly.onememos.core.network.FlowSyncPushRequest
@@ -19,6 +23,7 @@ import cc.pscly.onememos.core.network.SyncTodoListOut
 import cc.pscly.onememos.core.network.TodoItemOut
 import cc.pscly.onememos.core.network.SyncTodoOccurrenceOut
 import cc.pscly.onememos.data.auth.FlowBackendCredentialStorage
+import cc.pscly.onememos.domain.collections.shouldApplyRemote
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.TodoReminderScheduler
@@ -31,7 +36,9 @@ import dagger.assisted.AssistedInject
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import java.time.ZoneOffset
 import java.time.Instant
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 @HiltWorker
@@ -40,6 +47,7 @@ class FlowTodoSyncWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val todoDao: TodoDao,
     private val todoSyncDao: TodoSyncDao,
+    private val collectionDao: CollectionDao,
     private val flowSyncApi: FlowSyncApi,
     private val settingsRepository: SettingsRepository,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
@@ -195,6 +203,10 @@ class FlowTodoSyncWorker @AssistedInject constructor(
         val reason = rejected.reason.trim()
         val serverSnapshot = rejected.server
         if (reason.equals("conflict", ignoreCase = true) && serverSnapshot != null) {
+            if (rejected.resource == RESOURCE_COLLECTION_ITEM) {
+                handleCollectionConflict(ownerKey = ownerKey, entityId = rejected.entityId, server = serverSnapshot)
+                return
+            }
             applyServerSnapshot(ownerKey = ownerKey, resource = rejected.resource, server = serverSnapshot)
             todoSyncDao.markOutboxState(
                 ownerKey = ownerKey,
@@ -236,6 +248,69 @@ class FlowTodoSyncWorker @AssistedInject constructor(
                 todoDao.upsertOccurrence(dto.toEntity(ownerKey))
             }
         }
+    }
+
+    private suspend fun handleCollectionConflict(
+        ownerKey: String,
+        entityId: String,
+        server: Map<String, Any?>,
+    ) {
+        val json = gson.toJson(server)
+        val dto = runCatching { gson.fromJson(json, CollectionItemOut::class.java) }.getOrNull() ?: return
+
+        val suffix = conflictSuffix()
+        val conflictName = dto.name.ifBlank { "" }.let { name -> if (name.isBlank()) "_冲突_$suffix" else "${name}_冲突_$suffix" }
+        val conflict =
+            dto.toEntity(
+                ownerKey = ownerKey,
+                idOverride = UUID.randomUUID().toString(),
+                nameOverride = conflictName,
+                localOnly = true,
+            )
+        collectionDao.upsert(conflict)
+
+        val local = collectionDao.getById(ownerKey = ownerKey, id = entityId)
+        if (local == null) {
+            todoSyncDao.markOutboxState(
+                ownerKey = ownerKey,
+                resource = RESOURCE_COLLECTION_ITEM,
+                entityId = entityId,
+                state = "REJECTED_CONFLICT",
+                lastError = "conflict_no_local",
+            )
+            return
+        }
+
+        val nowMs = System.currentTimeMillis()
+        val bumped = bumpClientUpdatedAtMs(nowMs = nowMs, localMs = local.clientUpdatedAtMs, serverMs = dto.clientUpdatedAtMs)
+        val updatedLocal = local.copy(clientUpdatedAtMs = bumped, updatedAt = Instant.now().toString())
+        collectionDao.upsert(updatedLocal)
+
+        val data =
+            buildCollectionUpsertData(updatedLocal)
+                ?: run {
+                    todoSyncDao.markOutboxState(
+                        ownerKey = ownerKey,
+                        resource = RESOURCE_COLLECTION_ITEM,
+                        entityId = entityId,
+                        state = "REJECTED",
+                        lastError = "invalid_local_data",
+                    )
+                    return
+                }
+        todoSyncDao.upsertOutbox(
+            TodoSyncOutboxEntity(
+                ownerKey = ownerKey,
+                resource = RESOURCE_COLLECTION_ITEM,
+                entityId = entityId,
+                op = OP_UPSERT,
+                clientUpdatedAtMs = bumped,
+                dataJson = gson.toJson(data),
+                state = STATE_PENDING,
+                lastError = null,
+                createdAtMs = nowMs,
+            ),
+        )
     }
 
     private suspend fun pullChanges(
@@ -303,6 +378,91 @@ class FlowTodoSyncWorker @AssistedInject constructor(
         if (occEntities.isNotEmpty()) {
             todoDao.upsertOccurrences(occEntities)
         }
+
+        val collectionDtos = payload.changes.collectionItems
+        if (collectionDtos.isNotEmpty()) {
+            applyCollectionItems(ownerKey = ownerKey, dtos = collectionDtos)
+        }
+    }
+
+    private suspend fun applyCollectionItems(
+        ownerKey: String,
+        dtos: List<CollectionItemOut>,
+    ) {
+        dtos.forEach { dto ->
+            val remote = dto.toEntity(ownerKey = ownerKey)
+            val local = collectionDao.getById(ownerKey = ownerKey, id = dto.id)
+            if (!shouldApplyRemote(
+                    localClientUpdatedAtMs = local?.clientUpdatedAtMs,
+                    localOnly = local?.localOnly == true,
+                    remoteClientUpdatedAtMs = dto.clientUpdatedAtMs,
+                )
+            ) {
+                return@forEach
+            }
+            collectionDao.upsert(remote)
+        }
+    }
+
+    private fun CollectionItemOut.toEntity(
+        ownerKey: String,
+        idOverride: String? = null,
+        nameOverride: String? = null,
+        localOnly: Boolean = false,
+    ): CollectionItemEntity =
+        CollectionItemEntity(
+            ownerKey = ownerKey,
+            id = idOverride ?: id,
+            itemType = itemType,
+            parentId = parentId,
+            name = nameOverride ?: name,
+            color = color,
+            refType = refType,
+            refId = refId,
+            sortOrder = sortOrder,
+            clientUpdatedAtMs = clientUpdatedAtMs,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            deletedAt = deletedAt,
+            localOnly = localOnly,
+            refLocalUuid = null,
+        )
+
+    private fun buildCollectionUpsertData(entity: CollectionItemEntity): Map<String, Any?>? {
+        val itemType = entity.itemType.trim()
+        if (itemType.isBlank()) return null
+        if (entity.localOnly) return null
+
+        return buildMap {
+            put("item_type", itemType)
+            put("parent_id", entity.parentId)
+            put("name", entity.name)
+            put("color", entity.color)
+            put("sort_order", entity.sortOrder)
+
+            val refType = entity.refType?.trim().orEmpty()
+            val refId = entity.refId?.trim().orEmpty()
+            if (itemType == "note_ref") {
+                if (refType.isBlank() || refId.isBlank()) return null
+                put("ref_type", refType)
+                put("ref_id", refId)
+            }
+        }
+    }
+
+    private fun bumpClientUpdatedAtMs(
+        nowMs: Long,
+        localMs: Long,
+        serverMs: Long,
+    ): Long {
+        val maxSkewMs = 300_000L
+        val candidate = maxOf(localMs + 1, serverMs + 1, nowMs)
+        return minOf(candidate, nowMs + maxSkewMs)
+    }
+
+    private fun conflictSuffix(): String {
+        val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss")
+        return Instant.now().atZone(ZoneOffset.UTC).format(fmt)
     }
 
     private fun SyncTodoListOut.toEntity(
@@ -383,5 +543,10 @@ class FlowTodoSyncWorker @AssistedInject constructor(
         private const val RESOURCE_TODO_LIST = "todo_list"
         private const val RESOURCE_TODO_ITEM = "todo_item"
         private const val RESOURCE_TODO_OCCURRENCE = "todo_occurrence"
+
+        private const val RESOURCE_COLLECTION_ITEM = "collection_item"
+
+        private const val OP_UPSERT = "upsert"
+        private const val STATE_PENDING = "PENDING"
     }
 }

@@ -29,6 +29,32 @@ data class FlowSyncChanges(
     val todoItems: List<TodoItemOut> = emptyList(),
     @SerializedName("todo_occurrences")
     val todoOccurrences: List<SyncTodoOccurrenceOut> = emptyList(),
+    @SerializedName("collection_items")
+    val collectionItems: List<CollectionItemOut> = emptyList(),
+)
+
+data class CollectionItemOut(
+    val id: String,
+    @SerializedName("item_type")
+    val itemType: String,
+    @SerializedName("parent_id")
+    val parentId: String? = null,
+    val name: String = "",
+    val color: String? = null,
+    @SerializedName("ref_type")
+    val refType: String? = null,
+    @SerializedName("ref_id")
+    val refId: String? = null,
+    @SerializedName("sort_order")
+    val sortOrder: Int = 0,
+    @SerializedName("client_updated_at_ms")
+    val clientUpdatedAtMs: Long = 0L,
+    @SerializedName("created_at")
+    val createdAt: String,
+    @SerializedName("updated_at")
+    val updatedAt: String,
+    @SerializedName("deleted_at")
+    val deletedAt: String? = null,
 )
 
 data class SyncTodoListOut(

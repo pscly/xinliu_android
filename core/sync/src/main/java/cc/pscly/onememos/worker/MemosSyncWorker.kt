@@ -34,6 +34,7 @@ import cc.pscly.onememos.domain.model.FullSyncStatus
 import cc.pscly.onememos.domain.model.MemoServerState
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.SyncStatus
+import cc.pscly.onememos.domain.repository.CollectionsRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.core.database.model.MemoWithAttachments
 import dagger.assisted.Assisted
@@ -60,6 +61,7 @@ class MemosSyncWorker @AssistedInject constructor(
     private val memoDao: MemoDao,
     private val memosApi: MemosApi,
     private val settingsRepository: SettingsRepository,
+    private val collectionsRepository: CollectionsRepository,
 ) : CoroutineWorker(appContext, params) {
     private val syncWarnings = mutableListOf<String>()
     private var attachmentUploadMaxBytes: Long = 0L
@@ -269,6 +271,13 @@ class MemosSyncWorker @AssistedInject constructor(
                                 creator = created.creator ?: currentBefore.memo.creator,
                             ),
                         )
+
+                        runCatching {
+                            collectionsRepository.backfillMemoRefId(
+                                memoUuid = currentBefore.memo.uuid,
+                                memoServerId = name,
+                            )
+                        }
                         name
                     } else {
                         currentBefore.memo.serverId
