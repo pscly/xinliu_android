@@ -39,6 +39,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -101,6 +102,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.AutoTagLineHider
+import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -120,7 +122,9 @@ fun HomeScreen(
     val globalSyncState by viewModel.globalSyncState.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSearchPopup by remember { mutableStateOf(false) }
-    var shareTarget by remember { mutableStateOf<Memo?>(null) }
+    var moreActionsTarget by remember { mutableStateOf<Memo?>(null) }
+    var addToCollectionsTarget by remember { mutableStateOf<Memo?>(null) }
+    var showCollectionsDisabledDialog by remember { mutableStateOf(false) }
     val (initialIndex, initialOffset) = viewModel.peekListPosition()
     val listState =
         rememberLazyListState(
@@ -128,6 +132,7 @@ fun HomeScreen(
             initialFirstVisibleItemScrollOffset = initialOffset,
         )
     val scope = rememberCoroutineScope()
+    val haptics = rememberOneMemosHaptics()
 
     // 1B：滚动中仅渲染纯文本预览，停稳 ~200ms 后再切回 Markdown 样式预览。
     var enableRichPreview by remember { mutableStateOf(false) }
@@ -301,31 +306,105 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        if (shareTarget != null) {
-            val target = shareTarget!!
-            AlertDialog(
-                onDismissRequest = { shareTarget = null },
-                title = { Text(text = "更多操作") },
-                text = {
+        if (moreActionsTarget != null) {
+            val target = moreActionsTarget!!
+            ModalBottomSheet(
+                onDismissRequest = { moreActionsTarget = null },
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     Text(
-                        text = "生成一张可分享的“墨迹卡片”。",
+                        text = "更多操作",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        text = "选择一个操作。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                },
-                confirmButton = {
-                    TextButton(
+
+                    InkCard(
                         onClick = {
-                            shareTarget = null
+                            haptics.tick()
+                            moreActionsTarget = null
+                            if (uiState.collectionsEnabled) {
+                                addToCollectionsTarget = target
+                            } else {
+                                showCollectionsDisabledDialog = true
+                            }
+                        },
+                        onLongClick = null,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "放入锦囊",
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+
+                    InkCard(
+                        onClick = {
+                            haptics.tick()
+                            moreActionsTarget = null
                             onOpenShareCard(target.uuid)
                         },
+                        onLongClick = null,
                     ) {
-                        Text("墨迹卡片")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "墨迹卡片",
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                            )
+                        }
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { shareTarget = null }) {
-                        Text("取消")
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(
+                            onClick = {
+                                haptics.tick()
+                                moreActionsTarget = null
+                            },
+                        ) {
+                            Text("取消")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+            }
+        }
+
+        if (addToCollectionsTarget != null) {
+            AddToCollectionsDialog(
+                memo = addToCollectionsTarget!!,
+                onDismiss = { addToCollectionsTarget = null },
+            )
+        }
+
+        if (showCollectionsDisabledDialog) {
+            AlertDialog(
+                onDismissRequest = { showCollectionsDisabledDialog = false },
+                title = { Text("锦囊不可用") },
+                text = { Text("请先使用 Flow Backend 登录后再使用锦囊；自定义服务器模式暂不支持。") },
+                confirmButton = {
+                    TextButton(onClick = { showCollectionsDisabledDialog = false }) {
+                        Text("知道了")
                     }
                 },
             )
@@ -442,7 +521,7 @@ fun HomeScreen(
                                     )
                                     onOpenMemo(memo.uuid)
                                 },
-                                onLongShare = { shareTarget = memo },
+                                onLongShare = { moreActionsTarget = memo },
                                 onToggleTag = viewModel::toggleTag,
                             )
                         }

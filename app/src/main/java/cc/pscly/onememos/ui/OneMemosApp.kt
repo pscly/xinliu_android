@@ -21,6 +21,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
@@ -54,6 +56,7 @@ import cc.pscly.onememos.qs.QuickScreenshotTileService
 import cc.pscly.onememos.screenshot.ScreenshotQuickCaptureActivity
 import cc.pscly.onememos.ui.feature.editor.EditorScreen
 import cc.pscly.onememos.ui.feature.auth.AuthScreen
+import cc.pscly.onememos.ui.feature.collections.CollectionsScreen
 import cc.pscly.onememos.ui.feature.home.HomeScreen
 import cc.pscly.onememos.ui.feature.home.HomeScreenMode
 import cc.pscly.onememos.ui.feature.profile.ProfileScreen
@@ -85,6 +88,8 @@ fun OneMemosApp(
 
     val shellViewModel: AppShellViewModel = hiltViewModel()
     val shellUiState by shellViewModel.uiState.collectAsStateWithLifecycle()
+
+    var showCollectionsDisabledDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(startEditorUuid) {
         if (!startHandled && !startEditorUuid.isNullOrBlank()) {
@@ -166,6 +171,24 @@ fun OneMemosApp(
                                     popUpTo(Routes.HOME) { inclusive = false }
                                     launchSingleTop = true
                                 }
+                            }
+                        },
+                        colors = NavigationDrawerItemDefaults.colors(),
+                    )
+
+                    NavigationDrawerItem(
+                        label = { Text("锦囊") },
+                        selected = current == Routes.COLLECTIONS,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            if (shellUiState.showCollections) {
+                                if (current != Routes.COLLECTIONS) {
+                                    navController.navigate(Routes.COLLECTIONS) {
+                                        launchSingleTop = true
+                                    }
+                                }
+                            } else {
+                                showCollectionsDisabledDialog = true
                             }
                         },
                         colors = NavigationDrawerItemDefaults.colors(),
@@ -259,6 +282,13 @@ fun OneMemosApp(
                     onCreateMemo = { navController.navigate(Routes.editor()) },
                     onOpenMemo = { uuid -> navController.navigate(Routes.editor(uuid)) },
                     onOpenShareCard = { uuid -> navController.navigate(Routes.shareCard(uuid)) },
+                )
+            }
+
+            composable(Routes.COLLECTIONS) {
+                CollectionsScreen(
+                    onOpenDrawer = toggleDrawer,
+                    onOpenMemo = { uuid -> navController.navigate(Routes.editor(uuid)) },
                 )
             }
 
@@ -418,6 +448,19 @@ fun OneMemosApp(
                     },
                 )
             }
+        }
+
+        if (showCollectionsDisabledDialog) {
+            AlertDialog(
+                onDismissRequest = { showCollectionsDisabledDialog = false },
+                title = { Text("锦囊不可用") },
+                text = { Text("锦囊目前仅支持 Flow Backend 登录模式（自定义服务器模式暂不支持）。") },
+                confirmButton = {
+                    TextButton(onClick = { showCollectionsDisabledDialog = false }) {
+                        Text("知道了")
+                    }
+                },
+            )
         }
     }
 }

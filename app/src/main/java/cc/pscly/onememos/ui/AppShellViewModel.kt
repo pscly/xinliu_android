@@ -14,6 +14,7 @@ import javax.inject.Inject
 
 data class AppShellUiState(
     val showTodo: Boolean = false,
+    val showCollections: Boolean = false,
 )
 
 @HiltViewModel
@@ -22,7 +23,13 @@ class AppShellViewModel @Inject constructor(
 ) : ViewModel() {
     val uiState: StateFlow<AppShellUiState> =
         settingsRepository.settings
-            .map { s -> AppShellUiState(showTodo = s.loginMode == LoginMode.BACKEND && s.token.isNotBlank()) }
+            .map { s ->
+                val ok = s.loginMode == LoginMode.BACKEND && s.token.isNotBlank()
+                AppShellUiState(
+                    showTodo = ok,
+                    showCollections = ok,
+                )
+            }
             .distinctUntilChanged()
             .stateIn(
                 scope = viewModelScope,
@@ -30,4 +37,3 @@ class AppShellViewModel @Inject constructor(
                 initialValue = AppShellUiState(),
             )
 }
-

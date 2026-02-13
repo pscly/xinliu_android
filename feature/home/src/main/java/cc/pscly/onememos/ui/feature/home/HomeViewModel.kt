@@ -11,6 +11,7 @@ import cc.pscly.onememos.feature.home.BuildConfig
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.domain.model.AppSettings
 import cc.pscly.onememos.domain.model.GlobalSyncState
+import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.repository.MemoRepository
@@ -42,6 +43,7 @@ import javax.inject.Inject
 data class HomeUiState(
     val serverBase: String? = null,
     val isLoggedIn: Boolean = false,
+    val collectionsEnabled: Boolean = false,
     val filter: MemoFilter = MemoFilter(),
     val tagStats: List<TagStat> = emptyList(),
     val regexSearchEnabled: Boolean = false,
@@ -131,6 +133,7 @@ class HomeViewModel @Inject constructor(
             val showTagCountsInFilter = settings.showTagCountsInFilter
             val showPublicWorkspace = settings.dev2Unlocked && settings.dev2ShowPublicWorkspaceMemos
             val loggedIn = settings.token.isNotBlank()
+            val collectionsEnabled = settings.loginMode == LoginMode.BACKEND && loggedIn
             val myCreator = settings.currentUserCreator.trim()
 
             // 启动加速：当“只看自己”模式下还没拿到 currentUserCreator 时，尽量用本地缓存推断出唯一 creator。
@@ -174,6 +177,7 @@ class HomeViewModel @Inject constructor(
             HomeUiState(
                 serverBase = serverBase,
                 isLoggedIn = loggedIn,
+                collectionsEnabled = collectionsEnabled,
                 filter = filter,
                 tagStats = tagStats,
                 regexSearchEnabled = regexEnabled,

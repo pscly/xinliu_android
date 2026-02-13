@@ -3,22 +3,27 @@ package cc.pscly.onememos.di
 import android.content.Context
 import androidx.room.Room
 import cc.pscly.onememos.core.database.OneMemosDatabase
+import cc.pscly.onememos.core.database.dao.CollectionDao
 import cc.pscly.onememos.core.database.dao.MemoDao
 import cc.pscly.onememos.core.database.dao.TodoDao
 import cc.pscly.onememos.core.database.dao.TodoSyncDao
 import cc.pscly.onememos.data.cache.CacheRepositoryImpl
 import cc.pscly.onememos.data.auth.FlowBackendCredentialStorage
+import cc.pscly.onememos.data.auth.FlowBackendOwnerKeyProvider
+import cc.pscly.onememos.data.repository.CollectionsRepositoryImpl
 import cc.pscly.onememos.data.repository.MemoRepositoryImpl
 import cc.pscly.onememos.data.repository.TodoRepositoryImpl
 import cc.pscly.onememos.data.settings.EncryptedTokenStorage
 import cc.pscly.onememos.data.settings.SettingsRepositoryImpl
 import cc.pscly.onememos.data.settings.TokenStorage
 import cc.pscly.onememos.domain.repository.CacheRepository
+import cc.pscly.onememos.domain.repository.CollectionsRepository
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.repository.TodoRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
 import cc.pscly.onememos.domain.sync.TodoSyncScheduler
+import cc.pscly.onememos.domain.util.OwnerKeyProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -43,6 +48,7 @@ object AppModule {
                 OneMemosDatabase.MIGRATION_7_8,
                 OneMemosDatabase.MIGRATION_8_9,
                 OneMemosDatabase.MIGRATION_9_10,
+                OneMemosDatabase.MIGRATION_10_11,
             )
             .build()
 
@@ -54,6 +60,9 @@ object AppModule {
 
     @Provides
     fun provideTodoSyncDao(db: OneMemosDatabase): TodoSyncDao = db.todoSyncDao()
+
+    @Provides
+    fun provideCollectionDao(db: OneMemosDatabase): CollectionDao = db.collectionDao()
 
     @Provides
     @Singleton
@@ -79,6 +88,27 @@ object AppModule {
             settingsRepository = settingsRepository,
             syncScheduler = todoSyncScheduler,
             flowBackendCredentialStorage = flowBackendCredentialStorage,
+        )
+
+    @Provides
+    @Singleton
+    fun provideOwnerKeyProvider(impl: FlowBackendOwnerKeyProvider): OwnerKeyProvider = impl
+
+    @Provides
+    @Singleton
+    fun provideCollectionsRepository(
+        collectionDao: CollectionDao,
+        todoSyncDao: TodoSyncDao,
+        settingsRepository: SettingsRepository,
+        todoSyncScheduler: TodoSyncScheduler,
+        ownerKeyProvider: OwnerKeyProvider,
+    ): CollectionsRepository =
+        CollectionsRepositoryImpl(
+            collectionDao = collectionDao,
+            todoSyncDao = todoSyncDao,
+            settingsRepository = settingsRepository,
+            todoSyncScheduler = todoSyncScheduler,
+            ownerKeyProvider = ownerKeyProvider,
         )
 
     @Provides
