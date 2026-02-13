@@ -3,7 +3,6 @@ package cc.pscly.onememos.ui.feature.quickcapture.draft
 import android.app.Application
 import android.content.Context
 import android.net.Uri
-import android.util.AtomicFile
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -41,9 +40,8 @@ class QuickCaptureDraftStoreTest {
                 QuickCaptureDraftStore(
                     context = context,
                     atomicWriter = DraftAtomicWriter { target, bytes ->
-                        val atomicFile = AtomicFile(target)
-                        val out = atomicFile.startWrite()
-                        out.use { it.write(bytes) }
+                        val tmp = File(target.parentFile, "${target.name}.tmp")
+                        tmp.outputStream().use { out -> out.write(bytes) }
                         throw RuntimeException("boom")
                     },
                 )
@@ -55,6 +53,8 @@ class QuickCaptureDraftStoreTest {
             val loaded = okStore.loadDraft()
             assertNotNull(loaded)
             assertEquals("old", loaded!!.text)
+            val tmpFile = File(File(context.noBackupFilesDir, "quick_capture_draft"), "draft.json.tmp")
+            assertTrue(tmpFile.exists())
         }
 
     @Test
@@ -69,6 +69,23 @@ class QuickCaptureDraftStoreTest {
             draftFile.writeText("{not json", Charsets.UTF_8)
 
             assertNull(store.loadDraft())
+        }
+
+    @Test
+    fun loadDraft_tmpExistsButCorrupt_ignoredWhenDraftJsonValid() =
+        runBlocking {
+            val context: Context = ApplicationProvider.getApplicationContext()
+            val store = QuickCaptureDraftStore(context)
+            store.clearDraft()
+
+            store.saveDraft(QuickCaptureDraft(schemaVersion = 1, updatedAt = 1L, text = "ok", attachments = emptyList()))
+
+            val dir = File(context.noBackupFilesDir, "quick_capture_draft")
+            val tmpFile = File(dir, "draft.json.tmp")
+            tmpFile.parentFile?.mkdirs()
+            tmpFile.writeText("{bad json", Charsets.UTF_8)
+
+            assertEquals("ok", store.loadDraft()!!.text)
         }
 
     @Test
@@ -147,7 +164,11 @@ class QuickCaptureDraftStoreTest {
             store.clearDraft()
 
             val draftFile = File(File(context.noBackupFilesDir, "quick_capture_draft"), "draft.json")
+            val tmpFile = File(File(context.noBackupFilesDir, "quick_capture_draft"), "draft.json.tmp")
+            val legacyBak = File(File(context.noBackupFilesDir, "quick_capture_draft"), "draft.json.bak")
             assertTrue(!draftFile.exists())
+            assertTrue(!tmpFile.exists())
+            assertTrue(!legacyBak.exists())
             assertTrue(!attachmentsDir.exists())
         }
 

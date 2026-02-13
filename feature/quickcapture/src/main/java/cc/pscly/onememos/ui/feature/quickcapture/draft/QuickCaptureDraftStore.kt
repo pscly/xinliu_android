@@ -3,7 +3,6 @@ package cc.pscly.onememos.ui.feature.quickcapture.draft
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
-import android.util.AtomicFile
 import android.webkit.MimeTypeMap
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +13,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.Locale
 import kotlin.random.Random
 
@@ -29,26 +30,36 @@ class QuickCaptureDraftStore(
 
     private val draftDir: File = File(context.noBackupFilesDir, DRAFT_DIR_NAME)
     private val draftFile: File = File(draftDir, DRAFT_FILE_NAME)
+    private val draftTmpFile: File = File(draftDir, "$DRAFT_FILE_NAME.tmp")
+    // 兼容历史 AtomicFile 落盘（AtomicFile 会生成 draft.json.bak）。
+    private val draftLegacyBakFile: File = File(draftDir, "$DRAFT_FILE_NAME.bak")
     private val attachmentsDir: File = File(context.filesDir, ATTACHMENTS_DIR_NAME)
 
     suspend fun loadDraft(): QuickCaptureDraft? =
         withContext(ioDispatcher) {
             // 避免“主线程持锁 + withContext(IO)”导致的恢复/释放锁依赖主线程，从而在 runBlocking 场景死锁。
             mutex.withLock {
-                val raw =
-                    runCatching {
-                        AtomicFile(draftFile)
-                            .openRead()
-                            .use { input ->
-                                val bytes = input.readBytes()
-                                String(bytes, Charsets.UTF_8)
-                            }
+                // 读取顺序：draft.json -> draft.json.tmp（上次写入中断残留）-> draft.json.bak（旧 AtomicFile 备份）
+                val candidates = listOf(draftFile, draftTmpFile, draftLegacyBakFile)
+                for (f in candidates) {
+                    val raw = runCatching { f.readText(Charsets.UTF_8) }.getOrNull()?.trim().orEmpty()
+                    if (raw.isBlank()) continue
+
+                    val draft = runCatching { decodeDraft(json = raw) }.getOrNull() ?: continue
+
+                    // 若从 tmp/bak 恢复，顺手迁移到正式 draft.json，避免后续 banner/恢复逻辑出现“文件存在但不可读”。
+                    if (f != draftFile) {
+                        runCatching {
+                            draftDir.mkdirs()
+                            atomicWriter.write(target = draftFile, bytes = raw.toByteArray(Charsets.UTF_8))
+                        }
+                        runCatching { draftTmpFile.delete() }
+                        runCatching { draftLegacyBakFile.delete() }
+                        cleanupOrphanAttachments(keep = draft.attachments)
                     }
-                        .getOrNull()
-                        ?.trim()
-                        .orEmpty()
-                if (raw.isBlank()) return@withLock null
-                return@withLock runCatching { decodeDraft(json = raw) }.getOrNull()
+                    return@withLock draft
+                }
+                return@withLock null
             }
         }
 
@@ -67,6 +78,10 @@ class QuickCaptureDraftStore(
                 val json = encodeDraft(draft = normalized)
                 atomicWriter.write(target = draftFile, bytes = json.toByteArray(Charsets.UTF_8))
 
+                // 成功写入后，清理由旧实现/失败写入残留的临时文件。
+                runCatching { draftTmpFile.delete() }
+                runCatching { draftLegacyBakFile.delete() }
+
                 cleanupOrphanAttachments(keep = normalized.attachments)
             }
         }
@@ -76,7 +91,8 @@ class QuickCaptureDraftStore(
         withContext(ioDispatcher) {
             mutex.withLock {
                 runCatching { draftFile.delete() }
-                runCatching { File(draftDir, "$DRAFT_FILE_NAME.bak").delete() }
+                runCatching { draftTmpFile.delete() }
+                runCatching { draftLegacyBakFile.delete() }
                 runCatching { attachmentsDir.deleteRecursively() }
                 Unit
             }
@@ -227,18 +243,22 @@ class QuickCaptureDraftStore(
             bytes: ByteArray,
         ) {
             target.parentFile?.mkdirs()
-            val atomicFile = AtomicFile(target)
-            var out: FileOutputStream? = null
-            try {
-                out = atomicFile.startWrite()
+            // 原子写：同目录写 draft.json.tmp，再 rename 覆盖 draft.json。
+            val tmp = File(target.parentFile, "${target.name}.tmp")
+            FileOutputStream(tmp).use { out ->
                 out.write(bytes)
                 runCatching { out.fd.sync() }
-                atomicFile.finishWrite(out)
-            } catch (e: Exception) {
-                if (out != null) {
-                    runCatching { atomicFile.failWrite(out) }
-                }
-                throw e
+            }
+            try {
+                Files.move(
+                    tmp.toPath(),
+                    target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: Exception) {
+                // 极少数文件系统可能不支持 ATOMIC_MOVE；仍保证“同目录替换 + REPLACE_EXISTING”。
+                Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
             }
         }
     }
