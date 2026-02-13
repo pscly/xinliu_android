@@ -5,9 +5,11 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import cc.pscly.onememos.core.database.dao.CollectionDao
 import cc.pscly.onememos.core.database.dao.MemoDao
 import cc.pscly.onememos.core.database.dao.TodoDao
 import cc.pscly.onememos.core.database.dao.TodoSyncDao
+import cc.pscly.onememos.core.database.entity.CollectionItemEntity
 import cc.pscly.onememos.core.database.entity.MemoAttachmentEntity
 import cc.pscly.onememos.core.database.entity.MemoEntity
 import cc.pscly.onememos.core.database.entity.TodoItemEntity
@@ -20,13 +22,16 @@ import cc.pscly.onememos.core.database.entity.TodoSyncStateEntity
     entities = [
         MemoEntity::class,
         MemoAttachmentEntity::class,
+
         TodoListEntity::class,
         TodoItemEntity::class,
         TodoOccurrenceEntity::class,
         TodoSyncOutboxEntity::class,
         TodoSyncStateEntity::class,
+
+        CollectionItemEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 @TypeConverters(RoomConverters::class)
@@ -34,6 +39,7 @@ abstract class OneMemosDatabase : RoomDatabase() {
     abstract fun memoDao(): MemoDao
     abstract fun todoDao(): TodoDao
     abstract fun todoSyncDao(): TodoSyncDao
+    abstract fun collectionDao(): CollectionDao
 
     companion object {
         val MIGRATION_3_4 =
@@ -307,6 +313,49 @@ abstract class OneMemosDatabase : RoomDatabase() {
                             PRIMARY KEY(ownerKey)
                         )
                         """.trimIndent(),
+                    )
+                }
+            }
+
+        val MIGRATION_10_11 =
+            object : Migration(10, 11) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS collection_items (
+                            ownerKey TEXT NOT NULL,
+                            id TEXT NOT NULL,
+                            itemType TEXT NOT NULL,
+                            parentId TEXT,
+                            name TEXT NOT NULL,
+                            color TEXT,
+                            refType TEXT,
+                            refId TEXT,
+                            sortOrder INTEGER NOT NULL DEFAULT 0,
+                            clientUpdatedAtMs INTEGER NOT NULL DEFAULT 0,
+                            createdAt TEXT NOT NULL,
+                            updatedAt TEXT NOT NULL,
+                            deletedAt TEXT,
+                            localOnly INTEGER NOT NULL DEFAULT 0,
+                            refLocalUuid TEXT,
+                            PRIMARY KEY(ownerKey, id)
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_collection_items_ownerKey_parentId_sortOrder ON collection_items(ownerKey, parentId, sortOrder)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_collection_items_ownerKey_deletedAt ON collection_items(ownerKey, deletedAt)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_collection_items_ownerKey_localOnly ON collection_items(ownerKey, localOnly)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_collection_items_ownerKey_refType_refId ON collection_items(ownerKey, refType, refId)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_collection_items_ownerKey_refLocalUuid ON collection_items(ownerKey, refLocalUuid)",
                     )
                 }
             }
