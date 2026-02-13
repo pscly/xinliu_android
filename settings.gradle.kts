@@ -39,6 +39,7 @@ include(":core:performance")
 
 // feature
 include(":feature:home")
+include(":feature:collections")
 include(":feature:editor")
 include(":feature:settings")
 include(":feature:sharecard")
