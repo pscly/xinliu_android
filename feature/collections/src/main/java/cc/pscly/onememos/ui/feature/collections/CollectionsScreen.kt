@@ -64,16 +64,20 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.model.CollectionItem
 import cc.pscly.onememos.domain.model.CollectionItemType
 import cc.pscly.onememos.domain.model.CollectionRefType
+import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.InkChip
+import cc.pscly.onememos.ui.component.MarkdownPreview
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealButton
+import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.launch
 
@@ -390,8 +394,23 @@ fun CollectionsScreen(
                     items(itemsToRender, key = { it.id }) { item ->
                         val selected = selectedIds.contains(item.id)
                         val index = reorderIndex[item.id] ?: -1
+
+                        // NOTE_REF 的 targetId 必须与点击打开逻辑保持一致：refId ?: refLocalUuid。
+                        // 这里仅做 Map 查找，不引入 per-item Flow collect（避免 N+1 Flow）。
+                        val noteRefTargetId =
+                            if (item.itemType == CollectionItemType.NOTE_REF && item.refType == CollectionRefType.MEMOS_MEMO) {
+                                item.refId ?: item.refLocalUuid
+                            } else {
+                                null
+                            }
+                        val noteRefMemo =
+                            noteRefTargetId
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { uiState.memoByRefTargetId[it] }
                         CollectionItemCard(
                             item = item,
+                            noteRefTargetId = noteRefTargetId,
+                            noteRefMemo = noteRefMemo,
                             selected = selected,
                             selectionMode = selectionMode,
                             reorderMode = reorderMode,
@@ -622,6 +641,8 @@ private fun BreadcrumbBar(
 @Composable
 private fun CollectionItemCard(
     item: CollectionItem,
+    noteRefTargetId: String?,
+    noteRefMemo: Memo?,
     selected: Boolean,
     selectionMode: Boolean,
     reorderMode: Boolean,
@@ -640,6 +661,29 @@ private fun CollectionItemCard(
 
     val name = item.name.trim().ifBlank { "（无标题）" }
     val color = parseColorOrNull(item.color)
+
+    val meta =
+        when (item.itemType) {
+            CollectionItemType.FOLDER -> {
+                if (item.localOnly) "冲突副本" else "文件夹"
+            }
+
+            CollectionItemType.NOTE_REF -> {
+                val sync =
+                    if (item.refType == CollectionRefType.MEMOS_MEMO && item.refId == null && item.refLocalUuid != null) {
+                        "待同步"
+                    } else {
+                        null
+                    }
+                val base =
+                    when (item.refType) {
+                        CollectionRefType.MEMOS_MEMO -> "随笔引用"
+                        CollectionRefType.FLOW_NOTE -> "Flow 引用"
+                        null -> "引用"
+                    }
+                listOfNotNull(base, sync, if (item.localOnly) "冲突副本" else null).joinToString(" · ")
+            }
+        }
 
     InkCard(
         onClick = onClick,
@@ -669,40 +713,71 @@ private fun CollectionItemCard(
             Spacer(modifier = Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                )
+                if (item.itemType == CollectionItemType.NOTE_REF && item.refType == CollectionRefType.MEMOS_MEMO) {
+                    // NOTE_REF（memos_memo）：展示“主页同款内容预览 + 时间”，不展示 tag chips。
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
 
-                val meta =
-                    when (item.itemType) {
-                        CollectionItemType.FOLDER -> {
-                            if (item.localOnly) "冲突副本" else "文件夹"
+                    val memo = noteRefMemo
+                    if (memo != null && !noteRefTargetId.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        MarkdownPreview(
+                            markdown = memo.content,
+                            placeholder = "(无文字内容)",
+                            maxBlocks = 3,
+                            maxLines = 4,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = meta,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = DateTimeFormatter.formatYmdHm(memo.createdAt),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1,
+                            )
                         }
-                        CollectionItemType.NOTE_REF -> {
-                            val sync =
-                                if (item.refType == CollectionRefType.MEMOS_MEMO && item.refId == null && item.refLocalUuid != null) {
-                                    "待同步"
-                                } else {
-                                    null
-                                }
-                            val base =
-                                when (item.refType) {
-                                    CollectionRefType.MEMOS_MEMO -> "随笔引用"
-                                    CollectionRefType.FLOW_NOTE -> "Flow 引用"
-                                    null -> "引用"
-                                }
-                            listOfNotNull(base, sync, if (item.localOnly) "冲突副本" else null).joinToString(" · ")
-                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "引用内容不可用/待同步",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
-
-                Text(
-                    text = meta,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
+                } else {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = meta,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
 
             if (reorderMode) {

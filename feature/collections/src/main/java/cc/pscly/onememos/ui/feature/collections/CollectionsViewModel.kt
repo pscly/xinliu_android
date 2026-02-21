@@ -1,11 +1,16 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package cc.pscly.onememos.ui.feature.collections
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.domain.model.CollectionItemType
 import cc.pscly.onememos.domain.model.CollectionItem
+import cc.pscly.onememos.domain.model.CollectionRefType
 import cc.pscly.onememos.domain.model.LoginMode
+import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.repository.CollectionsRepository
+import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -13,11 +18,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class BreadcrumbSegment(
     val id: String?,
@@ -35,6 +43,9 @@ data class CollectionsUiState(
     val currentParentId: String? = null,
     val breadcrumb: List<BreadcrumbSegment> = listOf(BreadcrumbSegment(id = null, label = "根目录")),
     val items: List<CollectionItem> = emptyList(),
+    // NOTE_REF 引用的目标 Memo：key 为 targetId（与 UI 点击规则一致：refId ?: refLocalUuid）。
+    // 只在 ViewModel 层集中加载/缓存，避免在 LazyColumn item 内对每个条目单独 collect Flow（N+1 Flow）。
+    val memoByRefTargetId: Map<String, Memo> = emptyMap(),
     val folderOptions: List<FolderOption> = emptyList(),
     val folderParentById: Map<String, String?> = emptyMap(),
 )
@@ -43,6 +54,7 @@ data class CollectionsUiState(
 class CollectionsViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val collectionsRepository: CollectionsRepository,
+    private val memoRepository: MemoRepository,
 ) : ViewModel() {
     private val enabledFlow =
         settingsRepository.settings
@@ -69,22 +81,72 @@ class CollectionsViewModel @Inject constructor(
                 initialValue = emptyList(),
             )
 
+    private val _memoByRefTargetId = MutableStateFlow<Map<String, Memo>>(emptyMap())
+    private val memoByRefTargetId: StateFlow<Map<String, Memo>> = _memoByRefTargetId.asStateFlow()
+
+    init {
+        // 简单缓存策略：仅保留“当前文件夹 children 里仍然需要”的 key，避免 map 随历史浏览无限增长。
+        // 当 children 变化时：先裁剪缓存，再仅对缺失的 targetId 做一次性 getMemo() 补齐。
+        viewModelScope.launch {
+            children
+                .map(::collectNeededMemoRefTargetIds)
+                .distinctUntilChanged()
+                .collectLatest { neededIds ->
+                    _memoByRefTargetId.update { old -> old.filterKeys { k -> neededIds.contains(k) } }
+
+                    val missing = neededIds - _memoByRefTargetId.value.keys
+                    if (missing.isEmpty()) return@collectLatest
+
+                    // 这里是集中式批量加载：不在 UI item 内单独订阅 Flow，也不为每个条目创建独立 collector。
+                    val next = _memoByRefTargetId.value.toMutableMap()
+                    for (targetId in missing) {
+                        val memo =
+                            try {
+                                memoRepository.getMemo(uuid = targetId)
+                            } catch (_: Throwable) {
+                                // 读取失败时保持 UI 可用：后续由 UI 用占位展示。
+                                null
+                            }
+                        if (memo != null) {
+                            next[targetId] = memo
+                        }
+                    }
+                    _memoByRefTargetId.value = next
+                }
+        }
+    }
+
     val uiState: StateFlow<CollectionsUiState> =
-        combine(enabledFlow, _currentParentId, children, allItems) { ok, parentId, items, all ->
-            CollectionsUiState(
-                enabled = ok,
-                currentParentId = parentId,
-                breadcrumb = buildBreadcrumb(currentParentId = parentId, all = all),
-                items = items,
-                folderOptions = buildFolderOptions(items = all),
-                folderParentById = buildFolderParentById(items = all),
-            )
+        combine(
+            combine(enabledFlow, _currentParentId, children, allItems) { ok, parentId, items, all ->
+                CollectionsUiState(
+                    enabled = ok,
+                    currentParentId = parentId,
+                    breadcrumb = buildBreadcrumb(currentParentId = parentId, all = all),
+                    items = items,
+                    folderOptions = buildFolderOptions(items = all),
+                    folderParentById = buildFolderParentById(items = all),
+                )
+            },
+            memoByRefTargetId,
+        ) { base, memosByTargetId ->
+            base.copy(memoByRefTargetId = memosByTargetId)
         }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = CollectionsUiState(),
             )
+
+    private fun collectNeededMemoRefTargetIds(items: List<CollectionItem>): Set<String> =
+        items
+            .asSequence()
+            .filter { it.itemType == CollectionItemType.NOTE_REF }
+            .filter { it.refType == CollectionRefType.MEMOS_MEMO }
+            .mapNotNull { it.refId ?: it.refLocalUuid }
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toSet()
 
     fun enterFolder(folderId: String) {
         _currentParentId.value = folderId

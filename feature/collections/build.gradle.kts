@@ -54,4 +54,6 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     testImplementation(libs.junit)
+    // ViewModel 单测需要替换 Dispatchers.Main（viewModelScope 依赖 Main dispatcher）。
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }
