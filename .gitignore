@@ -49,3 +49,8 @@ Thumbs.db
 kotlin-lsp.cmd
 **/.serena/
 # **/.sisyphus/
+
+# .sisyphus 中会生成大量本地证据/临时草稿，默认不入库
+.sisyphus/evidence/
+.sisyphus/notepads/jinnang-collections/
+.sisyphus/plans/jinnang-collections.md
