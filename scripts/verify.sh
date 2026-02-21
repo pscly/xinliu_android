@@ -12,6 +12,8 @@ verify.sh：Linux 版本门禁脚本
 默认检查（推荐）：
   - :app:assembleDebug
   - :app:testDebugUnitTest
+  - :feature:home:testDebugUnitTest
+  - :feature:collections:testDebugUnitTest
   - :app:lintDebug
   - :app:assembleBenchmark
 
@@ -40,6 +42,8 @@ common_args=(
 
 ./gradlew :app:assembleDebug "${common_args[@]}" "$@"
 ./gradlew :app:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :feature:home:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :feature:collections:testDebugUnitTest "${common_args[@]}" "$@"
 ./gradlew :app:lintDebug "${common_args[@]}" "$@"
 
 # 经验坑：lint/debug 等任务跑完后，Gradle daemon 可能因内存碎片化导致 benchmark 的 D8 mergeDex OOM。
