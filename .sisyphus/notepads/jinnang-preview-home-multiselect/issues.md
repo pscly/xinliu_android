@@ -18,3 +18,16 @@
 ## 2026-02-21 - 多选“分享合并文本”可能触发 TransactionTooLargeException
 - 风险：合并全文后字符串可能非常大，部分机型/ROM 在 `Intent.EXTRA_TEXT` 走 Binder 传输时可能抛 `TransactionTooLargeException`。
 - 记录：已在 `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt` 的 `putExtra(Intent.EXTRA_TEXT, ...)` 附近添加中文注释提示；后续可改为“导出到文件再分享”。
+
+## 2026-02-21 - feature:collections 单测 paging* 空实现的类型推断失败
+- 现象：在 FakeMemoRepository 里用 `override fun pagingMemos(...) = emptyFlow()` 会触发 Kotlin 编译错误：`Not enough information to infer type variable T`
+- 原因：返回类型是 `Flow<PagingData<Memo>>`，表达式体 `emptyFlow()` 无法推断泛型
+- 处理：显式写出返回类型：`override fun pagingMemos(...): Flow<PagingData<Memo>> = emptyFlow()`（`pagingArchivedMemos` 同理）
+
+## 2026-02-21 - feature:collections 单测误把 import 写到文件末尾
+- 现象：Kotlin 编译报错：`imports are only allowed in the beginning of file`
+- 处理：把 import 移到文件顶部（package 下方），避免 apply_patch 插入点匹配失误导致的“尾部 import”
+
+## 2026-02-21 - lsp_diagnostics 仍可能 initialize timeout
+- 现象：对 `CollectionsScreen.kt` 执行 `lsp_diagnostics` 时，LSP initialize 请求超时
+- 处理：以 Gradle 构建作为主验证（`:app:assembleDebug` + `:app:assembleBenchmark`）

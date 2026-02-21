@@ -38,3 +38,15 @@
 - UI 入口：`feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt` 的 `Scaffold(bottomBar = { ... })`，selectionMode 操作区新增 `TextButton("分享")`
 - ViewModel 批量拉取并复用 builder：`feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeViewModel.kt` 的 `requestBatchShareMergedText(selectedIds)` -> `HomeShareTextBuilder.build(memos)`
 - 一次性事件：`HomeEvent.ShareTextReady(text)`（`feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeBatchActionModels.kt`），由 UI 层 `Intent(Intent.ACTION_SEND)` + `putExtra(Intent.EXTRA_TEXT, text)` 触发系统分享，并在结束后 `selectionState.exit()`
+
+## 2026-02-21 - Collections NOTE_REF 批量加载/缓存被引用 Memo（避免 N+1 Flow）
+- 统一落点：`feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt`
+- UIState 扩展：`CollectionsUiState.memoByRefTargetId: Map<String, Memo>`；key 规则复用 UI：`refId ?: refLocalUuid`
+- 避免 N+1 Flow 的做法：在 ViewModel 内对 `children` 做一次收敛 collector，批量计算需要的 targetId，再对缺失项逐个 `memoRepository.getMemo(targetId)`（suspend）补齐；UI 不做 per-item collect
+- 简单缓存裁剪策略：每次 `children` 变化先把缓存裁剪到“当前 children 仍需要的 key”，再加载缺失项，防止 map 随历史浏览无限增长
+
+## 2026-02-21 - Collections NOTE_REF 卡片渲染对齐 Home 预览（无标签 chips）
+- 渲染落点：`feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt` 的 `CollectionItemCard()` 分支
+- targetId 规则：`val target = item.refId ?: item.refLocalUuid`；通过 `uiState.memoByRefTargetId[target]` 查找（仅 Map 访问，不引入 per-item Flow collect）
+- 预览与时间：使用 `MarkdownPreview(markdown = memo.content, maxBlocks = 3, maxLines = 4)`；时间用 `DateTimeFormatter.formatYmdHm(memo.createdAt)`
+- 兜底：memo 缺失/待同步 -> `item.name` + “引用内容不可用/待同步”；`refType == FLOW_NOTE` 维持占位行为
