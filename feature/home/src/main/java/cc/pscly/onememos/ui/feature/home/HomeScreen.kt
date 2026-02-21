@@ -2,6 +2,9 @@
 
 package cc.pscly.onememos.ui.feature.home
 
+import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -120,11 +123,15 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val globalSyncState by viewModel.globalSyncState.collectAsStateWithLifecycle()
+    val batchBusy by viewModel.batchBusy.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSearchPopup by remember { mutableStateOf(false) }
     var moreActionsTarget by remember { mutableStateOf<Memo?>(null) }
     var addToCollectionsTarget by remember { mutableStateOf<Memo?>(null) }
+    var showAddToCollectionsBatchDialog by remember { mutableStateOf(false) }
     var showCollectionsDisabledDialog by remember { mutableStateOf(false) }
+    var showBatchArchiveOrRestoreConfirm by remember { mutableStateOf(false) }
+    var selectionState by remember { mutableStateOf(HomeSelectionState()) }
     val (initialIndex, initialOffset) = viewModel.peekListPosition()
     val listState =
         rememberLazyListState(
@@ -133,6 +140,44 @@ fun HomeScreen(
         )
     val scope = rememberCoroutineScope()
     val haptics = rememberOneMemosHaptics()
+    val selectionMode = selectionState.selectionMode
+    val context = LocalContext.current
+
+    fun toast(text: String) {
+        Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                is HomeEvent.BatchActionFinished -> {
+                    val summary = event.summary
+                    toast("成功 ${summary.successCount} 条，失败 ${summary.failedCount} 条")
+                    selectionState = selectionState.exit()
+                    showBatchArchiveOrRestoreConfirm = false
+                }
+
+                is HomeEvent.ShareTextReady -> {
+                    val i =
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            // 注意：全文合并后可能非常大；若遇到 TransactionTooLargeException，可改为“先导出文件再分享”。
+                            putExtra(Intent.EXTRA_TEXT, event.text)
+                        }
+                    runCatching {
+                        context.startActivity(Intent.createChooser(i, "分享随笔"))
+                    }.onFailure {
+                        toast("没有可用的分享方式")
+                    }
+                    selectionState = selectionState.exit()
+                }
+            }
+        }
+    }
+
+    BackHandler(enabled = selectionMode) {
+        selectionState = selectionState.exit()
+    }
 
     // 1B：滚动中仅渲染纯文本预览，停稳 ~200ms 后再切回 Markdown 样式预览。
     var enableRichPreview by remember { mutableStateOf(false) }
@@ -155,6 +200,13 @@ fun HomeScreen(
     }
     val hasQuery = uiState.filter.query.trim().isNotBlank()
     val hasTagFilter = uiState.filter.selectedTags.isNotEmpty()
+
+    LaunchedEffect(mode, uiState.filter.query, uiState.filter.selectedTags) {
+        if (!selectionState.selectionMode) return@LaunchedEffect
+        selectionState = selectionState.exit()
+        moreActionsTarget = null
+        showBatchArchiveOrRestoreConfirm = false
+    }
 
     // 启动体验：先渲染本地列表，再后台触发同步（避免冷启动白屏/卡顿）。
     var autoSyncTriggered by remember { mutableStateOf(false) }
@@ -197,17 +249,30 @@ fun HomeScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            text = title,
+                            text = if (selectionMode) "已选 ${selectionState.selectedIds.size}" else title,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = onOpenDrawer) {
-                            Icon(imageVector = Icons.Filled.Menu, contentDescription = "菜单")
+                        IconButton(
+                            onClick = {
+                                if (selectionMode) {
+                                    haptics.tick()
+                                    selectionState = selectionState.exit()
+                                } else {
+                                    onOpenDrawer()
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = if (selectionMode) Icons.Filled.Close else Icons.Filled.Menu,
+                                contentDescription = if (selectionMode) "退出多选" else "菜单",
+                            )
                         }
                     },
                     actions = {
+                        if (selectionMode) return@TopAppBar
                         IconButton(onClick = viewModel::requestSync, enabled = !isSyncing) {
                             if (isSyncing) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -280,6 +345,81 @@ fun HomeScreen(
                 )
             }
         },
+        bottomBar = {
+            if (!selectionMode) return@Scaffold
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp,
+                shadowElevation = 8.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = "操作区",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    TextButton(
+                        enabled = !batchBusy,
+                        onClick = {
+                            haptics.tick()
+                            selectionState = selectionState.exit()
+                        },
+                    ) {
+                        Text("取消")
+                    }
+
+                    TextButton(
+                        enabled = !batchBusy,
+                        onClick = {
+                            haptics.tick()
+                            showBatchArchiveOrRestoreConfirm = true
+                        },
+                    ) {
+                        Text(if (mode == HomeScreenMode.ACTIVE) "归档" else "恢复")
+                    }
+
+                    TextButton(
+                        enabled = !batchBusy,
+                        onClick = {
+                            haptics.tick()
+                            if (uiState.collectionsEnabled) {
+                                showAddToCollectionsBatchDialog = true
+                            } else {
+                                showCollectionsDisabledDialog = true
+                            }
+                        },
+                    ) {
+                        Text("放入锦囊")
+                    }
+
+                    TextButton(
+                        enabled = !batchBusy,
+                        onClick = {
+                            if (selectionState.selectedIds.isEmpty()) {
+                                toast("未选择任何随笔")
+                                return@TextButton
+                            }
+                            haptics.tick()
+                            viewModel.requestBatchShareMergedText(selectionState.selectedIds)
+                        },
+                    ) {
+                        Text("分享")
+                    }
+                }
+            }
+        },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 AnimatedVisibility(visible = showScrollToTop) {
@@ -326,6 +466,26 @@ fun HomeScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+
+                    InkCard(
+                        onClick = {
+                            haptics.tick()
+                            moreActionsTarget = null
+                            selectionState = selectionState.enter(target.uuid)
+                        },
+                        onLongClick = null,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "多选",
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                            )
+                        }
+                    }
 
                     InkCard(
                         onClick = {
@@ -394,6 +554,65 @@ fun HomeScreen(
             AddToCollectionsDialog(
                 memo = addToCollectionsTarget!!,
                 onDismiss = { addToCollectionsTarget = null },
+            )
+        }
+
+        if (showAddToCollectionsBatchDialog) {
+            val selectedIds = selectionState.selectedIds
+            val selectedMemosSnapshot = pagingItems.itemSnapshotList.items.filter { it.uuid in selectedIds }
+            AddToCollectionsBatchDialog(
+                totalSelectedCount = selectedIds.size,
+                selectedMemos = selectedMemosSnapshot,
+                onAllSuccess = {
+                    selectionState = selectionState.exit()
+                },
+                onDismiss = { showAddToCollectionsBatchDialog = false },
+            )
+        }
+
+        if (showBatchArchiveOrRestoreConfirm) {
+            val count = selectionState.selectedIds.size
+            val actionText = if (mode == HomeScreenMode.ACTIVE) "归档" else "恢复"
+            val titleText = if (mode == HomeScreenMode.ACTIVE) "确认归档 $count 条？" else "恢复到随笔 $count 条？"
+            val bodyText =
+                if (mode == HomeScreenMode.ACTIVE) {
+                    "归档后将从“随笔”隐藏，可在“已归档”中恢复。（共 $count 条）"
+                } else {
+                    "恢复后会重新出现在“随笔”列表，并会自动同步到服务器。（共 $count 条）"
+                }
+
+            AlertDialog(
+                onDismissRequest = { if (!batchBusy) showBatchArchiveOrRestoreConfirm = false },
+                title = { Text(titleText) },
+                text = { Text(bodyText) },
+                confirmButton = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (batchBusy) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                        }
+                        TextButton(
+                            enabled = !batchBusy,
+                            onClick = {
+                                haptics.confirm()
+                                viewModel.requestBatchArchiveOrRestore(mode = mode, selectedIds = selectionState.selectedIds)
+                            },
+                        ) {
+                            Text(actionText)
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !batchBusy,
+                        onClick = { showBatchArchiveOrRestoreConfirm = false },
+                    ) {
+                        Text("取消")
+                    }
+                },
             )
         }
 
@@ -514,15 +733,29 @@ fun HomeScreen(
                                 devKeywordsRaw = uiState.devAutoTagLineKeywords,
                                 showAutoTagLineInHome = uiState.devShowAutoTagLineInHome,
                                 enableRichPreview = renderRichPreview,
+                                selectionMode = selectionMode,
+                                selected = selectionState.selectedIds.contains(memo.uuid),
                                 onOpenMemo = {
-                                    viewModel.captureListPosition(
-                                        index = listState.firstVisibleItemIndex,
-                                        offset = listState.firstVisibleItemScrollOffset,
-                                    )
-                                    onOpenMemo(memo.uuid)
+                                    if (selectionMode) {
+                                        haptics.tick()
+                                        selectionState = selectionState.toggle(memo.uuid)
+                                    } else {
+                                        viewModel.captureListPosition(
+                                            index = listState.firstVisibleItemIndex,
+                                            offset = listState.firstVisibleItemScrollOffset,
+                                        )
+                                        onOpenMemo(memo.uuid)
+                                    }
                                 },
-                                onLongShare = { moreActionsTarget = memo },
-                                onToggleTag = viewModel::toggleTag,
+                                onLongShare = {
+                                    if (selectionMode) {
+                                        haptics.tick()
+                                        selectionState = selectionState.toggle(memo.uuid)
+                                    } else {
+                                        moreActionsTarget = memo
+                                    }
+                                },
+                                onToggleTag = { tag -> if (!selectionMode) viewModel.toggleTag(tag) },
                             )
                         }
                     }

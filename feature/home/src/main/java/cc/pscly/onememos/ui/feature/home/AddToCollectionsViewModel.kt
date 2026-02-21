@@ -2,12 +2,14 @@ package cc.pscly.onememos.ui.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cc.pscly.onememos.domain.derived.MarkdownDeriver
 import cc.pscly.onememos.domain.model.CollectionItem
 import cc.pscly.onememos.domain.model.CollectionItemType
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.repository.CollectionsRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.ui.util.AutoTagLineHider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +29,8 @@ class AddToCollectionsViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val collectionsRepository: CollectionsRepository,
 ) : ViewModel() {
+    private val defaultAutoTagKeywords: List<String> = AutoTagLineHider.parseKeywords(null)
+
     val enabled: StateFlow<Boolean> =
         settingsRepository.settings
             .map { s -> s.loginMode == LoginMode.BACKEND && s.token.isNotBlank() }
@@ -64,8 +68,44 @@ class AddToCollectionsViewModel @Inject constructor(
             parentId = parentId,
             memo = memo,
             color = null,
-            displayName = null,
+            displayName = buildDisplayName(memo),
         )
+
+    suspend fun addMemoRefs(
+        parentId: String?,
+        memos: List<Memo>,
+    ): Int {
+        if (memos.isEmpty()) return 0
+
+        var success = 0
+        for (memo in memos) {
+            val id =
+                collectionsRepository.addMemoRef(
+                    parentId = parentId,
+                    memo = memo,
+                    color = null,
+                    displayName = buildDisplayName(memo),
+                )
+            if (id.isNotBlank()) success++
+        }
+        return success
+    }
+
+    private fun buildDisplayName(memo: Memo): String {
+        val candidate =
+            MarkdownDeriver.plainPreviewSkippingLinesEndingWithKeywords(
+                markdown = memo.content,
+                keywords = defaultAutoTagKeywords,
+                maxChars = 80,
+            )
+                .trim()
+
+        return if (candidate.isBlank()) {
+            "随笔"
+        } else {
+            candidate
+        }
+    }
 
     private fun buildFolderOptions(items: List<CollectionItem>): List<FolderOption> {
         val folders =

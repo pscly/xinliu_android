@@ -26,9 +26,14 @@ import cc.pscly.onememos.ui.filter.MemoFilterStore
 import cc.pscly.onememos.ui.filter.TagMatchMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -38,6 +43,7 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -76,6 +82,13 @@ class HomeViewModel @Inject constructor(
     // 主页列表滚动位置：用于从详情页返回时恢复到进入前的位置，避免每次回到顶部。
     // 这里不用 SavedStateHandle，是因为 HOME/ARCHIVED 各自是独立 back stack entry（hiltViewModel），且需求主要是“返回”场景。
     private val listPositionStore = HomeListPositionStore()
+
+    private val batchInFlight = AtomicBoolean(false)
+    private val _batchBusy = MutableStateFlow(false)
+    val batchBusy: StateFlow<Boolean> = _batchBusy.asStateFlow()
+
+    private val _events = MutableSharedFlow<HomeEvent>(extraBufferCapacity = 1)
+    val events: SharedFlow<HomeEvent> = _events.asSharedFlow()
 
     private val browseScopeFlow: Flow<MemoRepository.BrowseScope> =
         settingsRepository.settings
@@ -232,6 +245,85 @@ class HomeViewModel @Inject constructor(
 
     fun requestSync() {
         syncScheduler.requestSync()
+    }
+
+    fun requestBatchArchiveOrRestore(
+        mode: HomeScreenMode,
+        selectedIds: Set<String>,
+    ) {
+        val stableIds = selectedIds.asSequence().map { it.trim() }.filter { it.isNotBlank() }.distinct().toList()
+        if (stableIds.isEmpty()) return
+
+        if (!batchInFlight.compareAndSet(false, true)) return
+
+        viewModelScope.launch {
+            _batchBusy.value = true
+            try {
+                val action = if (mode == HomeScreenMode.ACTIVE) HomeBatchAction.Archive else HomeBatchAction.Unarchive
+                val (success, failed) =
+                    withContext(Dispatchers.IO) {
+                        var ok = 0
+                        var bad = 0
+                        stableIds.forEach { uuid ->
+                            val exists = runCatching { memoRepository.getMemo(uuid) }.getOrNull()
+                            if (exists == null) {
+                                bad += 1
+                                return@forEach
+                            }
+
+                            val succeeded =
+                                runCatching {
+                                    when (action) {
+                                        HomeBatchAction.Archive -> memoRepository.archiveMemo(uuid)
+                                        HomeBatchAction.Unarchive -> memoRepository.unarchiveMemo(uuid)
+                                    }
+                                }.isSuccess
+
+                            if (succeeded) ok += 1 else bad += 1
+                        }
+                        ok to bad
+                    }
+
+                _events.tryEmit(
+                    HomeEvent.BatchActionFinished(
+                        HomeBatchActionSummary(
+                            action = action,
+                            successCount = success,
+                            failedCount = failed,
+                        ),
+                    ),
+                )
+            } finally {
+                _batchBusy.value = false
+                batchInFlight.set(false)
+            }
+        }
+    }
+
+    fun requestBatchShareMergedText(selectedIds: Set<String>) {
+        val stableIds = selectedIds.asSequence().map { it.trim() }.filter { it.isNotBlank() }.distinct().toList()
+        if (stableIds.isEmpty()) return
+
+        if (!batchInFlight.compareAndSet(false, true)) return
+
+        viewModelScope.launch {
+            _batchBusy.value = true
+            try {
+                val memos =
+                    withContext(Dispatchers.IO) {
+                        stableIds.mapNotNull { uuid -> runCatching { memoRepository.getMemo(uuid) }.getOrNull() }
+                    }
+
+                val ordered =
+                    memos.sortedWith(compareByDescending<Memo> { it.createdAt }.thenBy { it.uuid })
+
+                val shareText = HomeShareTextBuilder.build(ordered)
+                _events.tryEmit(HomeEvent.ShareTextReady(text = shareText))
+            } finally {
+                _batchBusy.value = false
+                batchInFlight.set(false)
+            }
+        }
     }
 
     fun setQuery(query: String) {

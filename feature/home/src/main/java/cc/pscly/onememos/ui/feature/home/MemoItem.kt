@@ -2,6 +2,8 @@
 
 package cc.pscly.onememos.ui.feature.home
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -15,6 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,11 +56,19 @@ internal fun MemoItem(
     devKeywordsRaw: String,
     showAutoTagLineInHome: Boolean,
     enableRichPreview: Boolean,
+    selectionMode: Boolean,
+    selected: Boolean,
     onOpenMemo: () -> Unit,
     onLongShare: () -> Unit,
     onToggleTag: (String) -> Unit,
 ) {
-    InkCard(onClick = onOpenMemo, onLongClick = onLongShare) {
+    val selectedBorder = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.70f))
+    val cardShape = RoundedCornerShape(14.dp)
+    InkCard(
+        modifier = if (selected) Modifier.border(selectedBorder, cardShape) else Modifier,
+        onClick = onOpenMemo,
+        onLongClick = onLongShare,
+    ) {
         val tags =
             // 避免把大字符串（content）作为 remember key，降低 equals 比较的潜在开销。
             remember(memo.tags, memo.uuid, memo.updatedAt) {
@@ -69,7 +83,7 @@ internal fun MemoItem(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 visibleTags.forEach { t ->
-                    TagChip(tag = t, onClick = { onToggleTag(t) })
+                    TagChip(tag = t, onClick = if (selectionMode) null else ({ onToggleTag(t) }))
                 }
                 if (moreTags > 0) {
                     TagChip(tag = "+$moreTags", label = "+$moreTags")
@@ -352,6 +366,15 @@ internal fun MemoItem(
                 Spacer(modifier = Modifier.width(10.dp))
             } else {
                 Spacer(modifier = Modifier.weight(1f))
+            }
+
+            if (selectionMode) {
+                Icon(
+                    imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                    contentDescription = if (selected) "已选" else "未选",
+                    tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
             }
 
             Text(
