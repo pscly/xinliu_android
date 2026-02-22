@@ -46,3 +46,8 @@
 - verify：`.sisyphus/evidence/task-4-verify.txt` 中包含 `verify.sh: OK`（门禁通过）。
 - benchmark APK：当前有效交付产物为 `/root/1codes/xinliu_android/app/build/outputs/apk/benchmark/2026-02-22T23-32-22.apk`。
 - adb：`.sisyphus/evidence/task-4-adb-devices.txt` 显示 `192.168.12.101:5555\tdevice`。
+
+## [2026-02-23 00:13] - 纠正：Task 4 benchmark APK 交付以最新可验证产物为准
+- 说明：由于 benchmark APK 以时间戳命名且构建/清理会导致旧产物不可复现，文档中引用的旧路径（例如 `2026-02-22T23-32-22.apk`）可能在磁盘上已不存在。
+- 当前有效交付 APK：`/root/1codes/xinliu_android/app/build/outputs/apk/benchmark/2026-02-23T00-07-55.apk`。
+- 证据：`.sisyphus/evidence/task-4-benchmark-apk-latest.txt`（包含 `ls -l` 输出）。

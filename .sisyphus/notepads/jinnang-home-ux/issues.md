@@ -56,3 +56,9 @@
 - 说明：本文件中“移除未跟踪的 plan 文件 / plan 恢复失败（不在 HEAD）”的记录已被后续证据推翻，应视为历史误记。
 - 证据：`.sisyphus/boulder.json` 的 `active_plan` 指向 `/root/1codes/xinliu_android/.sisyphus/plans/jinnang-home-ux.md`。
 - 结论：`.sisyphus/plans/jinnang-home-ux.md` 当前存在并被 boulder 选为 active_plan；无需从 git HEAD “恢复”该文件。
+
+## [2026-02-23 00:13] - 交付文档中的 benchmark APK 路径与磁盘不一致
+- 现象：文档中引用了历史时间戳 benchmark APK（例如 `.../2026-02-22T23-32-22.apk`），但磁盘上该文件可能已不存在，导致“路径看似正确但无法复现”。
+- 原因：benchmark APK 采用时间戳命名；多次构建、清理旧产物（例如 Gradle 清理/脚本清理）会移除旧时间戳文件，历史路径因此变为过时记录。
+- 当前有效路径：`/root/1codes/xinliu_android/app/build/outputs/apk/benchmark/2026-02-23T00-07-55.apk`。
+- 证据：`.sisyphus/evidence/task-4-benchmark-apk-latest.txt`（`ls -l` 输出证明文件存在）。
