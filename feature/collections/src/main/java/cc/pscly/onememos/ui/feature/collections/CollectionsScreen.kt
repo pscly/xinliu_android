@@ -3,6 +3,8 @@
 package cc.pscly.onememos.ui.feature.collections
 
 import android.widget.Toast
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +19,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -38,12 +42,14 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -55,14 +61,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,14 +85,23 @@ import cc.pscly.onememos.domain.model.CollectionItem
 import cc.pscly.onememos.domain.model.CollectionItemType
 import cc.pscly.onememos.domain.model.CollectionRefType
 import cc.pscly.onememos.domain.model.Memo
+import cc.pscly.onememos.domain.model.SyncStatus
+import cc.pscly.onememos.domain.derived.MarkdownDeriver
+import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.InkChip
 import cc.pscly.onememos.ui.component.MarkdownPreview
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealButton
+import cc.pscly.onememos.ui.component.TagChip
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class ColorOption(
     val label: String,
@@ -116,6 +138,23 @@ fun CollectionsScreen(
     var reorderMode by remember { mutableStateOf(false) }
     var reorderIds by remember { mutableStateOf<List<String>>(emptyList()) }
 
+    var selectedTags by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    val listState = rememberLazyListState()
+    var enableRichPreview by remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collectLatest { scrolling ->
+                if (scrolling) {
+                    enableRichPreview = false
+                } else {
+                    delay(200)
+                    enableRichPreview = true
+                }
+            }
+    }
+
     var showCreateFolder by remember { mutableStateOf(false) }
     var createFolderName by remember { mutableStateOf("") }
 
@@ -138,6 +177,7 @@ fun CollectionsScreen(
 
     LaunchedEffect(currentParentId) {
         selectedIds = emptySet()
+        selectedTags = emptySet()
         reorderMode = false
         reorderIds = uiState.items.map { it.id }
     }
@@ -205,11 +245,36 @@ fun CollectionsScreen(
 
     val reorderIndex = remember(reorderIds) { reorderIds.withIndex().associate { it.value to it.index } }
     val itemsToRender =
-        remember(uiState.items, reorderMode, reorderIndex) {
-            if (!reorderMode) {
-                uiState.items
-            } else {
-                uiState.items.sortedWith(compareBy({ reorderIndex[it.id] ?: Int.MAX_VALUE }, { it.sortOrder }, { it.id }))
+        remember(uiState.items, uiState.memoByRefTargetId, reorderMode, reorderIndex, selectedTags) {
+            val base =
+                if (!reorderMode) {
+                    uiState.items
+                } else {
+                    uiState.items.sortedWith(compareBy({ reorderIndex[it.id] ?: Int.MAX_VALUE }, { it.sortOrder }, { it.id }))
+                }
+
+            if (selectedTags.isEmpty()) return@remember base
+
+            base.filter { item ->
+                when (item.itemType) {
+                    CollectionItemType.FOLDER -> true
+                    CollectionItemType.NOTE_REF -> {
+                        val targetId =
+                            if (item.refType == CollectionRefType.MEMOS_MEMO) {
+                                item.refId ?: item.refLocalUuid
+                            } else {
+                                null
+                            }
+                        val memo = targetId?.takeIf { it.isNotBlank() }?.let { uiState.memoByRefTargetId[it] }
+                        val tags =
+                            if (memo != null) {
+                                if (memo.tags.isNotEmpty()) memo.tags else TagExtractor.extractAll(memo.content)
+                            } else {
+                                emptyList()
+                            }
+                        tags.any { it in selectedTags }
+                    }
+                }
             }
         }
 
@@ -366,6 +431,39 @@ fun CollectionsScreen(
                     },
                 )
 
+                if (selectedTags.isNotEmpty()) {
+                    val filterControlsEnabled = !(selectionMode || reorderMode)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LazyRow(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(selectedTags.toList(), key = { it }) { t ->
+                                TagChip(
+                                    tag = t,
+                                    selected = true,
+                                    onClick =
+                                        if (!filterControlsEnabled) {
+                                            null
+                                        } else {
+                                            ({ selectedTags = selectedTags - t })
+                                        },
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        InkChip(
+                            label = "清除",
+                            selected = false,
+                            enabled = filterControlsEnabled,
+                            onClick = { selectedTags = emptySet() },
+                        )
+                    }
+                }
+
                 if (itemsToRender.isEmpty()) {
                     InkCard(onClick = null) {
                         Text(
@@ -388,6 +486,7 @@ fun CollectionsScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().nestedScroll(paperScrollConnection),
+                    state = listState,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 12.dp),
                 ) {
@@ -411,6 +510,21 @@ fun CollectionsScreen(
                             item = item,
                             noteRefTargetId = noteRefTargetId,
                             noteRefMemo = noteRefMemo,
+                            enableRichPreview = enableRichPreview,
+                            selectedTags = selectedTags,
+                            onToggleTag =
+                                if (selectionMode || reorderMode) {
+                                    null
+                                } else {
+                                    ({ tag ->
+                                        selectedTags =
+                                            if (selectedTags.contains(tag)) {
+                                                selectedTags - tag
+                                            } else {
+                                                selectedTags + tag
+                                            }
+                                    })
+                                },
                             selected = selected,
                             selectionMode = selectionMode,
                             reorderMode = reorderMode,
@@ -643,6 +757,9 @@ private fun CollectionItemCard(
     item: CollectionItem,
     noteRefTargetId: String?,
     noteRefMemo: Memo?,
+    enableRichPreview: Boolean,
+    selectedTags: Set<String>,
+    onToggleTag: ((String) -> Unit)?,
     selected: Boolean,
     selectionMode: Boolean,
     reorderMode: Boolean,
@@ -659,7 +776,8 @@ private fun CollectionItemCard(
             CollectionItemType.NOTE_REF -> Icons.Filled.Description
         }
 
-    val name = item.name.trim().ifBlank { "（无标题）" }
+    val trimmedName = item.name.trim()
+    val displayName = trimmedName.ifBlank { "（无标题）" }
     val color = parseColorOrNull(item.color)
 
     val meta =
@@ -714,38 +832,231 @@ private fun CollectionItemCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 if (item.itemType == CollectionItemType.NOTE_REF && item.refType == CollectionRefType.MEMOS_MEMO) {
-                    // NOTE_REF（memos_memo）：展示“主页同款内容预览 + 时间”，不展示 tag chips。
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-
                     val memo = noteRefMemo
-                    if (memo != null && !noteRefTargetId.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        MarkdownPreview(
-                            markdown = memo.content,
-                            placeholder = "(无文字内容)",
-                            maxBlocks = 3,
-                            maxLines = 4,
-                            modifier = Modifier.fillMaxWidth(),
+                    if (trimmedName.isNotBlank()) {
+                        Text(
+                            text = trimmedName,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    if (memo != null && !noteRefTargetId.isNullOrBlank()) {
+                        val innerEnabled = !(selectionMode || reorderMode)
+                        val showRichPreview = enableRichPreview && innerEnabled
+
+                        val tags =
+                            remember(memo.tags, memo.uuid, memo.updatedAt) {
+                                if (memo.tags.isNotEmpty()) memo.tags else TagExtractor.extractAll(memo.content)
+                            }
+                        val visibleTags = remember(tags) { tags.take(5) }
+                        val moreTags = (tags.size - visibleTags.size).coerceAtLeast(0)
+
+                        if (visibleTags.isNotEmpty()) {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                items(visibleTags, key = { it }) { t ->
+                                    TagChip(
+                                        tag = t,
+                                        selected = selectedTags.contains(t),
+                                        onClick = onToggleTag?.takeIf { innerEnabled }?.let { cb -> ({ cb(t) }) },
+                                    )
+                                }
+                                if (moreTags > 0) {
+                                    item(key = "+$moreTags") {
+                                        TagChip(tag = "+$moreTags", label = "+$moreTags")
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
+                        val allImageThumbModels =
+                            remember(memo.attachments, memo.uuid, memo.updatedAt) {
+                                memo.attachments
+                                    .asSequence()
+                                    .filter { it.mimeType?.startsWith("image/") == true }
+                                    .mapNotNull { a ->
+                                        val cacheModel = usableFileUri(a.cacheUri)
+                                        when {
+                                            cacheModel != null -> cacheModel
+                                            !a.localUri.isNullOrBlank() -> a.localUri
+                                            else -> null
+                                        }
+                                    }
+                                    .toList()
+                            }
+                        val maxThumbs = if (showRichPreview) 2 else 1
+                        val imageThumbModels =
+                            remember(allImageThumbModels, maxThumbs) {
+                                allImageThumbModels.take(maxThumbs.coerceAtLeast(0))
+                            }
+                        val moreImages = (allImageThumbModels.size - imageThumbModels.size).coerceAtLeast(0)
+                        val thumbSizePx =
+                            with(LocalDensity.current) {
+                                if (imageThumbModels.size == 1) 76.dp.roundToPx() else 88.dp.roundToPx()
+                            }
+                        val hasOneImage = imageThumbModels.size == 1
+
+                        val contentPlaceholder =
+                            remember(allImageThumbModels, memo.attachments, memo.uuid, memo.updatedAt) {
+                                val hasImages = allImageThumbModels.isNotEmpty()
+                                val hasAttachments = memo.attachments.isNotEmpty()
+                                when {
+                                    hasImages -> "(无文字，含图片)"
+                                    hasAttachments -> "(无文字，含附件)"
+                                    else -> "(无文字内容)"
+                                }
+                            }
+                        val basePlainPreview =
+                            remember(memo.plainPreview, memo.uuid, memo.updatedAt) {
+                                memo.plainPreview.ifBlank { MarkdownDeriver.plainPreview(memo.content, maxChars = 320) }
+                            }
+                        val plainPreview =
+                            remember(basePlainPreview, contentPlaceholder) {
+                                basePlainPreview.ifBlank { contentPlaceholder }
+                            }
+
+                        if (hasOneImage) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(76.dp).clip(RoundedCornerShape(14.dp)),
+                                ) {
+                                    Surface(
+                                        modifier = Modifier.matchParentSize(),
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                    ) {}
+                                    FixedSizeThumbImage(
+                                        model = imageThumbModels.first(),
+                                        targetSizePx = thumbSizePx,
+                                        contentDescription = "图片预览",
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                    if (moreImages > 0) {
+                                        Surface(
+                                            modifier = Modifier.matchParentSize(),
+                                            color = Color.Black.copy(alpha = 0.35f),
+                                            contentColor = Color.White,
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(text = "+$moreImages", style = MaterialTheme.typography.labelLarge)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (showRichPreview) {
+                                        MarkdownPreview(
+                                            markdown = memo.content,
+                                            placeholder = contentPlaceholder,
+                                            maxBlocks = 3,
+                                            maxLines = 4,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    } else {
+                                        Text(
+                                            text = plainPreview,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            maxLines = 4,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            if (showRichPreview) {
+                                MarkdownPreview(
+                                    markdown = memo.content,
+                                    placeholder = contentPlaceholder,
+                                    maxBlocks = 4,
+                                    maxLines = 6,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            } else {
+                                Text(
+                                    text = plainPreview,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 6,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+
+                            if (imageThumbModels.size >= 2) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    imageThumbModels.forEach { model ->
+                                        Box(
+                                            modifier = Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)),
+                                        ) {
+                                            Surface(
+                                                modifier = Modifier.matchParentSize(),
+                                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                            ) {}
+                                            FixedSizeThumbImage(
+                                                model = model,
+                                                targetSizePx = thumbSizePx,
+                                                contentDescription = "图片预览",
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                        }
+                                    }
+                                    if (moreImages > 0) {
+                                        Surface(
+                                            modifier = Modifier.size(88.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(text = "+$moreImages", style = MaterialTheme.typography.titleMedium)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        val statusText =
+                            when (memo.syncStatus) {
+                                SyncStatus.LOCAL_ONLY -> "仅本地"
+                                SyncStatus.DIRTY -> "待同步"
+                                SyncStatus.SYNCING -> "同步中"
+                                SyncStatus.SYNCED -> "已同步"
+                                SyncStatus.FAILED -> "失败"
+                            }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = meta,
+                                text = statusText,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color =
+                                    when (memo.syncStatus) {
+                                        SyncStatus.LOCAL_ONLY -> MaterialTheme.colorScheme.outline
+                                        SyncStatus.DIRTY -> MaterialTheme.colorScheme.secondary
+                                        SyncStatus.SYNCING -> MaterialTheme.colorScheme.secondary
+                                        SyncStatus.SYNCED -> MaterialTheme.colorScheme.outline
+                                        SyncStatus.FAILED -> MaterialTheme.colorScheme.error
+                                    },
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
                             )
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.weight(1f))
                             Text(
                                 text = DateTimeFormatter.formatYmdHm(memo.createdAt),
                                 style = MaterialTheme.typography.bodySmall,
@@ -754,18 +1065,25 @@ private fun CollectionItemCard(
                             )
                         }
                     } else {
-                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "引用内容不可用/待同步",
+                            text = "引用的随笔不可用/待同步",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = meta,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
                 } else {
                     Text(
-                        text = name,
+                        text = displayName,
                         style = MaterialTheme.typography.bodyLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1029,4 +1347,86 @@ private fun parseColorOrNull(raw: String?): Color? {
     val s = raw?.trim().orEmpty()
     if (!s.startsWith("#")) return null
     return runCatching { Color(android.graphics.Color.parseColor(s)) }.getOrNull()
+}
+
+private fun usableFileUri(uri: String?): String? {
+    if (uri.isNullOrBlank()) return null
+    return runCatching {
+        val parsed = android.net.Uri.parse(uri)
+        if (!parsed.scheme.equals("file", ignoreCase = true)) return@runCatching null
+        val path = parsed.path ?: return@runCatching null
+        if (path.isBlank()) null else uri
+    }.getOrNull()
+}
+
+@Composable
+private fun FixedSizeThumbImage(
+    model: String,
+    targetSizePx: Int,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, model, targetSizePx) {
+        value =
+            withContext(Dispatchers.IO) {
+                decodeThumbImageBitmap(context, model, targetSizePx)
+            }
+    }
+    val b = bitmap ?: return
+    Image(
+        bitmap = b,
+        contentDescription = contentDescription,
+        modifier = modifier,
+        contentScale = ContentScale.Crop,
+    )
+}
+
+private fun decodeThumbImageBitmap(
+    context: android.content.Context,
+    model: String,
+    targetSizePx: Int,
+): ImageBitmap? {
+    if (model.isBlank()) return null
+    if (targetSizePx <= 0) return null
+
+    val uri = runCatching { Uri.parse(model) }.getOrNull() ?: return null
+    return runCatching {
+        val resolver = context.contentResolver
+
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { input ->
+            BitmapFactory.decodeStream(input, null, bounds)
+        }
+        val outW = bounds.outWidth
+        val outH = bounds.outHeight
+        if (outW <= 0 || outH <= 0) return@runCatching null
+
+        val sample = computeInSampleSize(outW, outH, targetSizePx, targetSizePx)
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+        }
+        val bmp = resolver.openInputStream(uri)?.use { input ->
+            BitmapFactory.decodeStream(input, null, opts)
+        } ?: return@runCatching null
+        bmp.asImageBitmap()
+    }.getOrNull()
+}
+
+private fun computeInSampleSize(
+    width: Int,
+    height: Int,
+    reqWidth: Int,
+    reqHeight: Int,
+): Int {
+    var inSampleSize = 1
+    if (height > reqHeight || width > reqWidth) {
+        var halfH = height / 2
+        var halfW = width / 2
+        while ((halfH / inSampleSize) >= reqHeight && (halfW / inSampleSize) >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize.coerceAtLeast(1)
 }

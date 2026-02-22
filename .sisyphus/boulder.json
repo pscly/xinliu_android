@@ -1,10 +1,12 @@
 {
-  "active_plan": "/root/1codes/xinliu_android/.sisyphus/plans/jinnang-preview-home-multiselect.md",
-  "started_at": "2026-02-21T00:54:22.259Z",
+  "active_plan": "/root/1codes/xinliu_android/.sisyphus/plans/jinnang-home-ux.md",
+  "started_at": "2026-02-21T21:29:18+08:00",
   "session_ids": [
     "ses_384897d56ffeGfGBzuHPJz4QrE",
-    "ses_38016fe86ffe9QK3Tav2l0xhVs"
+    "ses_38016fe86ffe9QK3Tav2l0xhVs",
+    "ses_37fce4cabffevuYUI7UseBBIh4",
+    "ses_37c60c70effebnaP1jyd9fAJSk"
   ],
-  "plan_name": "jinnang-preview-home-multiselect",
+  "plan_name": "jinnang-home-ux",
   "agent": "atlas"
 }
