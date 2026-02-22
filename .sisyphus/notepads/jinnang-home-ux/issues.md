@@ -27,3 +27,32 @@
 - 现状：工作区缺失 `.sisyphus/plans/jinnang-home-ux.md`，且 `git ls-tree -r --name-only HEAD .sisyphus/plans` 中不存在该文件。
 - 尝试：`git restore --source=HEAD -- .sisyphus/plans/jinnang-home-ux.md` 返回 `pathspec ... did not match any file(s) known to git`。
 - 结论：该 plan 在当前分支/HEAD 未被跟踪，无法按“从 HEAD 恢复”的要求恢复；需要确认应从哪个提交/分支恢复，或先将 plan 纳入版本控制/调整 `.sisyphus/boulder.json` 的 `active_plan`。
+
+
+## [2026-02-22] - F1 计划符合性审计：需人工确认/潜在风险
+- QA 证据：`.sisyphus/evidence/` 已包含 `task-4-verify.txt`/`task-4-benchmark-apk.txt`/`task-4-adb-devices.txt`；但未看到按计划 Task 1/2/3 的 uiautomator dump/png（可能因无设备跳过）。需确认"无 adb 设备时，仅以 `adb devices` + 门禁/构建日志作为 QA 证据"是否可接受。
+- Collections NOTE_REF 图片缩略图：当前仅使用本地可访问的 `cacheUri(file://)` 或 `localUri` 作为数据源；若附件仅存在远程信息且本地未缓存，将不会显示缩略图（但文本预览与标签仍可渲染）。需确认这是否符合"如有图片缩略图（如有）"的用户预期。
+- Home/Archived 单条更多操作覆盖面：`...` BottomSheet 当前提供"放入锦囊/墨迹卡片"。若历史"长按更多操作"还包含其他单条动作（例如复制/删除/分享等），需确认这些入口是否仍可达，避免用户感知为功能丢失。
+
+## [2026-02-22] - F2 代码质量审查：问题与风险（按严重级别）
+- 【必须修】Collections 标签筛选的热路径可能引发卡顿：`itemsToRender` 的过滤逻辑在 `selectedTags` 变化时会对每个 NOTE_REF 逐个计算 tags；当 `memo.tags` 为空时会调用 `TagExtractor.extractAll(memo.content)`，在“文件夹内 NOTE_REF 较多 + 多次点标签”的场景下容易出现明显的 O(N * 内容解析) 开销。
+  - 位置：`feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt`（`itemsToRender` 的 `base.filter` 分支）。
+  - 建议方向：把 `targetId -> tags` 的派生结果做一次性缓存（随 `uiState.memoByRefTargetId` 变化更新），筛选时只做集合包含判断，避免每次切换筛选都重新解析正文。
+- 【建议修】Collections NOTE_REF 缩略图在滚动中仍会触发“解码 IO + Bitmap 创建”：滚动降级目前只禁用了富预览（Markdown），但仍会渲染 1 张缩略图；由于这里是手动解码且未做跨 item/跨滚动缓存，列表快速滚动时可能出现“后台解码堆积/电量消耗/轻微掉帧”的风险。
+  - 位置：`feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt`（`FixedSizeThumbImage`/`decodeThumbImageBitmap` 的调用链）。
+  - 建议方向：当 `enableRichPreview == false`（或 `listState.isScrollInProgress == true`）时，用纯占位替代缩略图，或延后到停稳后再解码。
+- 【建议修】Collections NOTE_REF 在筛选开启时，引用 memo 尚未加载/不可用的条目会被直接过滤掉（因为 tags 为空）：这在“待同步/慢加载”场景下会让列表看起来像“被筛没了”。
+  - 位置：`feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt`（`itemsToRender` 对 NOTE_REF 的 tags 为空处理）。
+  - 需确认：是否要在筛选态下仍保留“引用不可用/待同步”的 NOTE_REF（例如作为不可匹配但可见的占位项）。
+- 【需关注】Home 的 `...` 入口依赖“子控件点击能正确拦截父 InkCard 的 combinedClickable”：从实现上看大概率没问题，但建议在真机上手动确认“点 `...` 不会打开随笔/不触发长按进入多选”。
+  - 位置：`feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/MemoItem.kt`（`IconButton(onClick = onMoreActions)`）+ `core/designsystem/src/main/java/cc/pscly/onememos/ui/component/InkCard.kt`（`combinedClickable`）。
+
+## [2026-02-22] - F2 代码质量审查补充：Home 侧 TagExtractor 的潜在成本点
+- Home 的过滤逻辑在 Paging 层做 `PagingData.filter { ... }`，当 `memo.tags` 为空时会回退到 `TagExtractor.extractAll(memo.content)`：这会在“加载更多/滚动触发加载”时把正文解析带进过滤热路径，可能造成 CPU 峰值与电量消耗。
+  - 位置：`feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeViewModel.kt`（`applyFilterToPaging` 内 memoTags 计算）。
+  - 建议方向：优先使用结构化 tags；在 tags 缺失场景下，对正文解析做缓存/延迟，或在筛选模式中降低解析频率（例如仅对可见窗口解析）。
+
+## [2026-02-22 23:32] - 纠正：plan 文件未缺失，且为 active_plan
+- 说明：本文件中“移除未跟踪的 plan 文件 / plan 恢复失败（不在 HEAD）”的记录已被后续证据推翻，应视为历史误记。
+- 证据：`.sisyphus/boulder.json` 的 `active_plan` 指向 `/root/1codes/xinliu_android/.sisyphus/plans/jinnang-home-ux.md`。
+- 结论：`.sisyphus/plans/jinnang-home-ux.md` 当前存在并被 boulder 选为 active_plan；无需从 git HEAD “恢复”该文件。
