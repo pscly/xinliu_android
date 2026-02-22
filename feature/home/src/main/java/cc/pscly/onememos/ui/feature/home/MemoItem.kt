@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -61,6 +63,7 @@ internal fun MemoItem(
     onOpenMemo: () -> Unit,
     onLongShare: () -> Unit,
     onToggleTag: (String) -> Unit,
+    onMoreActions: (() -> Unit)? = null,
 ) {
     val selectedBorder = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.70f))
     val cardShape = RoundedCornerShape(14.dp)
@@ -368,20 +371,31 @@ internal fun MemoItem(
                 Spacer(modifier = Modifier.weight(1f))
             }
 
-            if (selectionMode) {
-                Icon(
-                    imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                    contentDescription = if (selected) "已选" else "未选",
-                    tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-
             Text(
                 text = DateTimeFormatter.formatYmdHm(memo.createdAt),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
+
+            if (selectionMode) {
+                Spacer(modifier = Modifier.width(10.dp))
+                Icon(
+                    imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                    contentDescription = if (selected) "已选" else "未选",
+                    tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                )
+            } else if (onMoreActions != null) {
+                Spacer(modifier = Modifier.width(6.dp))
+                IconButton(
+                    onClick = onMoreActions,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MoreHoriz,
+                        contentDescription = "更多操作",
+                        tint = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
         }
     }
 }

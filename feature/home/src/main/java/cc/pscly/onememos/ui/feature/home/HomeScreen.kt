@@ -471,26 +471,6 @@ fun HomeScreen(
                         onClick = {
                             haptics.tick()
                             moreActionsTarget = null
-                            selectionState = selectionState.enter(target.uuid)
-                        },
-                        onLongClick = null,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "多选",
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 1,
-                            )
-                        }
-                    }
-
-                    InkCard(
-                        onClick = {
-                            haptics.tick()
-                            moreActionsTarget = null
                             if (uiState.collectionsEnabled) {
                                 addToCollectionsTarget = target
                             } else {
@@ -752,10 +732,20 @@ fun HomeScreen(
                                         haptics.tick()
                                         selectionState = selectionState.toggle(memo.uuid)
                                     } else {
-                                        moreActionsTarget = memo
+                                        haptics.tick()
+                                        selectionState = selectionState.enter(memo.uuid)
                                     }
                                 },
                                 onToggleTag = { tag -> if (!selectionMode) viewModel.toggleTag(tag) },
+                                onMoreActions =
+                                    if (selectionMode) {
+                                        null
+                                    } else {
+                                        {
+                                            haptics.tick()
+                                            moreActionsTarget = memo
+                                        }
+                                    },
                             )
                         }
                     }
