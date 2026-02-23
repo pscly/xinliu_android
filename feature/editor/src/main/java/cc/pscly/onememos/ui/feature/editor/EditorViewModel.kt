@@ -241,6 +241,7 @@ class EditorViewModel @Inject constructor(
                         }
                     val displayText = if (showLine) text else split.visibleText
                     it.copy(
+                        uuid = memo.uuid,
                         serverId = memo.serverId,
                         syncStatus = memo.syncStatus,
                         serverState = memo.serverState.name,

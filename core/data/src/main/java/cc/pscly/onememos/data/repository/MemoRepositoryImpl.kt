@@ -104,8 +104,14 @@ class MemoRepositoryImpl @Inject constructor(
     override suspend fun listRecentEditedActiveMemos(limit: Int): List<Memo> =
         memoDao.listRecentEditedActiveMemos(limit).map { it.toDomain() }
 
-    override suspend fun getMemo(uuid: String): Memo? =
-        memoDao.getMemo(uuid)?.toDomain()
+    override suspend fun getMemo(uuid: String): Memo? {
+        val id = uuid.trim()
+        if (id.isBlank()) return null
+
+        val byUuid = memoDao.getMemo(id)?.toDomain()
+        if (byUuid != null) return byUuid
+        return memoDao.getMemoByServerId(id)?.toDomain()
+    }
 
     override suspend fun archiveMemo(uuid: String) {
         val existing = memoDao.getMemo(uuid)?.memo ?: return
