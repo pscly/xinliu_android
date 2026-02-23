@@ -109,7 +109,7 @@ Wave 3（集成 + 验证 + 交付）
 
 ## TODOs
 
-- [ ] 1. Home/Archived：长按直接进入多选 + “…”保留单条更多操作
+- [x] 1. Home/Archived：长按直接进入多选 + “...”保留单条更多操作
 
   **What to do**:
   - 调整主页与已归档列表的长按逻辑：长按任意随笔卡片 → 直接进入 selectionMode，并默认选中该条。
@@ -140,9 +140,9 @@ Wave 3（集成 + 验证 + 交付）
   - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/MemoItem.kt` - 主页卡片的 InkCard 与 onLongClick 绑定点；适合加入“…”按钮并在 selectionMode 下禁用。
 
   **Acceptance Criteria**:
-  - [ ] 长按任意随笔卡片后，立即进入多选态：TopAppBar 标题显示“已选 1”，底部批量操作栏出现。
-  - [ ] 点击任意卡片右侧/底部的“…”按钮，可打开“更多操作”面板，且包含“墨迹卡片”等原有入口。
-  - [ ] 进入多选态后，“…”按钮不再可用（隐藏或 disabled）。
+- [x] 长按任意随笔卡片后，立即进入多选态：TopAppBar 标题显示“已选 1”，底部批量操作栏出现。
+- [x] 点击任意卡片右侧/底部的“…”按钮，可打开“更多操作”面板，且包含“墨迹卡片”等原有入口。
+- [x] 进入多选态后，“…”按钮不再可用（隐藏或 disabled）。
 
   **QA Scenarios**:
   ```
@@ -186,7 +186,7 @@ Wave 3（集成 + 验证 + 交付）
     Evidence: .sisyphus/evidence/task-1-home-exit-multiselect.xml
   ```
 
-- [ ] 2. Collections：当前文件夹内标签筛选（多标签 OR）+ 筛选条 UI
+- [x] 2. Collections：当前文件夹内标签筛选（多标签 OR）+ 筛选条 UI
 
   **What to do**:
   - 在 Collections 页面增加 `selectedTags` 状态（Set<String>）。
@@ -217,9 +217,9 @@ Wave 3（集成 + 验证 + 交付）
   - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt` - 主页筛选状态条/标签交互可借鉴（但不要跨 feature 依赖）。
 
   **Acceptance Criteria**:
-  - [ ] 点击任意 NOTE_REF 卡片上的 tag chip，会把该 tag 加入筛选集合，并在面包屑下方出现筛选条。
-  - [ ] 多个 tag 同时选中时，列表按 OR 过滤 NOTE_REF；文件夹条目始终可见。
-  - [ ] 切换到其它文件夹（进入/返回）后，筛选自动清空。
+- [x] 点击任意 NOTE_REF 卡片上的 tag chip，会把该 tag 加入筛选集合，并在面包屑下方出现筛选条。
+- [x] 多个 tag 同时选中时，列表按 OR 过滤 NOTE_REF；文件夹条目始终可见。
+- [x] 切换到其它文件夹（进入/返回）后，筛选自动清空。
 
   **QA Scenarios**:
   ```
@@ -243,7 +243,7 @@ Wave 3（集成 + 验证 + 交付）
     Evidence: .sisyphus/evidence/task-2-collections-filter-reset.xml
   ```
 
-- [ ] 3. Collections：NOTE_REF 同主页预览卡片（标签/图片/富预览/状态/时间）+ 手动命名标题行
+- [x] 3. Collections：NOTE_REF 同主页预览卡片（标签/图片/富预览/状态/时间）+ 手动命名标题行
 
   **What to do**:
   - 仅针对 NOTE_REF（`refType == MEMOS_MEMO`）且 `noteRefMemo` 可用时：把卡片渲染升级为“主页同款信息结构”。
@@ -278,10 +278,10 @@ Wave 3（集成 + 验证 + 交付）
   - `feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt` - `memoByRefTargetId` 加载策略；如需图片远程 URL，可从 settings 补充 serverBase（避免写死）。
 
   **Acceptance Criteria**:
-  - [ ] NOTE_REF 卡片在“可预览”时展示：tag chips + 正文预览 +（如有）图片缩略图 + 状态/时间。
-  - [ ] 未手动命名的 NOTE_REF 不显示“（无标题）”标题行。
-  - [ ] 点击 tag chip 会触发当前文件夹筛选（与 Task 2 逻辑一致）。
-  - [ ] selectionMode/reorderMode 下不会出现“点标签却触发筛选/点图片却打开预览”等误交互（优先按当前模式执行）。
+- [x] NOTE_REF 卡片在“可预览”时展示：tag chips + 正文预览 +（如有）图片缩略图 + 状态/时间。
+- [x] 未手动命名的 NOTE_REF 不显示“（无标题）”标题行。
+- [x] 点击 tag chip 会触发当前文件夹筛选（与 Task 2 逻辑一致）。
+- [x] selectionMode/reorderMode 下不会出现“点标签却触发筛选/点图片却打开预览”等误交互（优先按当前模式执行）。
 
   **QA Scenarios**:
   ```
@@ -307,7 +307,7 @@ Wave 3（集成 + 验证 + 交付）
     Evidence: .sisyphus/evidence/task-3-collections-note-ref-fallback.xml
   ```
 
-- [ ] 4. 集成验证：verify 门禁 + benchmark APK + 证据归档
+- [x] 4. 集成验证：verify 门禁 + benchmark APK + 证据归档
 
   **What to do**:
   - 运行门禁：`./scripts/verify.sh`。
@@ -329,8 +329,8 @@ Wave 3（集成 + 验证 + 交付）
   - `scripts/build-benchmark-apk.sh` - 构建 benchmark 并生成时间戳 APK 副本。
 
   **Acceptance Criteria**:
-  - [ ] `./scripts/verify.sh` 输出 `verify.sh: OK`
-  - [ ] `./scripts/build-benchmark-apk.sh` 输出时间戳 APK 路径，且文件存在
+- [x] `./scripts/verify.sh` 输出 `verify.sh: OK`
+- [x] `./scripts/build-benchmark-apk.sh` 输出时间戳 APK 路径，且文件存在
 
   **QA Scenarios**:
   ```
@@ -356,7 +356,7 @@ Wave 3（集成 + 验证 + 交付）
     Evidence: .sisyphus/evidence/task-4-adb-devices.txt
   ```
 
-- [ ] 5. Git 提交 + 交付信息汇总
+- [x] 5. Git 提交 + 交付信息汇总
 
   **What to do**:
   - 确认仅包含本次相关改动文件；避免提交敏感信息/本地配置。
@@ -378,9 +378,9 @@ Wave 3（集成 + 验证 + 交付）
   - `scripts/copy-benchmark-apk.sh` - 时间戳 APK 命名规则（`YYYY-MM-DDTHH-MM-SS.apk`）。
 
   **Acceptance Criteria**:
-  - [ ] 工作区干净（除非有用户指定保留的未提交变更）
-  - [ ] commit message 符合 Conventional Commits
-  - [ ] 交付信息包含 benchmark APK 路径
+- [x] 工作区干净（除非有用户指定保留的未提交变更）
+- [x] commit message 符合 Conventional Commits
+- [x] 交付信息包含 benchmark APK 路径
 
   **QA Scenarios**:
   ```
@@ -409,10 +409,10 @@ Wave 3（集成 + 验证 + 交付）
 
 ## Final Verification Wave
 
-- [ ] F1. 计划符合性审计（oracle）
-- [ ] F2. 代码质量审查（unspecified-high）
-- [ ] F3. QA 场景复跑与证据核对（unspecified-high）
-- [ ] F4. 范围/污染检查（deep）
+- [x] F1. 计划符合性审计（oracle）
+- [x] F2. 代码质量审查（unspecified-high）
+- [x] F3. QA 场景复跑与证据核对（unspecified-high）
+- [x] F4. 范围/污染检查（deep）
 
 ---
 
@@ -433,7 +433,7 @@ Wave 3（集成 + 验证 + 交付）
 ```
 
 ### Final Checklist
-- [ ] Home/Archived：长按进入多选，且“…”可打开更多操作
-- [ ] Collections：NOTE_REF 具备主页同款预览信息结构 + 标签筛选条可用
-- [ ] verify.sh 通过
-- [ ] benchmark APK 已生成并记录路径
+- [x] Home/Archived：长按进入多选，且“...”可打开更多操作
+- [x] Collections：NOTE_REF 具备主页同款预览信息结构 + 标签筛选条可用
+- [x] verify.sh 通过
+- [x] benchmark APK 已生成并记录路径
