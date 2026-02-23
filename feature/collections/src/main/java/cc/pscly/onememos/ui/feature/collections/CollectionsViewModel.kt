@@ -43,6 +43,8 @@ data class CollectionsUiState(
     val currentParentId: String? = null,
     val breadcrumb: List<BreadcrumbSegment> = listOf(BreadcrumbSegment(id = null, label = "根目录")),
     val items: List<CollectionItem> = emptyList(),
+    val devAutoTagLineKeywordsRaw: String = "__Atags",
+    val devShowAutoTagLineInHome: Boolean = false,
     // NOTE_REF 引用的目标 Memo：key 为 targetId（与 UI 点击规则一致：refId ?: refLocalUuid）。
     // 只在 ViewModel 层集中加载/缓存，避免在 LazyColumn item 内对每个条目单独 collect Flow（N+1 Flow）。
     val memoByRefTargetId: Map<String, Memo> = emptyMap(),
@@ -59,6 +61,11 @@ class CollectionsViewModel @Inject constructor(
     private val enabledFlow =
         settingsRepository.settings
             .map { s -> s.loginMode == LoginMode.BACKEND && s.token.isNotBlank() }
+            .distinctUntilChanged()
+
+    private val devAutoTagLineConfigFlow =
+        settingsRepository.settings
+            .map { s -> s.devAutoTagLineKeywords to s.devShowAutoTagLineInHome }
             .distinctUntilChanged()
 
     private val _currentParentId = MutableStateFlow<String?>(null)
@@ -129,8 +136,13 @@ class CollectionsViewModel @Inject constructor(
                 )
             },
             memoByRefTargetId,
-        ) { base, memosByTargetId ->
-            base.copy(memoByRefTargetId = memosByTargetId)
+            devAutoTagLineConfigFlow,
+        ) { base, memosByTargetId, (keywordsRaw, showInHome) ->
+            base.copy(
+                memoByRefTargetId = memosByTargetId,
+                devAutoTagLineKeywordsRaw = keywordsRaw,
+                devShowAutoTagLineInHome = showInHome,
+            )
         }
             .stateIn(
                 scope = viewModelScope,

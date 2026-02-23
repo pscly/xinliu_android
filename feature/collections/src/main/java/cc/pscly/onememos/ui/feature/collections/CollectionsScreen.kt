@@ -94,6 +94,7 @@ import cc.pscly.onememos.ui.component.MarkdownPreview
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.Dispatchers
@@ -129,6 +130,12 @@ fun CollectionsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val haptics = rememberOneMemosHaptics()
+
+    val autoTagKeywords =
+        remember(uiState.devAutoTagLineKeywordsRaw) {
+            AutoTagLineHider.parseKeywords(uiState.devAutoTagLineKeywordsRaw)
+        }
+    val showAutoTagLineInHome = uiState.devShowAutoTagLineInHome
 
     var busy by remember { mutableStateOf(false) }
 
@@ -511,6 +518,8 @@ fun CollectionsScreen(
                             noteRefTargetId = noteRefTargetId,
                             noteRefMemo = noteRefMemo,
                             enableRichPreview = enableRichPreview,
+                            showAutoTagLineInHome = showAutoTagLineInHome,
+                            autoTagKeywords = autoTagKeywords,
                             selectedTags = selectedTags,
                             onToggleTag =
                                 if (selectionMode || reorderMode) {
@@ -758,6 +767,8 @@ private fun CollectionItemCard(
     noteRefTargetId: String?,
     noteRefMemo: Memo?,
     enableRichPreview: Boolean,
+    showAutoTagLineInHome: Boolean,
+    autoTagKeywords: List<String>,
     selectedTags: Set<String>,
     onToggleTag: ((String) -> Unit)?,
     selected: Boolean,
@@ -917,8 +928,25 @@ private fun CollectionItemCard(
                                 memo.plainPreview.ifBlank { MarkdownDeriver.plainPreview(memo.content, maxChars = 320) }
                             }
                         val plainPreview =
-                            remember(basePlainPreview, contentPlaceholder) {
-                                basePlainPreview.ifBlank { contentPlaceholder }
+                            remember(basePlainPreview, memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords, contentPlaceholder) {
+                                val p =
+                                    if (showAutoTagLineInHome) {
+                                        basePlainPreview
+                                    } else {
+                                        val keys = autoTagKeywords
+                                        when {
+                                            keys.isEmpty() || basePlainPreview.isBlank() -> basePlainPreview
+                                            keys.any { basePlainPreview.contains(it) } ->
+                                                MarkdownDeriver.plainPreviewSkippingLinesEndingWithKeywords(
+                                                    markdown = memo.content,
+                                                    keywords = keys,
+                                                    maxChars = 320,
+                                                )
+
+                                            else -> basePlainPreview
+                                        }
+                                    }
+                                p.ifBlank { contentPlaceholder }
                             }
 
                         if (hasOneImage) {
@@ -954,8 +982,12 @@ private fun CollectionItemCard(
 
                                 Box(modifier = Modifier.weight(1f)) {
                                     if (showRichPreview) {
+                                        val displayMarkdown =
+                                            remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
+                                                if (showAutoTagLineInHome) memo.content else AutoTagLineHider.hideFast(memo.content, autoTagKeywords)
+                                            }
                                         MarkdownPreview(
-                                            markdown = memo.content,
+                                            markdown = displayMarkdown,
                                             placeholder = contentPlaceholder,
                                             maxBlocks = 3,
                                             maxLines = 4,
@@ -974,8 +1006,12 @@ private fun CollectionItemCard(
                             }
                         } else {
                             if (showRichPreview) {
+                                val displayMarkdown =
+                                    remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
+                                        if (showAutoTagLineInHome) memo.content else AutoTagLineHider.hideFast(memo.content, autoTagKeywords)
+                                    }
                                 MarkdownPreview(
-                                    markdown = memo.content,
+                                    markdown = displayMarkdown,
                                     placeholder = contentPlaceholder,
                                     maxBlocks = 4,
                                     maxLines = 6,
