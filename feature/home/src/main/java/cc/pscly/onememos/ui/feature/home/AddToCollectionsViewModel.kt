@@ -29,7 +29,21 @@ class AddToCollectionsViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val collectionsRepository: CollectionsRepository,
 ) : ViewModel() {
-    private val defaultAutoTagKeywords: List<String> = AutoTagLineHider.parseKeywords(null)
+    /**
+     * 关键字来源必须来自 settings（而不是固定默认值），同时做等价缓存：
+     * - 避免每次 buildDisplayName() 都重复 parse
+     * - 使用 SharingStarted.Eagerly，避免无人 collect 时 value 永远停留在 initialValue
+     */
+    private val autoTagLineKeywords: StateFlow<List<String>> =
+        settingsRepository.settings
+            .map { s -> s.devAutoTagLineKeywords }
+            .distinctUntilChanged()
+            .map { raw -> AutoTagLineHider.parseKeywords(raw) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = AutoTagLineHider.parseKeywords(null),
+            )
 
     val enabled: StateFlow<Boolean> =
         settingsRepository.settings
@@ -95,7 +109,7 @@ class AddToCollectionsViewModel @Inject constructor(
         val candidate =
             MarkdownDeriver.plainPreviewSkippingLinesEndingWithKeywords(
                 markdown = memo.content,
-                keywords = defaultAutoTagKeywords,
+                keywords = autoTagLineKeywords.value,
                 maxChars = 80,
             )
                 .trim()
