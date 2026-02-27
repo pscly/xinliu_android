@@ -9,5 +9,5 @@ data class MemoFilter(
     val query: String = "",
     val selectedTags: Set<String> = emptySet(),
     val tagMatchMode: TagMatchMode = TagMatchMode.OR,
+    val excludeTags: Boolean = false,
 )
-

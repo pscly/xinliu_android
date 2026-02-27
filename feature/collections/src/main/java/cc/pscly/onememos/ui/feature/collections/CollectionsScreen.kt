@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.SwapVert
@@ -44,6 +45,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -87,13 +90,17 @@ import cc.pscly.onememos.domain.model.CollectionRefType
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.derived.MarkdownDeriver
+import cc.pscly.onememos.domain.tag.TagStat
 import cc.pscly.onememos.domain.tag.TagExtractor
+import cc.pscly.onememos.domain.tag.TagStats
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.InkChip
 import cc.pscly.onememos.ui.component.MarkdownPreview
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.component.TagFilterBottomSheet
+import cc.pscly.onememos.ui.filter.TagMatchMode
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
@@ -146,6 +153,9 @@ fun CollectionsScreen(
     var reorderIds by remember { mutableStateOf<List<String>>(emptyList()) }
 
     var selectedTags by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var tagMatchMode by remember { mutableStateOf(TagMatchMode.OR) }
+    var excludeTags by remember { mutableStateOf(false) }
+    var showFilterSheet by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
     var enableRichPreview by remember { mutableStateOf(false) }
@@ -185,6 +195,9 @@ fun CollectionsScreen(
     LaunchedEffect(currentParentId) {
         selectedIds = emptySet()
         selectedTags = emptySet()
+        tagMatchMode = TagMatchMode.OR
+        excludeTags = false
+        showFilterSheet = false
         reorderMode = false
         reorderIds = uiState.items.map { it.id }
     }
@@ -251,8 +264,25 @@ fun CollectionsScreen(
     }
 
     val reorderIndex = remember(reorderIds) { reorderIds.withIndex().associate { it.value to it.index } }
+
+    val noteRefMemosInFolder =
+        remember(uiState.items, uiState.memoByRefTargetId) {
+            uiState.items
+                .asSequence()
+                .filter { it.itemType == CollectionItemType.NOTE_REF && it.refType == CollectionRefType.MEMOS_MEMO }
+                .mapNotNull { item ->
+                    val targetIdForOpen = item.refId ?: item.refLocalUuid
+                    targetIdForOpen?.takeIf { it.isNotBlank() }?.let { uiState.memoByRefTargetId[it] }
+                }
+                .toList()
+        }
+    val allTags by
+        produceState<List<TagStat>>(initialValue = emptyList(), noteRefMemosInFolder) {
+            value = withContext(Dispatchers.Default) { TagStats.build(noteRefMemosInFolder) }
+        }
+
     val itemsToRender =
-        remember(uiState.items, uiState.memoByRefTargetId, reorderMode, reorderIndex, selectedTags) {
+        remember(uiState.items, uiState.memoByRefTargetId, reorderMode, reorderIndex, selectedTags, tagMatchMode, excludeTags) {
             val base =
                 if (!reorderMode) {
                     uiState.items
@@ -273,13 +303,25 @@ fun CollectionsScreen(
                                 null
                             }
                         val memo = targetId?.takeIf { it.isNotBlank() }?.let { uiState.memoByRefTargetId[it] }
-                        val tags =
-                            if (memo != null) {
+
+                        if (excludeTags) {
+                            if (memo == null) return@filter true
+                            val memoTags =
                                 if (memo.tags.isNotEmpty()) memo.tags else TagExtractor.extractAll(memo.content)
-                            } else {
-                                emptyList()
+                            if (memoTags.isEmpty()) return@filter true
+                            val memoTagSet = memoTags.toSet()
+                            selectedTags.none { memoTagSet.contains(it) }
+                        } else {
+                            if (memo == null) return@filter false
+                            val memoTags =
+                                if (memo.tags.isNotEmpty()) memo.tags else TagExtractor.extractAll(memo.content)
+                            if (memoTags.isEmpty()) return@filter false
+                            val memoTagSet = memoTags.toSet()
+                            when (tagMatchMode) {
+                                TagMatchMode.OR -> selectedTags.any { memoTagSet.contains(it) }
+                                TagMatchMode.AND -> selectedTags.all { memoTagSet.contains(it) }
                             }
-                        tags.any { it in selectedTags }
+                        }
                     }
                 }
             }
@@ -325,6 +367,29 @@ fun CollectionsScreen(
                 },
                 actions = {
                     if (!uiState.enabled) return@TopAppBar
+
+                    val filterEntryEnabled = !(selectionMode || reorderMode || busy)
+                    val hasTagFilter = selectedTags.isNotEmpty()
+                    IconButton(
+                        enabled = filterEntryEnabled,
+                        onClick = { showFilterSheet = true },
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (hasTagFilter) {
+                                    Badge()
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.FilterList,
+                                contentDescription = "筛选",
+                                tint =
+                                    if (hasTagFilter) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
 
                     if (selectionMode) {
                         if (selectedIds.size == 1) {
@@ -598,6 +663,48 @@ fun CollectionsScreen(
                 }
             }
         }
+    }
+
+    if (showFilterSheet) {
+        val enabled = !(selectionMode || reorderMode || busy)
+        TagFilterBottomSheet(
+            title = "标签筛选",
+            allTags = allTags,
+            selectedTags = selectedTags,
+            showTagCounts = true,
+            tagMatchMode = tagMatchMode,
+            excludeTags = excludeTags,
+            onExcludeTagsChange = {
+                if (enabled) {
+                    excludeTags = it
+                    if (it) tagMatchMode = TagMatchMode.OR
+                }
+            },
+            onToggleTag = { t ->
+                if (enabled) {
+                    selectedTags =
+                        if (selectedTags.contains(t)) {
+                            selectedTags - t
+                        } else {
+                            selectedTags + t
+                        }
+                }
+            },
+            onTagMatchModeChange = {
+                if (enabled) {
+                    tagMatchMode = it
+                }
+            },
+            onClear = {
+                if (enabled) {
+                    selectedTags = emptySet()
+                    tagMatchMode = TagMatchMode.OR
+                    excludeTags = false
+                }
+            },
+            onApply = { showFilterSheet = false },
+            onDismiss = { showFilterSheet = false },
+        )
     }
 
     if (showCreateFolder) {

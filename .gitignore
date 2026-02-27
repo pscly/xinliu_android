@@ -20,6 +20,11 @@ local.properties
 *.iws
 out/
 
+# Eclipse / Buildship（本地工程文件，不应入库）
+.project
+.classpath
+.settings/
+
 # Android build outputs
 *.apk
 *.ap_
@@ -54,3 +59,7 @@ kotlin-lsp.cmd
 .sisyphus/evidence/
 .sisyphus/notepads/jinnang-collections/
 .sisyphus/plans/jinnang-collections.md
+
+# .sisyphus（仅忽略当前计划的产物，避免误提交）
+.sisyphus/notepads/tag-filter-exclude-and-insert-time/
+.sisyphus/plans/tag-filter-exclude-and-insert-time.md

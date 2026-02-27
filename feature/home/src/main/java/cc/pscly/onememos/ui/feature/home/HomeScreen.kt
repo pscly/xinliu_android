@@ -627,6 +627,8 @@ fun HomeScreen(
                 selectedTags = uiState.filter.selectedTags,
                 showTagCounts = uiState.showTagCountsInFilter,
                 tagMatchMode = uiState.filter.tagMatchMode,
+                excludeTags = uiState.filter.excludeTags,
+                onExcludeTagsChange = viewModel::setExcludeTags,
                 onToggleTag = viewModel::toggleTag,
                 onTagMatchModeChange = viewModel::setTagMatchMode,
                 onClear = viewModel::clearFilter,

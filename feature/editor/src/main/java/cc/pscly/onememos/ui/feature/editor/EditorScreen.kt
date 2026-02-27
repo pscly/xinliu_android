@@ -104,6 +104,7 @@ fun EditorScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var filterSelectedTags by remember { mutableStateOf(emptySet<String>()) }
     var filterMode by remember { mutableStateOf(TagMatchMode.OR) }
+    var excludeTags by remember { mutableStateOf(false) }
 
     var viewerOpen by remember { mutableStateOf(false) }
     var viewerStartIndex by remember { mutableStateOf(0) }
@@ -258,6 +259,11 @@ fun EditorScreen(
             selectedTags = filterSelectedTags,
             showTagCounts = uiState.showTagCountsInFilter,
             tagMatchMode = filterMode,
+            excludeTags = excludeTags,
+            onExcludeTagsChange = {
+                excludeTags = it
+                if (it) filterMode = TagMatchMode.OR
+            },
             onToggleTag = { t ->
                 filterSelectedTags =
                     if (filterSelectedTags.contains(t)) {
@@ -270,6 +276,7 @@ fun EditorScreen(
             onClear = {
                 filterSelectedTags = emptySet()
                 filterMode = TagMatchMode.OR
+                excludeTags = false
             },
             onApply = {
                 viewModel.applyFilter(
@@ -277,6 +284,7 @@ fun EditorScreen(
                         query = "",
                         selectedTags = filterSelectedTags,
                         tagMatchMode = filterMode,
+                        excludeTags = excludeTags,
                     ),
                 )
             },

@@ -338,6 +338,10 @@ class HomeViewModel @Inject constructor(
         filterStore.setTagMatchMode(mode)
     }
 
+    fun setExcludeTags(enabled: Boolean) {
+        filterStore.setExcludeTags(enabled)
+    }
+
     fun clearFilter() {
         filterStore.clear()
     }
@@ -407,6 +411,7 @@ private fun applyFilterToPaging(
         }
 
     val tagMatchMode = filter.tagMatchMode
+    val excludeTags = filter.excludeTags
 
     return paging.filter { memo ->
         val textOk =
@@ -427,9 +432,16 @@ private fun applyFilterToPaging(
                 if (memo.tags.isNotEmpty()) memo.tags
                 else TagExtractor.extractAll(memo.content)
             ).toSet()
-        when (tagMatchMode) {
-            TagMatchMode.OR -> effectiveTags.any { memoTags.contains(it) }
-            TagMatchMode.AND -> effectiveTags.all { memoTags.contains(it) }
-        }
+
+        val tagsOk =
+            if (excludeTags) {
+                effectiveTags.none { it in memoTags }
+            } else {
+                when (tagMatchMode) {
+                    TagMatchMode.OR -> effectiveTags.any { memoTags.contains(it) }
+                    TagMatchMode.AND -> effectiveTags.all { memoTags.contains(it) }
+                }
+            }
+        tagsOk
     }
 }

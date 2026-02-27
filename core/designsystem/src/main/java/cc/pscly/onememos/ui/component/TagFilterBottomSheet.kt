@@ -13,11 +13,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.tag.TagStat
 import cc.pscly.onememos.ui.filter.TagMatchMode
@@ -29,6 +33,8 @@ fun TagFilterBottomSheet(
     selectedTags: Set<String>,
     showTagCounts: Boolean,
     tagMatchMode: TagMatchMode,
+    excludeTags: Boolean,
+    onExcludeTagsChange: (Boolean) -> Unit,
     onToggleTag: (String) -> Unit,
     onTagMatchModeChange: (TagMatchMode) -> Unit,
     onClear: () -> Unit,
@@ -36,6 +42,13 @@ fun TagFilterBottomSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 排除开启时强制 OR；避免重组死循环，仅在“排除 + AND”时做一次纠正。
+    LaunchedEffect(excludeTags, tagMatchMode) {
+        if (excludeTags && tagMatchMode == TagMatchMode.AND) {
+            onTagMatchModeChange(TagMatchMode.OR)
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
     ) {
@@ -44,6 +57,34 @@ fun TagFilterBottomSheet(
             text = title,
             style = MaterialTheme.typography.titleLarge,
         )
+
+        Text(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(top = 6.dp),
+            text = "排除：含任意所选标签的记录会被隐藏",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "排除/不含",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Switch(
+                modifier = Modifier.semantics { contentDescription = "排除" },
+                checked = excludeTags,
+                onCheckedChange = onExcludeTagsChange,
+            )
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -62,7 +103,7 @@ fun TagFilterBottomSheet(
                 }
                 OutlinedButton(
                     onClick = { onTagMatchModeChange(TagMatchMode.AND) },
-                    enabled = tagMatchMode != TagMatchMode.AND,
+                    enabled = !excludeTags && tagMatchMode != TagMatchMode.AND,
                 ) {
                     Text("与")
                 }

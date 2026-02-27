@@ -351,7 +351,7 @@ class EditorViewModel @Inject constructor(
             buildString {
                 if (needsLeadingNewLine) append('\n')
                 append(line)
-                append('\n')
+                append("\n\n")
             }
 
         val nextText = text.replaceRange(start, end, insertText)

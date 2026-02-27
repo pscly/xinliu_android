@@ -20,6 +20,10 @@ class MemoFilterStore @Inject constructor() {
         _state.update { it.copy(tagMatchMode = mode) }
     }
 
+    fun setExcludeTags(enabled: Boolean) {
+        _state.update { it.copy(excludeTags = enabled) }
+    }
+
     fun toggleTag(tag: String) {
         _state.update { current ->
             val next =

@@ -1,15 +1,10 @@
 {
-  "active_plan": "/root/1codes/xinliu_android/.sisyphus/plans/jinnang-auto-tag-hide.md",
-  "started_at": "2026-02-23T03:32:28.684Z",
+  "active_plan": "/root/1codes/xinliu_android/.sisyphus/plans/tag-filter-exclude-and-insert-time.md",
+  "started_at": "2026-02-26T05:10:32.745Z",
   "session_ids": [
-    "ses_384897d56ffeGfGBzuHPJz4QrE",
-    "ses_38016fe86ffe9QK3Tav2l0xhVs",
-    "ses_37fce4cabffevuYUI7UseBBIh4",
-    "ses_37c60c70effebnaP1jyd9fAJSk",
-    "ses_37a7bb052ffeB7QuK5F3gzHqdR",
-    "ses_37a1b502fffeJmdX4jc5b8L9uv",
-    "ses_37804c0d4ffeUK2byUZsADtZVL"
+    "ses_3681e5d00ffeoo3yXsUHmek5kx",
+    "ses_36301a643ffeTliDx4t0uk1BFH"
   ],
-  "plan_name": "jinnang-auto-tag-hide",
+  "plan_name": "tag-filter-exclude-and-insert-time",
   "agent": "atlas"
 }
