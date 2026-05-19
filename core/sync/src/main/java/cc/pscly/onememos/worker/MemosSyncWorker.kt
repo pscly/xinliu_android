@@ -20,7 +20,7 @@ import cc.pscly.onememos.core.database.dao.MemoDao
 import cc.pscly.onememos.core.database.entity.MemoAttachmentEntity
 import cc.pscly.onememos.core.database.entity.MemoEntity
 import cc.pscly.onememos.core.network.MemosApi
-import cc.pscly.onememos.core.network.MemosIdentityParser
+import cc.pscly.onememos.core.network.MemosCurrentUserResolver
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.core.network.dto.AttachmentRefDto
 import cc.pscly.onememos.core.network.dto.CreateAttachmentRequestDto
@@ -60,6 +60,7 @@ class MemosSyncWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val memoDao: MemoDao,
     private val memosApi: MemosApi,
+    private val currentUserResolver: MemosCurrentUserResolver,
     private val settingsRepository: SettingsRepository,
     private val collectionsRepository: CollectionsRepository,
 ) : CoroutineWorker(appContext, params) {
@@ -91,7 +92,7 @@ class MemosSyncWorker @AssistedInject constructor(
         val fullTracker = FullSyncTracker()
 
         return try {
-            ensureCurrentUserCreator(serverBase, settings.currentUserCreator)
+            ensureCurrentUserCreator(serverBase, settings.currentUserCreator, settings.token)
 
             // 仅在需要全量同步时写入 RUNNING；普通同步不改变 DataStore 状态。
             if (needFull && fullRunId != null) {
@@ -184,9 +185,9 @@ class MemosSyncWorker @AssistedInject constructor(
         currentCoroutineContext().ensureActive()
     }
 
-    private suspend fun ensureCurrentUserCreator(serverBase: String, current: String) {
+    private suspend fun ensureCurrentUserCreator(serverBase: String, current: String, bearerToken: String) {
         if (current.isNotBlank()) return
-        val resolved = resolveCurrentUserCreator(serverBase) ?: return
+        val resolved = resolveCurrentUserCreator(serverBase, bearerToken) ?: return
         settingsRepository.setCurrentUserCreator(resolved)
     }
 
@@ -198,22 +199,8 @@ class MemosSyncWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun resolveCurrentUserCreator(serverBase: String): String? {
-        val fromAuthStatus =
-            runCatching {
-                val payload = memosApi.authStatus(MemosUrls.authStatus(serverBase))
-                MemosIdentityParser.extractCreatorName(payload)
-            }.getOrNull()
-        if (!fromAuthStatus.isNullOrBlank()) return fromAuthStatus
-
-        val fromUsersMe =
-            runCatching {
-                val payload = memosApi.currentUser(MemosUrls.currentUser(serverBase))
-                MemosIdentityParser.extractCreatorName(payload)
-            }.getOrNull()
-        if (!fromUsersMe.isNullOrBlank()) return fromUsersMe
-
-        return null
+    private suspend fun resolveCurrentUserCreator(serverBase: String, bearerToken: String): String? {
+        return currentUserResolver.resolve(serverBase, bearerToken = bearerToken)
     }
 
     private fun enqueuePrefetchWork() {

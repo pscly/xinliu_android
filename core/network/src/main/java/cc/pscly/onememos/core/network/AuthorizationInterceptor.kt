@@ -10,6 +10,11 @@ class AuthorizationInterceptor @Inject constructor(
     private val encryptedTokenStorage: TokenStorage,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
+        val explicitAuthorization = chain.request().header("Authorization")
+        if (!explicitAuthorization.isNullOrBlank()) {
+            return chain.proceed(chain.request())
+        }
+
         var token = appSettingsState.snapshot().token.trim()
         if (token.isBlank()) {
             // 避免“刚保存 token 立即同步时，内存快照还没来得及刷新”导致的一次性 401。

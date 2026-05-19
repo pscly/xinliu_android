@@ -6,8 +6,7 @@ import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.core.network.FlowBackendApi
 import cc.pscly.onememos.core.network.FlowAuthRequest
 import cc.pscly.onememos.core.network.FlowAuthResponse
-import cc.pscly.onememos.core.network.MemosApi
-import cc.pscly.onememos.core.network.MemosIdentityParser
+import cc.pscly.onememos.core.network.MemosCurrentUserResolver
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.data.auth.FlowBackendCredentialStorage
 import cc.pscly.onememos.domain.model.LoginMode
@@ -58,7 +57,7 @@ sealed interface AuthEvent {
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val flowBackendApi: FlowBackendApi,
-    private val memosApi: MemosApi,
+    private val currentUserResolver: MemosCurrentUserResolver,
     private val settingsRepository: SettingsRepository,
     private val syncScheduler: SyncScheduler,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
@@ -202,11 +201,17 @@ class AuthViewModel @Inject constructor(
                 return@launch
             }
 
+            val currentUserCreator = resolveCurrentUserCreator(serverUrl, token)
+            if (currentUserCreator.isNullOrBlank()) {
+                _uiState.update { it.copy(loading = false, error = "无法验证当前账号，请检查服务器地址或 Token 后重试。") }
+                return@launch
+            }
+
             settingsRepository.setServerUrl(serverUrl)
             settingsRepository.setToken(token)
             settingsRepository.setLoginMode(LoginMode.BACKEND)
             settingsRepository.setWelcomeCompleted(true)
-            settingsRepository.setCurrentUserCreator(resolveCurrentUserCreator(serverUrl).orEmpty())
+            settingsRepository.setCurrentUserCreator(currentUserCreator)
             syncScheduler.requestSync()
 
             // 用于“每次启动向 Flow Backend 换取 token”：安全保存账号密码。
@@ -241,11 +246,17 @@ class AuthViewModel @Inject constructor(
                 return@launch
             }
 
+            val currentUserCreator = resolveCurrentUserCreator(server, token)
+            if (currentUserCreator.isNullOrBlank()) {
+                _uiState.update { it.copy(loading = false, error = "无法验证当前 Token，请检查服务器地址或 Token 后重试。") }
+                return@launch
+            }
+
             settingsRepository.setServerUrl(server)
             settingsRepository.setToken(token)
             settingsRepository.setLoginMode(LoginMode.CUSTOM)
             settingsRepository.setWelcomeCompleted(true)
-            settingsRepository.setCurrentUserCreator(resolveCurrentUserCreator(server).orEmpty())
+            settingsRepository.setCurrentUserCreator(currentUserCreator)
             syncScheduler.requestSync()
             _uiState.update { it.copy(loading = false) }
             _events.tryEmit(AuthEvent.Authed)
@@ -261,23 +272,12 @@ class AuthViewModel @Inject constructor(
         return token to serverUrl
     }
 
-    private suspend fun resolveCurrentUserCreator(serverUrl: String): String? {
+    private suspend fun resolveCurrentUserCreator(
+        serverUrl: String,
+        bearerToken: String,
+    ): String? {
         val serverBase = MemosUrls.normalizeServerBase(serverUrl) ?: return null
-        val fromAuthStatus =
-            runCatching {
-                val payload = memosApi.authStatus(MemosUrls.authStatus(serverBase))
-                MemosIdentityParser.extractCreatorName(payload)
-            }.getOrNull()
-        if (!fromAuthStatus.isNullOrBlank()) return fromAuthStatus
-
-        val fromUsersMe =
-            runCatching {
-                val payload = memosApi.currentUser(MemosUrls.currentUser(serverBase))
-                MemosIdentityParser.extractCreatorName(payload)
-            }.getOrNull()
-        if (!fromUsersMe.isNullOrBlank()) return fromUsersMe
-
-        return null
+        return currentUserResolver.resolve(serverBase, bearerToken = bearerToken)
     }
 
     private fun mapHttpError(status: Int, form: BackendForm): String {

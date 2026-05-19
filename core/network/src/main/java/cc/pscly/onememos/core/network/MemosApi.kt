@@ -7,11 +7,13 @@ import cc.pscly.onememos.core.network.dto.ListMemosResponseDto
 import cc.pscly.onememos.core.network.dto.MemoDto
 import cc.pscly.onememos.core.network.dto.AttachmentDto
 import cc.pscly.onememos.core.network.dto.SetMemoAttachmentsRequestDto
+import cc.pscly.onememos.core.network.dto.GetCurrentUserResponseDto
 import cc.pscly.onememos.core.network.dto.UpdateMemoRequestDto
 import com.google.gson.JsonObject
 import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Query
@@ -19,13 +21,36 @@ import retrofit2.http.Url
 
 interface MemosApi {
     @GET
+    suspend fun authMe(
+        @Url url: String,
+    ): GetCurrentUserResponseDto
+
+    @GET
+    suspend fun authMeWithAuthorization(
+        @Url url: String,
+        @Header("Authorization") authorization: String,
+    ): GetCurrentUserResponseDto
+
+    @GET
     suspend fun authStatus(
         @Url url: String,
     ): JsonObject
 
     @GET
+    suspend fun authStatusWithAuthorization(
+        @Url url: String,
+        @Header("Authorization") authorization: String,
+    ): JsonObject
+
+    @GET
     suspend fun currentUser(
         @Url url: String,
+    ): JsonObject
+
+    @GET
+    suspend fun currentUserWithAuthorization(
+        @Url url: String,
+        @Header("Authorization") authorization: String,
     ): JsonObject
 
     @GET

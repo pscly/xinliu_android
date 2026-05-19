@@ -2,6 +2,7 @@ package cc.pscly.onememos.data.auth
 
 import cc.pscly.onememos.core.network.FlowAuthRequest
 import cc.pscly.onememos.core.network.FlowBackendApi
+import cc.pscly.onememos.core.network.MemosCurrentUserResolver
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.repository.SettingsRepository
@@ -24,6 +25,7 @@ class FlowBackendTokenRefresher @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val flowBackendApi: FlowBackendApi,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
+    private val currentUserResolver: MemosCurrentUserResolver,
 ) {
     private val mutex = Mutex()
 
@@ -52,15 +54,21 @@ class FlowBackendTokenRefresher @Inject constructor(
 
             // 普通用户无感：仍强制使用默认 memos 服务器；仅 dev2 解锁才允许使用后端返回的 server_url。
             val serverUrl =
-                if (settings.dev2Unlocked) {
-                    backendServerUrl
-                } else {
-                    MemosUrls.DEFAULT_MEMOS_SERVER_URL
-                }
+            if (settings.dev2Unlocked) {
+                backendServerUrl
+            } else {
+                MemosUrls.DEFAULT_MEMOS_SERVER_URL
+            }
             if (settings.dev2Unlocked && serverUrl.isBlank()) return
 
             settingsRepository.setServerUrl(serverUrl)
             settingsRepository.setToken(token)
+
+            currentUserResolver.resolve(serverUrl, bearerToken = token)?.let { creator ->
+                if (creator.isNotBlank()) {
+                    settingsRepository.setCurrentUserCreator(creator)
+                }
+            }
         }
     }
 }

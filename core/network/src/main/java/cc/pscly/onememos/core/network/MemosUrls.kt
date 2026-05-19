@@ -33,6 +33,7 @@ object MemosUrls {
     fun listMemos(base: String): String = apiV1(base, "api/v1/memos")
     fun createMemo(base: String): String = apiV1(base, "api/v1/memos")
     fun createAttachment(base: String): String = apiV1(base, "api/v1/attachments")
+    fun authMe(base: String): String = apiV1(base, "api/v1/auth/me")
     fun authStatus(base: String): String = apiV1(base, "api/v1/auth/status")
     fun currentUser(base: String): String = apiV1(base, "api/v1/users/me")
 

@@ -11,8 +11,10 @@ import cc.pscly.onememos.core.network.dto.AttachmentDto
 import cc.pscly.onememos.core.network.dto.CreateAttachmentRequestDto
 import cc.pscly.onememos.core.network.dto.CreateMemoRequestDto
 import cc.pscly.onememos.core.network.dto.EmptyDto
+import cc.pscly.onememos.core.network.dto.GetCurrentUserResponseDto
 import cc.pscly.onememos.core.network.dto.ListMemosResponseDto
 import cc.pscly.onememos.core.network.dto.MemoDto
+import cc.pscly.onememos.core.network.dto.MemosUserDto
 import cc.pscly.onememos.core.network.dto.SetMemoAttachmentsRequestDto
 import cc.pscly.onememos.core.network.dto.UpdateMemoRequestDto
 import cc.pscly.onememos.domain.derived.MemoDerivedFieldsDeriver
@@ -295,10 +297,31 @@ class FullSyncHelpersTest {
                 ?: ListMemosResponseDto(memos = emptyList(), nextPageToken = "")
         }
 
+        override suspend fun authMe(url: String): GetCurrentUserResponseDto =
+            throw UnsupportedOperationException("not needed")
+
+        override suspend fun authMeWithAuthorization(
+            url: String,
+            authorization: String,
+        ): GetCurrentUserResponseDto =
+            throw UnsupportedOperationException("not needed")
+
         override suspend fun authStatus(url: String): JsonObject =
             throw UnsupportedOperationException("not needed")
 
+        override suspend fun authStatusWithAuthorization(
+            url: String,
+            authorization: String,
+        ): JsonObject =
+            throw UnsupportedOperationException("not needed")
+
         override suspend fun currentUser(url: String): JsonObject =
+            throw UnsupportedOperationException("not needed")
+
+        override suspend fun currentUserWithAuthorization(
+            url: String,
+            authorization: String,
+        ): JsonObject =
             throw UnsupportedOperationException("not needed")
 
         override suspend fun getMemo(url: String): MemoDto =
