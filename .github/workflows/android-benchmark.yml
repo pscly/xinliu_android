@@ -1,0 +1,188 @@
+name: Android Benchmark
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+      - 'benchmark-*'
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: '是否同时发布 GitHub Release'
+        required: true
+        type: boolean
+        default: false
+      release_tag:
+        description: '可选：发布用 tag；留空则自动生成 benchmark-时间戳'
+        required: false
+        default: ''
+      release_title:
+        description: '可选：Release 标题；留空则自动生成'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  benchmark:
+    name: Verify + Benchmark APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 授予脚本执行权限
+        run: chmod +x ./gradlew ./scripts/*.sh
+
+      - name: 执行门禁与 benchmark 构建
+        run: ./scripts/verify.sh
+
+      - name: 收集 benchmark APK 与版本元数据
+        id: meta
+        shell: bash
+        env:
+          INPUT_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+          INPUT_RELEASE_TITLE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_title || '' }}
+        run: |
+          set -euo pipefail
+
+          apk_path="$(./scripts/copy-benchmark-apk.sh)"
+          if [[ -z "$apk_path" || ! -f "$apk_path" ]]; then
+            echo "错误：未找到时间戳 benchmark APK" >&2
+            exit 1
+          fi
+
+          apk_name="$(basename "$apk_path")"
+          version_name="$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)"/\1/p' app/build.gradle.kts | head -n 1)"
+          version_code="$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\)/\1/p' app/build.gradle.kts | head -n 1)"
+
+          if [[ -z "$version_name" || -z "$version_code" ]]; then
+            echo "错误：解析 versionName/versionCode 失败" >&2
+            exit 1
+          fi
+
+          if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+          elif [[ -n "${INPUT_RELEASE_TAG:-}" ]]; then
+            release_tag="${INPUT_RELEASE_TAG}"
+          else
+            release_tag="benchmark-$(date '+%Y-%m-%dT%H-%M-%S')-run${GITHUB_RUN_NUMBER}"
+          fi
+
+          if [[ -n "${INPUT_RELEASE_TITLE:-}" ]]; then
+            release_title="${INPUT_RELEASE_TITLE}"
+          else
+            release_title="1memos benchmark ${version_name} (${release_tag})"
+          fi
+
+          artifact_name="benchmark-apk-${version_name}-${version_code}-run${GITHUB_RUN_NUMBER}"
+          sha_short="$(git rev-parse --short HEAD)"
+
+          {
+            echo "apk_path=$apk_path"
+            echo "apk_name=$apk_name"
+            echo "version_name=$version_name"
+            echo "version_code=$version_code"
+            echo "release_tag=$release_tag"
+            echo "release_title=$release_title"
+            echo "artifact_name=$artifact_name"
+            echo "sha_short=$sha_short"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 上传 benchmark APK Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: ${{ steps.meta.outputs.apk_path }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: true
+
+      - name: 生成工作流摘要
+        run: |
+          {
+            echo "## Android benchmark 构建结果"
+            echo
+            echo "- 版本：\`${{ steps.meta.outputs.version_name }} (${{ steps.meta.outputs.version_code }})\`"
+            echo "- 提交：\`${{ github.sha }}\`（${{ steps.meta.outputs.sha_short }}）"
+            echo "- APK：\`${{ steps.meta.outputs.apk_name }}\`"
+            echo "- Artifact：\`${{ steps.meta.outputs.artifact_name }}\`"
+            echo "- 触发方式：\`${{ github.event_name }}\`"
+            echo "- 若需发布 Release：push `v*` / `benchmark-*` tag，或手动运行 workflow_dispatch 并开启 publish_release"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 创建或更新 GitHub Release
+        id: release
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          RELEASE_TITLE: ${{ steps.meta.outputs.release_title }}
+          APK_PATH: ${{ steps.meta.outputs.apk_path }}
+          APK_NAME: ${{ steps.meta.outputs.apk_name }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+        run: |
+          set -euo pipefail
+
+          cat > release-notes.md <<EOF
+          - 版本：${VERSION_NAME} (${VERSION_CODE})
+          - 构建时间：$(date '+%Y-%m-%d %H:%M:%S %Z')
+          - 提交：${GITHUB_SHA}
+          - 工作流：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - 说明：本 Release 由 GitHub Actions 自动构建并上传 benchmark APK。
+          EOF
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            mapfile -t existing_apks < <(gh release view "$RELEASE_TAG" --json assets --jq '.assets[] | select(.name | endswith(".apk")) | .name')
+            if [[ ${#existing_apks[@]} -gt 0 ]]; then
+              for asset_name in "${existing_apks[@]}"; do
+                gh release delete-asset "$RELEASE_TAG" "$asset_name" --yes
+              done
+            fi
+            gh release upload "$RELEASE_TAG" "$APK_PATH#$APK_NAME"
+          else
+            gh release create "$RELEASE_TAG" "$APK_PATH#$APK_NAME" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md \
+              --target "$GITHUB_SHA"
+          fi
+
+          release_url="$(gh release view "$RELEASE_TAG" --json url --jq '.url')"
+          echo "release_url=$release_url" >> "$GITHUB_OUTPUT"
+
+      - name: 追加 Release 摘要
+        if: steps.release.outputs.release_url != ''
+        run: |
+          {
+            echo
+            echo "## GitHub Release"
+            echo
+            echo "- Tag：\`${{ steps.meta.outputs.release_tag }}\`"
+            echo "- URL：${{ steps.release.outputs.release_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

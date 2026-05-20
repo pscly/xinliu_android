@@ -73,3 +73,20 @@ ADB_SERIAL=192.168.12.101:5555 ./scripts/deliver-benchmark.sh
 ```bash
 export ONE_MEMOS_JAVA_HOME=/path/to/jdk21
 ```
+
+
+## 7) GitHub Actions：自动门禁 / 自动打 benchmark / 自动发 Release
+
+仓库新增工作流：`.github/workflows/android-benchmark.yml`
+
+触发方式：
+
+- `push main`：自动执行 `./scripts/verify.sh`，并上传时间戳 benchmark APK Artifact。
+- `pull_request`：自动执行同一套门禁与 benchmark 构建，提前发现回归。
+- `push tag`（匹配 `v*` 或 `benchmark-*`）：在上传 Artifact 的同时，自动创建/更新 GitHub Release，并上传最新 benchmark APK。
+- `workflow_dispatch`：可在 GitHub Actions 页面手动运行；若勾选 `publish_release=true`，会自动创建/更新 Release（`release_tag` 留空时会自动生成时间戳 tag）。
+
+说明：
+
+- 工作流复用仓库里的 `verify.sh` / `copy-benchmark-apk.sh`，确保本地与 CI 使用同一套门禁与打包路径。
+- Release 更新时会先清理该 Release 下旧的 `.apk` 资产，再上传本次最新 benchmark APK，避免同一 Release 堆积多份历史包。
