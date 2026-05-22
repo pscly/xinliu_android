@@ -8,6 +8,7 @@ import cc.pscly.onememos.domain.model.FullSyncStatus
 import cc.pscly.onememos.domain.model.GlobalSyncState
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
+import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
@@ -45,6 +46,7 @@ data class SettingsUiState(
     val showTagCountsInFilter: Boolean = true,
     val quickCaptureOverlayEnabled: Boolean = false,
     val quickInsertTimeEnabled: Boolean = false,
+    val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
     val sealStampDurationMs: Int = 600,
     val offlineImagePrefetchEnabled: Boolean = true,
     val offlineImagePrefetchMaxMemos: Int = 30,
@@ -121,6 +123,7 @@ class SettingsViewModel @Inject constructor(
                 showTagCountsInFilter = s.showTagCountsInFilter,
                 quickCaptureOverlayEnabled = s.quickCaptureOverlayEnabled,
                 quickInsertTimeEnabled = s.quickInsertTimeEnabled,
+                quickInsertTimeFormat = s.quickInsertTimeFormat,
                 sealStampDurationMs = s.sealStampDurationMs,
                 offlineImagePrefetchEnabled = s.offlineImagePrefetchEnabled,
                 offlineImagePrefetchMaxMemos = s.offlineImagePrefetchMaxMemos,
@@ -375,6 +378,10 @@ class SettingsViewModel @Inject constructor(
 
     fun updateQuickInsertTimeEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setQuickInsertTimeEnabled(enabled) }
+    }
+
+    fun updateQuickInsertTimeFormat(format: QuickInsertTimeFormat) {
+        viewModelScope.launch { settingsRepository.setQuickInsertTimeFormat(format) }
     }
 
     fun updateSealStampDurationMs(durationMs: Int) {

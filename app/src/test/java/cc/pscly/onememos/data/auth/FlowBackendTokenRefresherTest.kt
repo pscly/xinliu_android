@@ -181,6 +181,7 @@ class FlowBackendTokenRefresherTest {
         override suspend fun setShowTagCountsInFilter(enabled: Boolean) = Unit
         override suspend fun setQuickCaptureOverlayEnabled(enabled: Boolean) = Unit
         override suspend fun setQuickInsertTimeEnabled(enabled: Boolean) = Unit
+        override suspend fun setQuickInsertTimeFormat(format: cc.pscly.onememos.domain.model.QuickInsertTimeFormat) = Unit
         override suspend fun setSealStampDurationMs(durationMs: Int) = Unit
         override suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean) = Unit
         override suspend fun setOfflineImagePrefetchMaxMemos(count: Int) = Unit

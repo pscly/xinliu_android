@@ -9,6 +9,7 @@ import android.net.Uri
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoVisibility
+import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.repository.CacheRepository
 import cc.pscly.onememos.domain.repository.MemoRepository
@@ -33,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
+import cc.pscly.onememos.ui.util.QuickInsertTimeFormatter
 import javax.inject.Inject
 
 data class EditorAttachmentUi(
@@ -69,6 +71,7 @@ data class EditorUiState(
     val tagSuggestions: List<String> = emptyList(),
     val showTagCountsInFilter: Boolean = true,
     val quickInsertTimeEnabled: Boolean = false,
+    val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
     val sealStampDurationMs: Int = 600,
     val devAutoTagLineKeywords: String = "__Atags",
     val devShowAutoTagLineInView: Boolean = false,
@@ -136,6 +139,7 @@ class EditorViewModel @Inject constructor(
                         serverBase = base,
                         showTagCountsInFilter = settings.showTagCountsInFilter,
                         quickInsertTimeEnabled = settings.quickInsertTimeEnabled,
+                        quickInsertTimeFormat = settings.quickInsertTimeFormat,
                         sealStampDurationMs = settings.sealStampDurationMs,
                         devAutoTagLineKeywords = keywordsRaw,
                         devShowAutoTagLineInView = showInView,
@@ -331,7 +335,7 @@ class EditorViewModel @Inject constructor(
         if (!state.canEdit || state.isSaving) return
 
         val now = System.currentTimeMillis()
-        val stampLine = "> ${DateTimeFormatter.formatHms(now)}"
+        val stampLine = QuickInsertTimeFormatter.buildQuotedLine(now, state.quickInsertTimeFormat)
         val next = insertLineAtSelection(value = state.content, line = stampLine)
         onContentChange(next)
     }

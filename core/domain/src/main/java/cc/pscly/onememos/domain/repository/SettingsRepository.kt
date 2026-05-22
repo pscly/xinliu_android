@@ -4,6 +4,7 @@ import cc.pscly.onememos.domain.model.AppSettings
 import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
+import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
@@ -33,6 +34,8 @@ interface SettingsRepository {
     suspend fun setQuickCaptureOverlayEnabled(enabled: Boolean)
 
     suspend fun setQuickInsertTimeEnabled(enabled: Boolean)
+
+    suspend fun setQuickInsertTimeFormat(format: QuickInsertTimeFormat)
 
     suspend fun setSealStampDurationMs(durationMs: Int)
 

@@ -83,6 +83,8 @@ class AppSettingsStateTest {
 
         override suspend fun setQuickInsertTimeEnabled(enabled: Boolean) = Unit
 
+        override suspend fun setQuickInsertTimeFormat(format: cc.pscly.onememos.domain.model.QuickInsertTimeFormat) = Unit
+
         override suspend fun setSealStampDurationMs(durationMs: Int) = Unit
 
         override suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean) = Unit

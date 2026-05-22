@@ -24,6 +24,8 @@ data class AppSettings(
     val quickCaptureOverlayEnabled: Boolean = false,
     // 编辑页/悬浮极速记录：是否显示“一键插入当前时间”按钮（默认关闭）。
     val quickInsertTimeEnabled: Boolean = false,
+    // “一键插入时间”的格式；默认直接使用完整日期时间。
+    val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
     // “盖章”浮层停留时长（毫秒）；越大越慢，建议 500~800ms。
     val sealStampDurationMs: Int = 600,
     // 是否自动预取最近随笔的图片附件（用于离线浏览时不“空白”）。

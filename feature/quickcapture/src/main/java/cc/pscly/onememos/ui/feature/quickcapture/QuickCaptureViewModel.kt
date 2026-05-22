@@ -6,6 +6,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.domain.model.Memo
+import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.ui.feature.quickcapture.draft.DraftAutoSaver
@@ -13,7 +14,7 @@ import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraft
 import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftAttachment
 import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftStore
 import cc.pscly.onememos.ui.util.AutoTagLineHider
-import cc.pscly.onememos.ui.util.DateTimeFormatter
+import cc.pscly.onememos.ui.util.QuickInsertTimeFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.NonCancellable
@@ -45,6 +46,7 @@ data class QuickCaptureUiState(
     val hiddenAutoTagLines: List<String> = emptyList(),
     val history: List<QuickCaptureHistoryItem> = emptyList(),
     val quickInsertTimeEnabled: Boolean = false,
+    val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
     val draftBannerVisible: Boolean = false,
     val draftOverwriteDialogVisible: Boolean = false,
 )
@@ -87,7 +89,12 @@ class QuickCaptureViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             settingsRepository.settings.collectLatest { settings ->
-                _uiState.update { it.copy(quickInsertTimeEnabled = settings.quickInsertTimeEnabled) }
+                _uiState.update {
+                    it.copy(
+                        quickInsertTimeEnabled = settings.quickInsertTimeEnabled,
+                        quickInsertTimeFormat = settings.quickInsertTimeFormat,
+                    )
+                }
             }
         }
 
@@ -125,7 +132,7 @@ class QuickCaptureViewModel @Inject constructor(
         if (state.isSaving) return
 
         val now = System.currentTimeMillis()
-        val stampLine = "> ${DateTimeFormatter.formatHms(now)}"
+        val stampLine = QuickInsertTimeFormatter.buildQuotedLine(now, state.quickInsertTimeFormat)
         val next = insertLineAtSelection(value = state.content, line = stampLine)
         updateContent(next)
     }

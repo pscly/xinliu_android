@@ -79,6 +79,7 @@ import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.FullSyncStatus
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
+import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
@@ -538,7 +539,9 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 QuickInsertTimeRow(
                     enabled = uiState.quickInsertTimeEnabled,
+                    format = uiState.quickInsertTimeFormat,
                     onToggle = viewModel::updateQuickInsertTimeEnabled,
+                    onSelectFormat = viewModel::updateQuickInsertTimeFormat,
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -1811,6 +1814,7 @@ private fun exportDiagnosticsFile(
                     .put("showTagCountsInFilter", uiState.showTagCountsInFilter)
                     .put("quickCaptureOverlayEnabled", uiState.quickCaptureOverlayEnabled)
                     .put("quickInsertTimeEnabled", uiState.quickInsertTimeEnabled)
+                    .put("quickInsertTimeFormat", uiState.quickInsertTimeFormat.name)
                     .put("sealStampDurationMs", uiState.sealStampDurationMs)
                     .put("offlineImagePrefetchEnabled", uiState.offlineImagePrefetchEnabled)
                     .put("offlineImagePrefetchMaxMemos", uiState.offlineImagePrefetchMaxMemos)
@@ -2194,22 +2198,74 @@ private fun FloatingQuickCaptureRow(
 @Composable
 private fun QuickInsertTimeRow(
     enabled: Boolean,
+    format: QuickInsertTimeFormat,
     onToggle: (Boolean) -> Unit,
+    onSelectFormat: (QuickInsertTimeFormat) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = "一键插入时间")
-            Text(
-                text = "开启后：编辑页与悬浮极速记录增加「时」按钮，点一下插入 > HH:mm:ss 并换行",
-                color = MaterialTheme.colorScheme.outline,
-                style = MaterialTheme.typography.bodySmall,
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "一键插入时间")
+                Text(
+                    text = "开启后：编辑页、极速记录页与悬浮极速记录都会显示「时」按钮；点击后插入带 `>` 的时间戳并自动补空行。",
+                    color = MaterialTheme.colorScheme.outline,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(checked = enabled, onCheckedChange = onToggle)
         }
-        Switch(checked = enabled, onCheckedChange = onToggle)
+
+        Text(
+            text = "时间格式",
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        QuickInsertTimeFormatRow(
+            format = format,
+            onSelect = onSelectFormat,
+        )
+    }
+}
+
+@Composable
+private fun QuickInsertTimeFormatRow(
+    format: QuickInsertTimeFormat,
+    onSelect: (QuickInsertTimeFormat) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(
+                selected = format == QuickInsertTimeFormat.FULL_DATETIME,
+                onClick = { onSelect(QuickInsertTimeFormat.FULL_DATETIME) },
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "完整日期时间", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "插入为：> yyyy-MM-dd HH:mm:ss",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(
+                selected = format == QuickInsertTimeFormat.TIME_ONLY,
+                onClick = { onSelect(QuickInsertTimeFormat.TIME_ONLY) },
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "仅时间", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "插入为：> HH:mm:ss",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+        }
     }
 }
 

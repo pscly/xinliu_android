@@ -83,6 +83,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoAttachmentDraft
+import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
@@ -97,6 +98,7 @@ import cc.pscly.onememos.ui.theme.OneMemosTheme
 import cc.pscly.onememos.ui.theme.OneMemosThemeConfig
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
+import cc.pscly.onememos.ui.util.QuickInsertTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import coil.compose.AsyncImage
 import dagger.hilt.android.AndroidEntryPoint
@@ -145,6 +147,7 @@ internal data class QuickCaptureOverlayUiState(
     val attachments: List<QuickCaptureOverlayAttachmentUi> = emptyList(),
     val attachmentsEditable: Boolean = true,
     val quickInsertTimeEnabled: Boolean = false,
+    val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
     val source: QuickCaptureOverlaySource = QuickCaptureOverlaySource.NORMAL,
     val draftBannerVisible: Boolean = false,
     val draftOverwriteDialogVisible: Boolean = false,
@@ -213,7 +216,12 @@ class QuickCaptureOverlayService : Service() {
 
         serviceScope.launch {
             settingsRepository.settings.collectLatest { settings ->
-                _uiState.update { it.copy(quickInsertTimeEnabled = settings.quickInsertTimeEnabled) }
+                _uiState.update {
+                    it.copy(
+                        quickInsertTimeEnabled = settings.quickInsertTimeEnabled,
+                        quickInsertTimeFormat = settings.quickInsertTimeFormat,
+                    )
+                }
             }
         }
 
@@ -506,7 +514,7 @@ class QuickCaptureOverlayService : Service() {
         if (state.isSaving) return
 
         val now = System.currentTimeMillis()
-        val stampLine = "> ${DateTimeFormatter.formatHms(now)}"
+        val stampLine = QuickInsertTimeFormatter.buildQuotedLine(now, state.quickInsertTimeFormat)
         val next = insertLineAtSelection(value = state.content, line = stampLine)
         updateContent(next)
     }

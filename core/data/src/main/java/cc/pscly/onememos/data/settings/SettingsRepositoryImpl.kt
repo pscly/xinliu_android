@@ -19,6 +19,7 @@ import cc.pscly.onememos.domain.model.FullSyncStatus
 import cc.pscly.onememos.domain.model.LastSyncState
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
+import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
@@ -62,6 +63,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         val SHOW_TAG_COUNTS_IN_FILTER = booleanPreferencesKey("show_tag_counts_in_filter")
         val QUICK_CAPTURE_OVERLAY_ENABLED = booleanPreferencesKey("quick_capture_overlay_enabled")
         val QUICK_INSERT_TIME_ENABLED = booleanPreferencesKey("quick_insert_time_enabled")
+        val QUICK_INSERT_TIME_FORMAT = stringPreferencesKey("quick_insert_time_format")
         val SEAL_STAMP_DURATION_MS = intPreferencesKey("seal_stamp_duration_ms")
         val OFFLINE_IMAGE_PREFETCH_ENABLED = booleanPreferencesKey("offline_image_prefetch_enabled")
         val OFFLINE_IMAGE_PREFETCH_MAX_MEMOS = intPreferencesKey("offline_image_prefetch_max_memos")
@@ -276,6 +278,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     showTagCountsInFilter = prefs[Keys.SHOW_TAG_COUNTS_IN_FILTER] ?: true,
                     quickCaptureOverlayEnabled = prefs[Keys.QUICK_CAPTURE_OVERLAY_ENABLED] ?: false,
                     quickInsertTimeEnabled = prefs[Keys.QUICK_INSERT_TIME_ENABLED] ?: false,
+                    quickInsertTimeFormat = QuickInsertTimeFormat.fromStorage(prefs[Keys.QUICK_INSERT_TIME_FORMAT]),
                     sealStampDurationMs = (prefs[Keys.SEAL_STAMP_DURATION_MS] ?: 600).coerceIn(200, 2000),
                     offlineImagePrefetchEnabled = prefs[Keys.OFFLINE_IMAGE_PREFETCH_ENABLED] ?: true,
                     offlineImagePrefetchMaxMemos = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_MEMOS] ?: 30).coerceIn(0, 5000),
@@ -389,6 +392,12 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     override suspend fun setQuickInsertTimeEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.QUICK_INSERT_TIME_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun setQuickInsertTimeFormat(format: QuickInsertTimeFormat) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.QUICK_INSERT_TIME_FORMAT] = format.name
         }
     }
 
