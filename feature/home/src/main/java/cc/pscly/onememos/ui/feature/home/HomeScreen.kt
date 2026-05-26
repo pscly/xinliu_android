@@ -446,8 +446,7 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        if (moreActionsTarget != null) {
-            val target = moreActionsTarget!!
+        moreActionsTarget?.let { target ->
             ModalBottomSheet(
                 onDismissRequest = { moreActionsTarget = null },
             ) {
@@ -530,9 +529,9 @@ fun HomeScreen(
             }
         }
 
-        if (addToCollectionsTarget != null) {
+        addToCollectionsTarget?.let { target ->
             AddToCollectionsDialog(
-                memo = addToCollectionsTarget!!,
+                memo = target,
                 onDismiss = { addToCollectionsTarget = null },
             )
         }

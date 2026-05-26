@@ -30,6 +30,13 @@ import java.time.format.DateTimeFormatter
 class ScreenshotQuickCaptureActivity : ComponentActivity() {
     companion object {
         @VisibleForTesting
+        internal fun validCaptureIntent(
+            resultCode: Int,
+            data: Intent?,
+        ): Intent? =
+            if (resultCode == RESULT_OK) data else null
+
+        @VisibleForTesting
         internal suspend fun saveBitmapToCacheFile(
             cacheDir: File,
             bitmap: Bitmap,
@@ -51,14 +58,15 @@ class ScreenshotQuickCaptureActivity : ComponentActivity() {
 
     private val captureLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode != RESULT_OK || result.data == null) {
+            val captureIntent = validCaptureIntent(resultCode = result.resultCode, data = result.data)
+            if (captureIntent == null) {
                 finish()
                 return@registerForActivityResult
             }
 
             lifecycleScope.launch {
                 runCatching {
-                    val uri = captureOneFrameToCache(resultCode = result.resultCode, data = result.data!!)
+                    val uri = captureOneFrameToCache(resultCode = result.resultCode, data = captureIntent)
                     openOverlayWithAttachment(uri)
                 }.onFailure { e ->
                     Toast.makeText(this@ScreenshotQuickCaptureActivity, e.message?.take(200) ?: "截图失败", Toast.LENGTH_SHORT).show()

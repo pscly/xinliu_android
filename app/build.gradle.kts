@@ -18,8 +18,8 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
 
-        versionCode = 153
-        versionName = "1.8.8"
+        versionCode = 154
+        versionName = "1.8.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Flow Backend：账号登录/注册用（App 拿到 token + server_url 后直接连接 Memos，不经 Backend 代理数据）。

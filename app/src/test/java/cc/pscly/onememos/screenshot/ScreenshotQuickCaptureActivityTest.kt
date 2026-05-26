@@ -1,13 +1,17 @@
 package cc.pscly.onememos.screenshot
 
 import android.app.Application
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,6 +24,31 @@ import java.util.concurrent.atomic.AtomicReference
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class ScreenshotQuickCaptureActivityTest {
+    @Test
+    fun validCaptureIntent_requiresOkResultAndNonNullIntent() {
+        val intent = Intent("test")
+
+        assertSame(
+            intent,
+            ScreenshotQuickCaptureActivity.validCaptureIntent(
+                resultCode = Activity.RESULT_OK,
+                data = intent,
+            ),
+        )
+        assertNull(
+            ScreenshotQuickCaptureActivity.validCaptureIntent(
+                resultCode = Activity.RESULT_CANCELED,
+                data = intent,
+            ),
+        )
+        assertNull(
+            ScreenshotQuickCaptureActivity.validCaptureIntent(
+                resultCode = Activity.RESULT_OK,
+                data = null,
+            ),
+        )
+    }
+
     @Test
     fun saveBitmapToCacheFile_writesPngToCache() =
         runBlocking {
