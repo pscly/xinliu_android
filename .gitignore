@@ -53,6 +53,7 @@ Thumbs.db
 .kotlin-lsp-tmp/
 kotlin-lsp.cmd
 **/.serena/
+.superpowers/
 # **/.sisyphus/
 
 # .sisyphus 中会生成大量本地证据/临时草稿，默认不入库
