@@ -253,6 +253,9 @@ val ensureDebugKeystore by tasks.registering {
     }
 }
 
-tasks.matching { it.name.startsWith("validateSigning") && !hasReleaseSigning }.configureEach {
+tasks.matching {
+    it.name.startsWith("validateSigningDebug") ||
+        (!hasReleaseSigning && it.name.startsWith("validateSigning"))
+}.configureEach {
     dependsOn(ensureDebugKeystore)
 }
