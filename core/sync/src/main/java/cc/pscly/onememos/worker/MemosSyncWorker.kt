@@ -898,17 +898,19 @@ class MemosSyncWorker @AssistedInject constructor(
 
     private suspend fun refreshFromServer(serverBase: String) {
         var pageToken: String? = null
+        var orderBy: String? = RECENT_MEMOS_ORDER_BY
         var pages = 0
         val creatorState = CreatorState(currentCreator = settingsRepository.settings.first().currentUserCreator.trim())
         while (pages < 4) { // 最多拉 4 页（约 200 条），避免首次就拉爆
-            val response =
-                memosApi.listMemos(
+            val page =
+                listRecentMemosPage(
+                    memosApi = memosApi,
                     url = MemosUrls.listMemos(serverBase),
-                    pageSize = 50,
                     pageToken = pageToken,
-                    state = MemoServerState.NORMAL.name,
-                    orderBy = "pinned desc, display_time desc",
+                    orderBy = orderBy,
                 )
+            val response = page.response
+            orderBy = page.orderBy
 
             for (dto in response.memos) {
                 upsertRemoteMemoFromDtoIfSafe(
