@@ -177,7 +177,9 @@ jobs:
           aapt="$(find "${ANDROID_HOME}" -path '*/build-tools/*/aapt' -type f | sort -V | tail -n 1)"
           [[ -x "$apksigner" && -x "$aapt" ]] || { echo "错误：找不到 apksigner/aapt" >&2; exit 1; }
 
-          signer="$($apksigner verify --print-certs "$APK_PATH" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          cert_output="$("$apksigner" verify --print-certs "$APK_PATH" 2>&1)"
+          printf '%s\n' "$cert_output"
+          signer="$(printf '%s\n' "$cert_output" | awk 'tolower($0) ~ /certificate sha-256 digest/ { print tolower($NF); exit }')"
           if [[ -n "${REQUIRE_RELEASE_SIGNING:-}" && "$signer" != "$EXPECTED_BENCHMARK_SIGNER_SHA256" ]]; then
             echo "错误：Benchmark APK 签名证书漂移：$signer" >&2
             exit 1
