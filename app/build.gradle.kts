@@ -9,6 +9,20 @@ plugins {
 
 import org.gradle.internal.os.OperatingSystem
 
+val releaseKeystorePath = providers.environmentVariable("ANDROID_RELEASE_KEYSTORE_PATH").orNull
+val releaseStorePassword = providers.environmentVariable("ANDROID_RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("ANDROID_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("ANDROID_RELEASE_KEY_PASSWORD").orNull
+val releaseSigningValues =
+    listOf(releaseKeystorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+val hasReleaseSigning = releaseSigningValues.all { !it.isNullOrBlank() }
+val hasPartialReleaseSigning = releaseSigningValues.any { !it.isNullOrBlank() } && !hasReleaseSigning
+val requireReleaseSigning = providers.environmentVariable("REQUIRE_RELEASE_SIGNING").orNull == "true"
+
+if (hasPartialReleaseSigning || (requireReleaseSigning && !hasReleaseSigning)) {
+    throw GradleException("发布签名配置不完整，必须同时提供 keystore 路径、store 密码、alias 和 key 密码")
+}
+
 android {
     namespace = "cc.pscly.onememos"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -18,8 +32,8 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
 
-        versionCode = 155
-        versionName = "1.8.10"
+        versionCode = 156
+        versionName = "1.8.11"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Flow Backend：账号登录/注册用（App 拿到 token + server_url 后直接连接 Memos，不经 Backend 代理数据）。
@@ -33,6 +47,20 @@ android {
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+        }
+        create("benchmarkRelease") {
+            if (hasReleaseSigning) {
+                storeFile = rootProject.file(requireNotNull(releaseKeystorePath))
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            } else {
+                // 本地固定基线保存在 ignored 目录；CI 正式发布时会强制注入同一 keystore。
+                storeFile = rootProject.file(".gradle-keystore/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
 
@@ -48,7 +76,7 @@ android {
         // 用于 Macrobenchmark / Baseline Profile：继承 release，但用 debug 签名，避免本机签名依赖。
         create("benchmark") {
             initWith(getByName("release"))
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("benchmarkRelease")
             matchingFallbacks += listOf("release")
             isDebuggable = false
         }
@@ -225,6 +253,6 @@ val ensureDebugKeystore by tasks.registering {
     }
 }
 
-tasks.matching { it.name.startsWith("validateSigning") }.configureEach {
+tasks.matching { it.name.startsWith("validateSigning") && !hasReleaseSigning }.configureEach {
     dependsOn(ensureDebugKeystore)
 }

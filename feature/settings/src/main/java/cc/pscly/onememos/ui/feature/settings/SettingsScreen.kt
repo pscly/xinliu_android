@@ -42,6 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -101,11 +102,24 @@ data class SettingsAppInfo(
     val flowBackendBaseUrl: String,
 )
 
+data class SettingsUpdateInfo(
+    val statusText: String,
+    val checking: Boolean = false,
+    val actionLabel: String? = null,
+    val actionEnabled: Boolean = false,
+    val downloadProgressPercent: Int? = null,
+    val ignoredVersionTag: String = "",
+)
+
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAuth: (startMode: String?) -> Unit,
     appInfo: SettingsAppInfo,
+    updateInfo: SettingsUpdateInfo,
+    onCheckForUpdates: () -> Unit,
+    onRunUpdateAction: () -> Unit,
+    onClearIgnoredVersion: () -> Unit,
     onRequestAddQuickCaptureTile: () -> Unit,
     onStartQuickCaptureOverlay: () -> Unit,
     onOpenQuickCaptureActivity: () -> Unit,
@@ -1137,6 +1151,50 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline,
                     )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(text = "应用更新", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = updateInfo.statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                updateInfo.downloadProgressPercent?.let { progress ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { progress.coerceIn(0, 100) / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = onCheckForUpdates,
+                        enabled = !updateInfo.checking,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("检查更新")
+                    }
+                    updateInfo.actionLabel?.let { label ->
+                        Button(
+                            onClick = onRunUpdateAction,
+                            enabled = updateInfo.actionEnabled,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(label)
+                        }
+                    }
+                }
+                if (updateInfo.ignoredVersionTag.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(onClick = onClearIgnoredVersion) {
+                        Text("取消忽略 ${updateInfo.ignoredVersionTag}")
+                    }
                 }
 
                 if (uiState.dev2Unlocked) {

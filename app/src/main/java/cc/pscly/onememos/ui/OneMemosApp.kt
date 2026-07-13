@@ -23,13 +23,17 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.Modifier
@@ -63,13 +67,17 @@ import cc.pscly.onememos.ui.feature.profile.ProfileScreen
 import cc.pscly.onememos.ui.feature.quickcapture.QuickCaptureActivity
 import cc.pscly.onememos.ui.feature.sharecard.ShareCardScreen
 import cc.pscly.onememos.ui.feature.settings.SettingsAppInfo
+import cc.pscly.onememos.ui.feature.settings.SettingsUpdateInfo
 import cc.pscly.onememos.ui.feature.settings.SettingsScreen
 import cc.pscly.onememos.ui.feature.start.AppStartViewModel
 import cc.pscly.onememos.ui.feature.todo.TodoScreen
 import cc.pscly.onememos.ui.feature.welcome.WelcomeScreen
+import cc.pscly.onememos.update.AppUpdatePhase
+import cc.pscly.onememos.update.AppUpdateUiState
 
 @Composable
 fun OneMemosApp(
+    appViewModel: AppViewModel = hiltViewModel(),
     startEditorUuid: String? = null,
     onStartEditorHandled: (() -> Unit)? = null,
     startRoute: String? = null,
@@ -82,6 +90,7 @@ fun OneMemosApp(
     var welcomeHandled by rememberSaveable { mutableStateOf(false) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val updateUiState by appViewModel.updateUiState.collectAsStateWithLifecycle()
 
     val startViewModel: AppStartViewModel = hiltViewModel()
     val startUiState by startViewModel.uiState.collectAsStateWithLifecycle()
@@ -365,6 +374,16 @@ fun OneMemosApp(
                             buildType = BuildConfig.BUILD_TYPE,
                             flowBackendBaseUrl = BuildConfig.FLOW_BACKEND_BASE_URL,
                         ),
+                    updateInfo = updateUiState.toSettingsUpdateInfo(),
+                    onCheckForUpdates = appViewModel::checkForUpdatesManually,
+                    onRunUpdateAction = {
+                        when (updateUiState.phase) {
+                            AppUpdatePhase.AVAILABLE -> appViewModel.startUpdateDownload()
+                            AppUpdatePhase.READY_TO_INSTALL -> appViewModel.installDownloadedUpdate()
+                            else -> Unit
+                        }
+                    },
+                    onClearIgnoredVersion = appViewModel::clearIgnoredUpdate,
                     onRequestAddQuickCaptureTile = {
                         val act = context as? Activity
                         if (act == null) {
@@ -462,5 +481,103 @@ fun OneMemosApp(
                 },
             )
         }
+
+        AppUpdateDialog(
+            state = updateUiState,
+            onDownload = appViewModel::startUpdateDownload,
+            onInstall = appViewModel::installDownloadedUpdate,
+            onLater = appViewModel::remindUpdateLater,
+            onIgnore = appViewModel::ignoreCurrentUpdate,
+            onDismiss = appViewModel::dismissUpdatePrompt,
+        )
+    }
+}
+
+private fun AppUpdateUiState.toSettingsUpdateInfo(): SettingsUpdateInfo =
+    SettingsUpdateInfo(
+        statusText = statusMessage,
+        checking = phase == AppUpdatePhase.CHECKING,
+        actionLabel =
+            when (phase) {
+                AppUpdatePhase.AVAILABLE -> "下载更新"
+                AppUpdatePhase.READY_TO_INSTALL -> "安装更新"
+                else -> null
+            },
+        actionEnabled = phase == AppUpdatePhase.AVAILABLE || phase == AppUpdatePhase.READY_TO_INSTALL,
+        downloadProgressPercent = downloadProgressPercent.takeIf { phase == AppUpdatePhase.DOWNLOADING },
+        ignoredVersionTag = ignoredVersionTag,
+    )
+
+@Composable
+private fun AppUpdateDialog(
+    state: AppUpdateUiState,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit,
+    onLater: () -> Unit,
+    onIgnore: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (!state.promptVisible) return
+    val release = state.release ?: return
+    when (state.phase) {
+        AppUpdatePhase.AVAILABLE ->
+            AlertDialog(
+                onDismissRequest = onLater,
+                title = { Text("发现新版本 ${release.versionName}") },
+                text = {
+                    Column(
+                        modifier =
+                            Modifier
+                                .heightIn(max = 420.dp)
+                                .verticalScroll(rememberScrollState()),
+                    ) {
+                        Text(release.notes.ifBlank { "本次为完整稳定版更新。" })
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "安装包约 ${"%.1f".format(release.apkSizeBytes / 1024.0 / 1024.0)} MB，下载后会校验哈希、包名、版本和签名。",
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = onDownload) { Text("立即更新") }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = onIgnore) { Text("忽略此版本") }
+                        TextButton(onClick = onLater) { Text("稍后") }
+                    }
+                },
+            )
+        AppUpdatePhase.DOWNLOADING ->
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text("正在下载 ${release.versionName}") },
+                text = {
+                    Column {
+                        Text(state.statusMessage)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        LinearProgressIndicator(
+                            progress = { (state.downloadProgressPercent ?: 0).coerceIn(0, 100) / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = onDismiss) { Text("后台下载") }
+                },
+            )
+        AppUpdatePhase.READY_TO_INSTALL ->
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text("更新已准备好") },
+                text = { Text("${release.versionName} 已下载并通过安全校验，可以交给系统安装。") },
+                confirmButton = {
+                    TextButton(onClick = onInstall) { Text("安装更新") }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) { Text("关闭") }
+                },
+            )
+        else -> Unit
     }
 }

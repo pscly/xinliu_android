@@ -67,3 +67,11 @@
 如果开发是完善的那么就需要打包一个 benchmark 的apk, 并且告诉用户路径 (apk文件需要有时间和日期 xxxx-xx-xxTxx-xx-xx.apk)
 
 apk  不要打包 debug 以后全打包 benchmark
+
+## 8. APK 完整发布规则（强制）
+
+- 任何会影响最终 APK 的代码、资源、依赖、Manifest、Gradle 或构建配置变更，都必须执行一次完整稳定版发布；纯文档修改可以例外。
+- 完整发布必须同时完成：递增 `versionCode` 与稳定版 `versionName`、通过项目门禁、生成带日期时间文件名的 Benchmark APK、提交并推送 `main`、创建并推送 `vMAJOR.MINOR.PATCH` Tag、等待 GitHub Actions 成功、发布非草稿且非预发布的 GitHub latest Release。
+- Release 只能上传使用固定发布签名构建的 Benchmark APK；发布前后必须核验包名、版本号、SHA-256 与签名证书摘要，禁止使用临时签名或漂移签名。
+- 不允许只交付本地 APK、只上传 Artifact、只发布 `benchmark-*` 预发布版本，或省略 Tag、Actions、正式 Release 中的任一步骤。
+- GitHub Release 失败时必须修复并重新完成同一版本的发布闭环，不能把未完成的发布视为交付成功。

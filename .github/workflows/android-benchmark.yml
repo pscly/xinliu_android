@@ -33,6 +33,7 @@ concurrency:
 
 env:
   TZ: Asia/Shanghai
+  EXPECTED_BENCHMARK_SIGNER_SHA256: 58749c794f0c54af6b69bb6d80248a9fda0b75c687fde55b98d9575fc091633e
 
 jobs:
   benchmark:
@@ -43,6 +44,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Java 21
         uses: actions/setup-java@v5
@@ -56,6 +59,42 @@ jobs:
 
       - name: 授予脚本执行权限
         run: chmod +x ./gradlew ./scripts/*.sh
+
+      - name: 配置固定发布签名
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+          DISPATCH_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release || false }}
+        run: |
+          set -euo pipefail
+
+          require_signing=false
+          if [[ "${GITHUB_REF:-}" == "refs/heads/main" || "${GITHUB_REF:-}" == refs/tags/* || "$DISPATCH_PUBLISH" == "true" ]]; then
+            require_signing=true
+          fi
+
+          if [[ -z "$KEYSTORE_BASE64" || -z "$STORE_PASSWORD" || -z "$KEY_ALIAS" || -z "$KEY_PASSWORD" ]]; then
+            if [[ "$require_signing" == "true" ]]; then
+              echo "错误：正式构建缺少固定 Android 发布签名 Secrets" >&2
+              exit 1
+            fi
+            echo "PR 校验未注入发布签名，使用临时本地签名完成门禁。"
+            exit 0
+          fi
+
+          mkdir -p .gradle-keystore
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > .gradle-keystore/release.keystore
+          chmod 600 .gradle-keystore/release.keystore
+          {
+            echo "ANDROID_RELEASE_KEYSTORE_PATH=${GITHUB_WORKSPACE}/.gradle-keystore/release.keystore"
+            echo "ANDROID_RELEASE_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "ANDROID_RELEASE_KEY_ALIAS=$KEY_ALIAS"
+            echo "ANDROID_RELEASE_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "REQUIRE_RELEASE_SIGNING=true"
+          } >> "$GITHUB_ENV"
 
       - name: 执行门禁与 benchmark 构建
         run: ./scripts/verify.sh
@@ -92,8 +131,20 @@ jobs:
             release_tag="benchmark-$(date '+%Y-%m-%dT%H-%M-%S')-run${GITHUB_RUN_NUMBER}"
           fi
 
+          stable_release=false
+          if [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            stable_release=true
+            expected_tag="v${version_name}"
+            if [[ "$release_tag" != "$expected_tag" ]]; then
+              echo "错误：稳定版 Tag $release_tag 与 app 版本 $expected_tag 不一致" >&2
+              exit 1
+            fi
+          fi
+
           if [[ -n "${INPUT_RELEASE_TITLE:-}" ]]; then
             release_title="${INPUT_RELEASE_TITLE}"
+          elif [[ "$stable_release" == "true" ]]; then
+            release_title="1memos ${version_name}"
           else
             release_title="1memos benchmark ${version_name} (${release_tag})"
           fi
@@ -110,7 +161,32 @@ jobs:
             echo "release_title=$release_title"
             echo "artifact_name=$artifact_name"
             echo "sha_short=$sha_short"
+            echo "stable_release=$stable_release"
           } >> "$GITHUB_OUTPUT"
+
+      - name: 核验 Benchmark APK 签名与清单
+        shell: bash
+        env:
+          APK_PATH: ${{ steps.meta.outputs.apk_path }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+        run: |
+          set -euo pipefail
+
+          apksigner="$(find "${ANDROID_HOME}" -path '*/build-tools/*/apksigner' -type f | sort -V | tail -n 1)"
+          aapt="$(find "${ANDROID_HOME}" -path '*/build-tools/*/aapt' -type f | sort -V | tail -n 1)"
+          [[ -x "$apksigner" && -x "$aapt" ]] || { echo "错误：找不到 apksigner/aapt" >&2; exit 1; }
+
+          signer="$($apksigner verify --print-certs "$APK_PATH" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          if [[ -n "${REQUIRE_RELEASE_SIGNING:-}" && "$signer" != "$EXPECTED_BENCHMARK_SIGNER_SHA256" ]]; then
+            echo "错误：Benchmark APK 签名证书漂移：$signer" >&2
+            exit 1
+          fi
+
+          badging="$($aapt dump badging "$APK_PATH" | head -n 1)"
+          [[ "$badging" == *"name='cc.pscly.onememos'"* ]] || { echo "错误：APK 包名不正确" >&2; exit 1; }
+          [[ "$badging" == *"versionCode='${VERSION_CODE}'"* ]] || { echo "错误：APK versionCode 不正确" >&2; exit 1; }
+          [[ "$badging" == *"versionName='${VERSION_NAME}'"* ]] || { echo "错误：APK versionName 不正确" >&2; exit 1; }
 
       - name: 上传 benchmark APK Artifact
         uses: actions/upload-artifact@v7
@@ -132,7 +208,8 @@ jobs:
             echo "- APK：\`${{ steps.meta.outputs.apk_name }}\`"
             echo "- Artifact：\`${{ steps.meta.outputs.artifact_name }}\`"
             echo "- 触发方式：\`${{ github.event_name }}\`"
-            echo "- 若需发布 Release：push `v*` / `benchmark-*` tag，或手动运行 workflow_dispatch 并开启 publish_release"
+            echo "- 固定签名证书 SHA-256：\`${EXPECTED_BENCHMARK_SIGNER_SHA256}\`"
+            echo "- 稳定版：push \`vMAJOR.MINOR.PATCH\` tag；benchmark tag 只发布预发布版本"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 创建或更新 GitHub Release
@@ -147,15 +224,29 @@ jobs:
           APK_NAME: ${{ steps.meta.outputs.apk_name }}
           VERSION_NAME: ${{ steps.meta.outputs.version_name }}
           VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          STABLE_RELEASE: ${{ steps.meta.outputs.stable_release }}
         run: |
           set -euo pipefail
 
+          previous_stable_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -Fxv "$RELEASE_TAG" | head -n 1 || true)"
+          if [[ -n "$previous_stable_tag" ]]; then
+            change_log="$(git log "${previous_stable_tag}..${GITHUB_SHA}" --pretty='- %s')"
+          else
+            change_log="- 首次稳定版发布"
+          fi
+
           cat > release-notes.md <<EOF
+          ## 更新内容
+
+          ${change_log}
+
+          ## 构建信息
+
           - 版本：${VERSION_NAME} (${VERSION_CODE})
           - 构建时间：$(date '+%Y-%m-%d %H:%M:%S %Z')
           - 提交：${GITHUB_SHA}
           - 工作流：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-          - 说明：本 Release 由 GitHub Actions 自动构建并上传 benchmark APK。
+          - 说明：本 Release 由 GitHub Actions 使用固定签名构建，并上传经过包名、版本和签名校验的 Benchmark APK。
           EOF
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
@@ -166,11 +257,25 @@ jobs:
               done
             fi
             gh release upload "$RELEASE_TAG" "$APK_PATH#$APK_NAME"
+            if [[ "$STABLE_RELEASE" == "true" ]]; then
+              gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md --prerelease=false --latest
+            else
+              gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md --prerelease
+            fi
           else
-            gh release create "$RELEASE_TAG" "$APK_PATH#$APK_NAME" \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md \
-              --target "$GITHUB_SHA"
+            if [[ "$STABLE_RELEASE" == "true" ]]; then
+              gh release create "$RELEASE_TAG" "$APK_PATH#$APK_NAME" \
+                --title "$RELEASE_TITLE" \
+                --notes-file release-notes.md \
+                --target "$GITHUB_SHA" \
+                --latest
+            else
+              gh release create "$RELEASE_TAG" "$APK_PATH#$APK_NAME" \
+                --title "$RELEASE_TITLE" \
+                --notes-file release-notes.md \
+                --target "$GITHUB_SHA" \
+                --prerelease
+            fi
           fi
 
           release_url="$(gh release view "$RELEASE_TAG" --json url --jq '.url')"

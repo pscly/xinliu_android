@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
                 val themeConfig = appViewModel.themeConfig.collectAsStateWithLifecycle(lifecycleOwner = activity).value
                 OneMemosTheme(config = themeConfig) {
                     OneMemosApp(
+                        appViewModel = appViewModel,
                         startEditorUuid = startEditorUuid,
                         onStartEditorHandled = { startEditorUuid = null },
                         startRoute = startRoute,
@@ -45,6 +46,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        appViewModel.checkForUpdatesAutomatically()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        appViewModel.onHostResumed()
     }
 
     override fun onNewIntent(intent: Intent) {

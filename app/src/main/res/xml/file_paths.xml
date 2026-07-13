@@ -13,4 +13,9 @@
     <files-path
         name="shared"
         path="shared/" />
+
+    <!-- 仅允许系统安装器读取应用更新目录中的 APK。 -->
+    <external-files-path
+        name="app_updates"
+        path="Download/updates/" />
 </paths>
