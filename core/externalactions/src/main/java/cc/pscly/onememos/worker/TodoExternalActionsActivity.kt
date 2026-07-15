@@ -1,14 +1,17 @@
 package cc.pscly.onememos.worker
 
-import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.provider.AlarmClock
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import cc.pscly.onememos.domain.util.LocalDateTimes
+import cc.pscly.onememos.externalactions.InAppFallbackPort
+import dagger.hilt.android.AndroidEntryPoint
 import java.time.Duration
 import java.time.ZonedDateTime
+import javax.inject.Inject
 
 /**
  * Todo 外部动作中转页：
@@ -16,19 +19,70 @@ import java.time.ZonedDateTime
  * - 用于在系统时钟 App 中创建“闹钟/计时器”（需要用户确认）；
  * - 避免在 Worker/Receiver 中直接启动外部 Activity 时的兼容性问题。
  */
-class TodoExternalActionsActivity : Activity() {
+
+/**
+ * 时钟启动决策纯函数，便于单元测试，不依赖 Hilt/Activity 生命周期。
+ */
+object TodoClockLaunchPlanner {
+    enum class Kind {
+        SET_ALARM,
+        SET_TIMER,
+        SHOW_ALARMS,
+    }
+
+    data class Plan(
+        val kind: Kind,
+        val hour: Int = 0,
+        val minute: Int = 0,
+        val seconds: Int = 0,
+    )
+
+    fun plan(
+        dueAtLocal: String,
+        now: ZonedDateTime = ZonedDateTime.now(),
+    ): Plan {
+        val dueLocal = LocalDateTimes.parseOrNull(dueAtLocal) ?: return Plan(Kind.SHOW_ALARMS)
+        val due = dueLocal.atZone(now.zone)
+        val deltaSeconds = Duration.between(now, due).seconds
+        val isToday = dueLocal.toLocalDate() == now.toLocalDate()
+        if (isToday && deltaSeconds > 0) {
+            return Plan(
+                kind = Kind.SET_ALARM,
+                hour = dueLocal.hour.coerceIn(0, 23),
+                minute = dueLocal.minute.coerceIn(0, 59),
+            )
+        }
+        if (deltaSeconds in 60..(24 * 60 * 60)) {
+            return Plan(
+                kind = Kind.SET_TIMER,
+                seconds = deltaSeconds.toInt().coerceIn(60, 24 * 60 * 60),
+            )
+        }
+        return Plan(
+            kind = Kind.SET_ALARM,
+            hour = dueLocal.hour.coerceIn(0, 23),
+            minute = dueLocal.minute.coerceIn(0, 59),
+        )
+    }
+}
+
+@AndroidEntryPoint
+class TodoExternalActionsActivity : ComponentActivity() {
+    @Inject
+    lateinit var inAppFallbackPort: InAppFallbackPort
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val title = intent?.getStringExtra(EXTRA_TODO_TITLE)?.trim().orEmpty()
         val dueAtLocal = intent?.getStringExtra(EXTRA_DUE_AT_LOCAL)?.trim().orEmpty()
 
-        val plan = planClockLaunch(dueAtLocal = dueAtLocal)
+        val plan = TodoClockLaunchPlanner.plan(dueAtLocal = dueAtLocal)
         val message = buildClockMessage(title = title, dueAtLocal = dueAtLocal)
 
         val targetIntent =
             when (plan.kind) {
-                ClockLaunchKind.SET_ALARM ->
+                TodoClockLaunchPlanner.Kind.SET_ALARM ->
                     Intent(AlarmClock.ACTION_SET_ALARM).apply {
                         putExtra(AlarmClock.EXTRA_HOUR, plan.hour)
                         putExtra(AlarmClock.EXTRA_MINUTES, plan.minute)
@@ -36,14 +90,14 @@ class TodoExternalActionsActivity : Activity() {
                         putExtra(AlarmClock.EXTRA_SKIP_UI, false)
                     }
 
-                ClockLaunchKind.SET_TIMER ->
+                TodoClockLaunchPlanner.Kind.SET_TIMER ->
                     Intent(AlarmClock.ACTION_SET_TIMER).apply {
                         putExtra(AlarmClock.EXTRA_LENGTH, plan.seconds)
                         putExtra(AlarmClock.EXTRA_MESSAGE, message)
                         putExtra(AlarmClock.EXTRA_SKIP_UI, false)
                     }
 
-                ClockLaunchKind.SHOW_ALARMS ->
+                TodoClockLaunchPlanner.Kind.SHOW_ALARMS ->
                     Intent(AlarmClock.ACTION_SHOW_ALARMS)
             }
 
@@ -64,12 +118,7 @@ class TodoExternalActionsActivity : Activity() {
     }
 
     private fun openTodoPageFallback() {
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return
-        launchIntent.flags =
-            Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP
-        launchIntent.putExtra(TodoReminderNotifyWorker.EXTRA_START_ROUTE, "todo")
+        val launchIntent = inAppFallbackPort.todoIntent(this)
         runCatching { startActivity(launchIntent) }
     }
 
@@ -89,61 +138,8 @@ class TodoExternalActionsActivity : Activity() {
             .take(80)
     }
 
-    internal enum class ClockLaunchKind {
-        SET_ALARM,
-        SET_TIMER,
-        SHOW_ALARMS,
-    }
-
-    internal data class ClockLaunchPlan(
-        val kind: ClockLaunchKind,
-        val hour: Int = 0,
-        val minute: Int = 0,
-        val seconds: Int = 0,
-    )
-
-    /**
-     * 将 dueAtLocal 转换为“更符合用户预期”的系统时钟动作：
-     * - 今天且在未来：创建闹钟（小时+分钟）
-     * - 未来但非今天：优先创建计时器（按剩余秒数），过长则退化为闹钟
-     * - 解析失败：打开时钟列表
-     */
-    internal fun planClockLaunch(
-        dueAtLocal: String,
-        now: ZonedDateTime = ZonedDateTime.now(),
-    ): ClockLaunchPlan {
-        val dueLocal = LocalDateTimes.parseOrNull(dueAtLocal) ?: return ClockLaunchPlan(ClockLaunchKind.SHOW_ALARMS)
-        val due = dueLocal.atZone(now.zone)
-
-        val deltaSeconds = Duration.between(now, due).seconds
-        val isToday = dueLocal.toLocalDate() == now.toLocalDate()
-
-        if (isToday && deltaSeconds > 0) {
-            return ClockLaunchPlan(
-                kind = ClockLaunchKind.SET_ALARM,
-                hour = dueLocal.hour.coerceIn(0, 23),
-                minute = dueLocal.minute.coerceIn(0, 59),
-            )
-        }
-
-        if (deltaSeconds in 60..(24 * 60 * 60)) {
-            return ClockLaunchPlan(
-                kind = ClockLaunchKind.SET_TIMER,
-                seconds = deltaSeconds.toInt().coerceIn(60, 24 * 60 * 60),
-            )
-        }
-
-        // 过长/已过期：仍给一个“闹钟”入口（至少能预填时间，用户可自行调整日期）。
-        return ClockLaunchPlan(
-            kind = ClockLaunchKind.SET_ALARM,
-            hour = dueLocal.hour.coerceIn(0, 23),
-            minute = dueLocal.minute.coerceIn(0, 59),
-        )
-    }
-
     companion object {
         const val EXTRA_TODO_TITLE = "cc.pscly.onememos.extra.TODO_TITLE"
         const val EXTRA_DUE_AT_LOCAL = "cc.pscly.onememos.extra.TODO_DUE_AT_LOCAL"
     }
 }
-
