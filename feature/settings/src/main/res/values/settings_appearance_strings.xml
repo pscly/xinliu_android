@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_appearance_title">外观与交互</string>
+    <string name="settings_appearance_description">选择纸面风格、明暗表现和记录反馈；每项状态都以文字呈现。</string>
+    <string name="settings_appearance_loading">正在读取外观设置</string>
+    <string name="settings_appearance_selected">已选</string>
+    <string name="settings_appearance_not_selected">未选</string>
+    <string name="settings_appearance_enabled">已开启</string>
+    <string name="settings_appearance_disabled">已关闭</string>
+    <string name="settings_appearance_choice_semantics">%1$s，%2$s</string>
+
+    <string name="settings_appearance_palette_title">主题色板</string>
+    <string name="settings_appearance_palette_paper_ink">宣纸 · 朱砂</string>
+    <string name="settings_appearance_palette_indigo">宣纸 · 黛蓝</string>
+    <string name="settings_appearance_palette_cyber">玄青 · 荧光青</string>
+
+    <string name="settings_appearance_mode_title">明暗模式</string>
+    <string name="settings_appearance_mode_follow_system">跟随系统</string>
+    <string name="settings_appearance_mode_light">浅色</string>
+    <string name="settings_appearance_mode_dark">深色</string>
+
+    <string name="settings_appearance_overlay_title">悬浮记录</string>
+    <string name="settings_appearance_overlay_description">开启时按系统流程完成“在其他应用上层显示”授权；关闭时使用应用内极速记录。</string>
+    <string name="settings_appearance_overlay_semantics">悬浮记录，%1$s，点击切换并在需要时授权</string>
+
+    <string name="settings_appearance_duration_title">盖章反馈时长</string>
+    <string name="settings_appearance_duration_200">200 毫秒</string>
+    <string name="settings_appearance_duration_600">600 毫秒</string>
+    <string name="settings_appearance_duration_2000">2000 毫秒</string>
+
+    <string name="settings_appearance_reduced_motion_on">减少动态效果已开启</string>
+    <string name="settings_appearance_reduced_motion_off">标准动态效果已开启</string>
+
+    <string name="settings_appearance_error_permission">尚未获得悬浮窗权限，请完成系统授权后重试。</string>
+    <string name="settings_appearance_error_platform">系统暂时无法处理此操作。</string>
+    <string name="settings_appearance_error_invalid">所选设置无效，请重新选择。</string>
+    <string name="settings_appearance_error_storage">设置保存失败，请稍后重试。</string>
+    <string name="settings_appearance_error_network">网络不可用，请检查连接后重试。</string>
+    <string name="settings_appearance_error_auth">登录状态已失效。</string>
+    <string name="settings_appearance_error_running">设置正在处理中，请稍候。</string>
+    <string name="settings_appearance_error_unknown">设置暂时无法保存，请稍后重试。</string>
+</resources>
