@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -9,6 +11,10 @@ android {
 
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
+    }
+
+    buildFeatures {
+        compose = true
     }
 
     compileOptions {
@@ -21,4 +27,14 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.kotlinx.serialization.json)
+
+    testImplementation(libs.junit)
 }
