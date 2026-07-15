@@ -379,7 +379,8 @@ fun OneMemosApp(
                     onRunUpdateAction = {
                         when (updateUiState.phase) {
                             AppUpdatePhase.AVAILABLE -> appViewModel.startUpdateDownload()
-                            AppUpdatePhase.READY_TO_INSTALL -> appViewModel.installDownloadedUpdate()
+                            AppUpdatePhase.READY_TO_INSTALL ->
+                                appViewModel.installDownloadedUpdate(context as? Activity)
                             else -> Unit
                         }
                     },
@@ -482,10 +483,13 @@ fun OneMemosApp(
             )
         }
 
+        val updateDialogContext = LocalContext.current
         AppUpdateDialog(
             state = updateUiState,
             onDownload = appViewModel::startUpdateDownload,
-            onInstall = appViewModel::installDownloadedUpdate,
+            onInstall = {
+                appViewModel.installDownloadedUpdate(updateDialogContext as? Activity)
+            },
             onLater = appViewModel::remindUpdateLater,
             onIgnore = appViewModel::ignoreCurrentUpdate,
             onDismiss = appViewModel::dismissUpdatePrompt,

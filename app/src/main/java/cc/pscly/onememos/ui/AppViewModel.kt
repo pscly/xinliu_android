@@ -1,9 +1,11 @@
 package cc.pscly.onememos.ui
 
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.ui.theme.OneMemosThemeConfig
+import cc.pscly.onememos.update.AppUpdateDeliveryLauncher
 import cc.pscly.onememos.update.AppUpdateManager
 import cc.pscly.onememos.update.AppUpdateUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +19,7 @@ import javax.inject.Inject
 class AppViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val appUpdateManager: AppUpdateManager,
+    private val updateDeliveryLauncher: AppUpdateDeliveryLauncher,
 ) : ViewModel() {
     val themeConfig: StateFlow<OneMemosThemeConfig> =
         settingsRepository.settings
@@ -40,7 +43,7 @@ class AppViewModel @Inject constructor(
 
     fun startUpdateDownload() = appUpdateManager.startDownload()
 
-    fun installDownloadedUpdate() = appUpdateManager.requestInstall()
+    fun installDownloadedUpdate(activity: Activity?) = updateDeliveryLauncher.requestInstall(activity)
 
     fun remindUpdateLater() = appUpdateManager.remindLater()
 
@@ -50,5 +53,5 @@ class AppViewModel @Inject constructor(
 
     fun dismissUpdatePrompt() = appUpdateManager.dismissPrompt()
 
-    fun onHostResumed() = appUpdateManager.onHostResumed()
+    fun onHostResumed(activity: Activity?) = updateDeliveryLauncher.onHostResumed(activity)
 }

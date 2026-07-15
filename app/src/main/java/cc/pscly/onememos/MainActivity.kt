@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        appViewModel.onHostResumed()
+        appViewModel.onHostResumed(this)
     }
 
     override fun onNewIntent(intent: Intent) {

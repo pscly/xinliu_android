@@ -1,6 +1,8 @@
 package cc.pscly.onememos.di
 
+import cc.pscly.onememos.update.AppIdentityPort
 import cc.pscly.onememos.update.GitHubUpdateApi
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -39,4 +41,12 @@ object AppUpdateModule {
             .build()
             .create(GitHubUpdateApi::class.java)
     }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class AppIdentityModule {
+    @Binds
+    @Singleton
+    abstract fun bindAppIdentityPort(adapter: AppIdentityAdapter): AppIdentityPort
 }

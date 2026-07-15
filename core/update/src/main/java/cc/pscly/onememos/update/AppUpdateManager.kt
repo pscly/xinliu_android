@@ -2,14 +2,14 @@ package cc.pscly.onememos.update
 
 import android.app.DownloadManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Environment
-import android.provider.Settings
 import androidx.core.content.FileProvider
-import cc.pscly.onememos.BuildConfig
+import cc.pscly.onememos.domain.update.UpdateDeliveryAction
+import cc.pscly.onememos.domain.update.UpdateDeliveryFailure
+import cc.pscly.onememos.domain.update.UpdateDeliveryResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileInputStream
@@ -54,6 +54,7 @@ class AppUpdateManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: GitHubUpdateApi,
     private val store: AppUpdateStore,
+    private val appIdentity: AppIdentityPort,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val checkMutex = Mutex()
@@ -106,7 +107,7 @@ class AppUpdateManager @Inject constructor(
                 runCatching { api.latestStableRelease() }
                     .onSuccess { dto ->
                         store.setNextAutomaticCheckAt(nextAutomaticCheckAt(now, successful = true))
-                        val release = resolveStableUpdate(dto, BuildConfig.VERSION_NAME)
+                        val release = resolveStableUpdate(dto, appIdentity.versionName)
                         if (release == null) {
                             _uiState.update {
                                 it.copy(
@@ -253,30 +254,50 @@ class AppUpdateManager @Inject constructor(
         }
     }
 
-    fun requestInstall() {
+    fun requestDelivery(): UpdateDeliveryAction? {
         val state = _uiState.value
-        if (state.phase != AppUpdatePhase.READY_TO_INSTALL || state.downloadedApkPath.isBlank()) return
+        if (state.phase != AppUpdatePhase.READY_TO_INSTALL || state.downloadedApkPath.isBlank()) return null
         installRequestedAfterPermission = true
         if (!context.packageManager.canRequestPackageInstalls()) {
-            context.startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:${context.packageName}"),
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
             _uiState.update { it.copy(statusMessage = "请允许 1memos 安装未知来源应用，返回后将继续安装") }
-            return
+            return UpdateDeliveryAction.OpenUnknownSourcesSettings(packageName = appIdentity.applicationId)
         }
-        launchInstaller(File(state.downloadedApkPath))
+        return buildInstallAction(File(state.downloadedApkPath))
     }
 
-    fun onHostResumed() {
-        if (
-            installRequestedAfterPermission &&
-            _uiState.value.phase == AppUpdatePhase.READY_TO_INSTALL &&
-            context.packageManager.canRequestPackageInstalls()
-        ) {
-            launchInstaller(File(_uiState.value.downloadedApkPath))
+    fun onDeliveryResult(result: UpdateDeliveryResult): UpdateDeliveryAction? {
+        return when (result) {
+            is UpdateDeliveryResult.UnknownSourcesPermissionChanged -> {
+                if (
+                    result.granted &&
+                    installRequestedAfterPermission &&
+                    _uiState.value.phase == AppUpdatePhase.READY_TO_INSTALL &&
+                    _uiState.value.downloadedApkPath.isNotBlank()
+                ) {
+                    buildInstallAction(File(_uiState.value.downloadedApkPath))
+                } else {
+                    if (!result.granted) {
+                        installRequestedAfterPermission = false
+                        _uiState.update { it.copy(statusMessage = "未授予安装未知来源应用权限") }
+                    }
+                    null
+                }
+            }
+            UpdateDeliveryResult.InstallerReturned -> {
+                installRequestedAfterPermission = false
+                null
+            }
+            is UpdateDeliveryResult.Failed -> {
+                installRequestedAfterPermission = false
+                val message =
+                    when (result.reason) {
+                        UpdateDeliveryFailure.ACTIVITY_NOT_FOUND -> "当前页面无法打开系统安装界面"
+                        UpdateDeliveryFailure.PERMISSION_DENIED -> "未授予安装未知来源应用权限"
+                        UpdateDeliveryFailure.PLATFORM_FAILURE -> "系统安装流程失败，请重试"
+                    }
+                _uiState.update { it.copy(statusMessage = message) }
+                null
+            }
         }
     }
 
@@ -384,9 +405,9 @@ class AppUpdateManager @Inject constructor(
             when (
                 validateDownloadedApkMetadata(
                     metadata = metadata,
-                    expectedPackageName = BuildConfig.APPLICATION_ID,
+                    expectedPackageName = appIdentity.applicationId,
                     expectedVersionName = release.versionName,
-                    currentVersionCode = BuildConfig.VERSION_CODE.toLong(),
+                    currentVersionCode = appIdentity.versionCode,
                     currentSignerSha256 = currentInfo.signerSha256(),
                 )
             ) {
@@ -433,20 +454,16 @@ class AppUpdateManager @Inject constructor(
         } ?: DownloadSnapshot(status = 0, reason = 0, progressPercent = null)
     }
 
-    private fun launchInstaller(apkFile: File) {
+    private fun buildInstallAction(apkFile: File): UpdateDeliveryAction.InstallApk {
         installRequestedAfterPermission = false
         val apkUri =
             FileProvider.getUriForFile(
                 context,
-                "${BuildConfig.APPLICATION_ID}.fileprovider",
+                appIdentity.fileProviderAuthority,
                 apkFile,
             )
-        context.startActivity(
-            Intent(Intent.ACTION_VIEW)
-                .setDataAndType(apkUri, APK_CONTENT_TYPE)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION),
-        )
         _uiState.update { it.copy(promptVisible = false, statusMessage = "已打开系统安装界面") }
+        return UpdateDeliveryAction.InstallApk(uri = apkUri.toString(), mimeType = APK_CONTENT_TYPE)
     }
 
     private data class DownloadSnapshot(
