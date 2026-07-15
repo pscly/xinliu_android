@@ -105,6 +105,7 @@ class SettingsViewModel @Inject constructor(
     private val flowBackendApi: FlowBackendApi,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
     private val systemCalendarGateway: cc.pscly.onememos.calendar.SystemCalendarGateway,
+    private val legacyDiagnosticsAdapter: LegacyDiagnosticsAdapter,
 ) : ViewModel() {
     fun hasCalendarPermissions(): Boolean = systemCalendarGateway.hasPermissions()
 
@@ -113,6 +114,24 @@ class SettingsViewModel @Inject constructor(
 
     suspend fun calendarLabel(calendarId: Long): String? =
         systemCalendarGateway.calendarLabel(calendarId).getOrNull()
+
+    suspend fun exportDiagnostics(
+        appInfo: SettingsAppInfo,
+        canDrawOverlays: Boolean,
+        canScheduleExactAlarms: Boolean,
+    ): String? {
+        val result =
+            legacyDiagnosticsAdapter.export(
+                uiState = uiState.value,
+                appInfo = appInfo,
+                canDrawOverlays = canDrawOverlays,
+                canScheduleExactAlarms = canScheduleExactAlarms,
+            )
+        return when (result) {
+            is cc.pscly.onememos.diagnostics.DiagnosticsExportResult.Success -> result.fileUri
+            is cc.pscly.onememos.diagnostics.DiagnosticsExportResult.Failure -> null
+        }
+    }
     private val cacheState = MutableStateFlow(CacheSectionState())
     private val changePasswordState = MutableStateFlow(ChangePasswordUiState())
 
