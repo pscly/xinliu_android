@@ -1,7 +1,9 @@
 package cc.pscly.onememos.di
 
 import cc.pscly.onememos.quicktiles.AndroidOverlayPermissionGateway
+import cc.pscly.onememos.quicktiles.AndroidQuickTileRequester
 import cc.pscly.onememos.quicktiles.OverlayPermissionGateway
+import cc.pscly.onememos.quicktiles.QuickTileRequester
 import cc.pscly.onememos.quicktiles.QuickCaptureTargetPort
 import cc.pscly.onememos.quicktiles.ScreenshotEntryPort
 import dagger.Binds
@@ -24,4 +26,8 @@ abstract class QuickTilesModule {
     @Binds
     @Singleton
     abstract fun bindOverlayPermissionGateway(impl: AndroidOverlayPermissionGateway): OverlayPermissionGateway
+
+    @Binds
+    @Singleton
+    abstract fun bindQuickTileRequester(impl: AndroidQuickTileRequester): QuickTileRequester
 }
