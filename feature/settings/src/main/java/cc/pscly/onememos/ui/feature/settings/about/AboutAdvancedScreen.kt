@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,16 +17,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,10 +41,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import cc.pscly.onememos.domain.settings.DeveloperOptions
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.domain.settings.UpdateSettingsPhase
@@ -58,6 +62,7 @@ import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 /**
  * 关于与高级能力页：单列纸墨布局，最大内容宽 720dp。
  * 不在进入时检查更新/导出诊断/下载/安装；Quick Capture 只发平台动作。
+ * 事件仅在 STARTED 生命周期收集；分区错误显示在发起操作的卡片旁。
  */
 data class AboutAdvancedContentCallbacks(
     val onCheckForUpdates: () -> Unit,
@@ -76,6 +81,9 @@ data class AboutAdvancedContentCallbacks(
     val onSetDeveloperOptions: (DeveloperOptions) -> Unit,
 )
 
+/** 与既有 Settings 页一致的开发者解锁密码（UI 门禁，经 SetDeveloperOptions 落盘）。 */
+internal const val DEVELOPER_UNLOCK_PASSWORD = "pscly"
+
 @Composable
 fun AboutAdvancedScreen(
     viewModel: AboutAdvancedViewModel = hiltViewModel(),
@@ -85,28 +93,23 @@ fun AboutAdvancedScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showRebuildConfirm by remember { mutableStateOf(false) }
-    var lastAnnouncement by remember { mutableStateOf<String?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is SettingsUiEvent.Platform -> onPlatformEvent(event)
-                is SettingsUiEvent.UpdateDelivery -> onUpdateDeliveryEvent(event)
-                is SettingsUiEvent.Toast -> {
-                    onToast(event.message)
-                    lastAnnouncement =
-                        when (event.message) {
-                            SettingsMessage.COMMAND_SUCCEEDED -> "success"
-                            SettingsMessage.COMMAND_FAILED -> "failed"
-                            SettingsMessage.PERMISSION_DENIED -> "failed"
+    // Task30 集中化前：仅在 STARTED 生命周期收集一次性事件，离开后不重放
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.events.collect { event ->
+                when (event) {
+                    is SettingsUiEvent.Platform -> onPlatformEvent(event)
+                    is SettingsUiEvent.UpdateDelivery -> onUpdateDeliveryEvent(event)
+                    is SettingsUiEvent.Toast -> onToast(event.message)
+                    is SettingsUiEvent.Confirm -> {
+                        if (event.request == SettingsConfirmation.REBUILD_DERIVED_FIELDS) {
+                            showRebuildConfirm = true
                         }
-                }
-                is SettingsUiEvent.Confirm -> {
-                    if (event.request == SettingsConfirmation.REBUILD_DERIVED_FIELDS) {
-                        showRebuildConfirm = true
                     }
+                    is SettingsUiEvent.Navigate -> Unit
                 }
-                is SettingsUiEvent.Navigate -> Unit
             }
         }
     }
@@ -134,7 +137,6 @@ fun AboutAdvancedScreen(
                 onSetDeveloperOptions = viewModel::onSetDeveloperOptions,
             ),
         showRebuildConfirm = showRebuildConfirm,
-        lastAnnouncement = lastAnnouncement,
     )
 }
 
@@ -143,17 +145,29 @@ fun AboutAdvancedContent(
     state: AboutAdvancedUiState,
     callbacks: AboutAdvancedContentCallbacks,
     showRebuildConfirm: Boolean,
-    lastAnnouncement: String?,
     modifier: Modifier = Modifier,
 ) {
     val snapshot = state.snapshot
     val busy = state.actionsDisabled
     val scroll = rememberScrollState()
+    var showUnlockDialog by remember { mutableStateOf(false) }
+    var unlockPassword by remember { mutableStateOf("") }
+    var unlockError by remember { mutableStateOf<String?>(null) }
+    var versionTapCount by remember { mutableStateOf(0) }
+    var versionFirstTapAtMs by remember { mutableLongStateOf(0L) }
+
     val announcementText =
-        when (lastAnnouncement) {
-            "success" -> stringResource(R.string.settings_about_result_success)
-            "failed" -> stringResource(R.string.settings_about_result_failed)
-            else -> ""
+        when (state.announcementKind) {
+            AboutAnnouncementKind.SUCCESS -> stringResource(R.string.settings_about_result_success)
+            AboutAnnouncementKind.FAILED -> stringResource(R.string.settings_about_result_failed)
+            null -> ""
+        }
+    // 连续相同结果依赖 token 变化，保证语义可观察
+    val announcementLabel =
+        if (announcementText.isEmpty()) {
+            ""
+        } else {
+            "$announcementText#${state.announcementToken}"
         }
 
     BoxWithConstraints(
@@ -191,30 +205,18 @@ fun AboutAdvancedContent(
                         modifier = Modifier.testTag("settings_about_title"),
                     )
 
-                    if (announcementText.isNotEmpty()) {
-                        Text(
-                            text = announcementText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier =
-                                Modifier
-                                    .testTag("settings_about_result_announcer")
-                                    .semantics {
-                                        liveRegion = LiveRegionMode.Polite
-                                    },
-                        )
-                    } else {
-                        // 固定存在，便于测试与动态播报挂载
-                        Spacer(
-                            modifier =
-                                Modifier
-                                    .height(0.dp)
-                                    .testTag("settings_about_result_announcer")
-                                    .semantics {
-                                        liveRegion = LiveRegionMode.Polite
-                                    },
-                        )
-                    }
+                    Text(
+                        text = announcementLabel.ifEmpty { " " },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier =
+                            Modifier
+                                .testTag("settings_about_result_announcer")
+                                .semantics {
+                                    liveRegion = LiveRegionMode.Polite
+                                    stateDescription = announcementLabel
+                                },
+                    )
 
                     if (state.loading || snapshot == null) {
                         Text(
@@ -223,11 +225,36 @@ fun AboutAdvancedContent(
                             modifier = Modifier.testTag("settings_about_loading"),
                         )
                     } else {
-                        VersionCard(snapshot.versionName, snapshot.versionCode, snapshot.buildType)
+                        VersionCard(
+                            versionName = snapshot.versionName,
+                            versionCode = snapshot.versionCode,
+                            buildType = snapshot.buildType,
+                            unlocked = snapshot.developerOptions.unlocked,
+                            onVersionTap = {
+                                if (snapshot.developerOptions.unlocked || busy) return@VersionCard
+                                val now = System.currentTimeMillis()
+                                if (versionFirstTapAtMs == 0L || now - versionFirstTapAtMs > 10_000L) {
+                                    versionFirstTapAtMs = now
+                                    versionTapCount = 1
+                                } else {
+                                    versionTapCount += 1
+                                }
+                                if (versionTapCount >= 6) {
+                                    versionTapCount = 0
+                                    versionFirstTapAtMs = 0L
+                                    unlockPassword = ""
+                                    unlockError = null
+                                    showUnlockDialog = true
+                                }
+                            },
+                        )
                         UpdateCard(
                             update = snapshot.update,
                             busy = busy,
-                            persistentError = state.persistentError,
+                            sectionError =
+                                state.sectionError.takeIf {
+                                    state.errorSection == AboutErrorSection.UPDATE
+                                },
                             onCheck = callbacks.onCheckForUpdates,
                             onDownload = callbacks.onDownloadUpdate,
                             onInstall = callbacks.onInstallUpdate,
@@ -235,6 +262,11 @@ fun AboutAdvancedContent(
                         )
                         TilesCard(
                             busy = busy,
+                            sectionError =
+                                state.sectionError.takeIf {
+                                    state.errorSection == AboutErrorSection.TILES ||
+                                        state.errorSection == AboutErrorSection.CAPTURE
+                                },
                             onQuickTile = callbacks.onRequestQuickCaptureTile,
                             onQuickOpen = callbacks.onOpenQuickCapture,
                             onShotTile = callbacks.onRequestScreenshotTile,
@@ -243,20 +275,36 @@ fun AboutAdvancedContent(
                         DiagnosticsCard(
                             busy = busy,
                             available = snapshot.diagnosticsAvailable,
+                            sectionError =
+                                state.sectionError.takeIf {
+                                    state.errorSection == AboutErrorSection.DIAGNOSTICS
+                                },
                             onExport = callbacks.onExportDiagnostics,
                         )
                         RebuildCard(
                             busy = busy,
+                            sectionError =
+                                state.sectionError.takeIf {
+                                    state.errorSection == AboutErrorSection.REBUILD
+                                },
                             onRebuild = callbacks.onRequestRebuildDerivedFields,
                         )
                         UploadCard(
                             busy = busy,
                             limitMb = snapshot.attachmentUploadLimitMb,
+                            sectionError =
+                                state.sectionError.takeIf {
+                                    state.errorSection == AboutErrorSection.UPLOAD
+                                },
                             onLimit = callbacks.onSetAttachmentUploadLimitMb,
                         )
                         DeveloperCard(
                             busy = busy,
                             options = snapshot.developerOptions,
+                            sectionError =
+                                state.sectionError.takeIf {
+                                    state.errorSection == AboutErrorSection.DEVELOPER
+                                },
                             onOptions = callbacks.onSetDeveloperOptions,
                         )
                     }
@@ -291,6 +339,74 @@ fun AboutAdvancedContent(
             },
         )
     }
+
+    if (showUnlockDialog) {
+        val passwordErrorText = stringResource(R.string.settings_about_developer_unlock_error)
+        AlertDialog(
+            onDismissRequest = { showUnlockDialog = false },
+            title = { Text(stringResource(R.string.settings_about_developer_unlock_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_about_developer_unlock_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = unlockPassword,
+                        onValueChange = {
+                            unlockPassword = it
+                            unlockError = null
+                        },
+                        label = {
+                            Text(stringResource(R.string.settings_about_developer_unlock_password))
+                        },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_about_unlock_password"),
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    if (!unlockError.isNullOrBlank()) {
+                        SectionErrorRow(
+                            text = unlockError.orEmpty(),
+                            testTag = "settings_about_unlock_error",
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (unlockPassword.trim() != DEVELOPER_UNLOCK_PASSWORD) {
+                            unlockError = passwordErrorText
+                            return@TextButton
+                        }
+                        val current = state.snapshot?.developerOptions
+                        if (current != null) {
+                            callbacks.onSetDeveloperOptions(current.copy(unlocked = true))
+                        }
+                        showUnlockDialog = false
+                    },
+                    modifier =
+                        Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("settings_about_unlock_confirm"),
+                ) {
+                    Text(stringResource(R.string.settings_about_developer_unlock_action))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showUnlockDialog = false },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(stringResource(R.string.settings_about_cancel))
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -298,8 +414,12 @@ private fun VersionCard(
     versionName: String,
     versionCode: Long,
     buildType: String,
+    unlocked: Boolean,
+    onVersionTap: () -> Unit,
 ) {
     InkCard(
+        onClick = if (!unlocked) onVersionTap else null,
+        contentDescription = stringResource(R.string.settings_about_version_label),
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -326,6 +446,13 @@ private fun VersionCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (!unlocked) {
+            Text(
+                text = stringResource(R.string.settings_about_version_tap_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -333,7 +460,7 @@ private fun VersionCard(
 private fun UpdateCard(
     update: cc.pscly.onememos.domain.settings.UpdateSettingsSnapshot,
     busy: Boolean,
-    persistentError: SettingsCapabilityError?,
+    sectionError: SettingsCapabilityError?,
     onCheck: () -> Unit,
     onDownload: () -> Unit,
     onInstall: () -> Unit,
@@ -343,7 +470,7 @@ private fun UpdateCard(
     val errorText =
         when {
             update.error != null -> mapError(update.error!!)
-            persistentError != null -> mapError(persistentError)
+            sectionError != null -> mapError(sectionError)
             update.phase == UpdateSettingsPhase.ERROR ->
                 stringResource(R.string.settings_about_update_error)
             else -> null
@@ -357,7 +484,7 @@ private fun UpdateCard(
             else -> stringResource(R.string.settings_about_state_ready)
         }
 
-    InkCard(modifier = Modifier.fillMaxWidth()) {
+    InkCard(modifier = Modifier.fillMaxWidth().testTag("settings_about_update_section")) {
         Text(
             text = stringResource(R.string.settings_about_update_title),
             style = MaterialTheme.typography.titleMedium,
@@ -384,27 +511,7 @@ private fun UpdateCard(
         }
         if (errorText != null) {
             Box(modifier = Modifier.height(8.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier =
-                    Modifier
-                        .testTag("settings_about_update_error")
-                        .semantics { stateDescription = errorText },
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(end = 4.dp),
-                )
-                Text(
-                    text = errorText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            SectionErrorRow(text = errorText, testTag = "settings_about_update_error")
         }
         Box(modifier = Modifier.height(10.dp))
         Row(
@@ -459,12 +566,13 @@ private fun UpdateCard(
 @Composable
 private fun TilesCard(
     busy: Boolean,
+    sectionError: SettingsCapabilityError?,
     onQuickTile: () -> Unit,
     onQuickOpen: () -> Unit,
     onShotTile: () -> Unit,
     onShotOpen: () -> Unit,
 ) {
-    InkCard(modifier = Modifier.fillMaxWidth()) {
+    InkCard(modifier = Modifier.fillMaxWidth().testTag("settings_about_tiles_section")) {
         Text(
             text = stringResource(R.string.settings_about_tiles_title),
             style = MaterialTheme.typography.titleMedium,
@@ -524,6 +632,13 @@ private fun TilesCard(
                 modifier = Modifier.weight(1f),
             )
         }
+        if (sectionError != null) {
+            Box(modifier = Modifier.height(8.dp))
+            SectionErrorRow(
+                text = mapError(sectionError),
+                testTag = "settings_about_tiles_error",
+            )
+        }
     }
 }
 
@@ -531,9 +646,10 @@ private fun TilesCard(
 private fun DiagnosticsCard(
     busy: Boolean,
     available: Boolean,
+    sectionError: SettingsCapabilityError?,
     onExport: () -> Unit,
 ) {
-    InkCard(modifier = Modifier.fillMaxWidth()) {
+    InkCard(modifier = Modifier.fillMaxWidth().testTag("settings_about_diagnostics_section")) {
         Text(
             text = stringResource(R.string.settings_about_diagnostics_title),
             style = MaterialTheme.typography.titleMedium,
@@ -552,6 +668,13 @@ private fun DiagnosticsCard(
                 color = MaterialTheme.colorScheme.primary,
             )
         }
+        if (sectionError != null) {
+            Box(modifier = Modifier.height(8.dp))
+            SectionErrorRow(
+                text = mapError(sectionError),
+                testTag = "settings_about_diagnostics_error",
+            )
+        }
         Box(modifier = Modifier.height(8.dp))
         ActionButton(
             text = stringResource(R.string.settings_about_export_diagnostics),
@@ -566,9 +689,10 @@ private fun DiagnosticsCard(
 @Composable
 private fun RebuildCard(
     busy: Boolean,
+    sectionError: SettingsCapabilityError?,
     onRebuild: () -> Unit,
 ) {
-    InkCard(modifier = Modifier.fillMaxWidth()) {
+    InkCard(modifier = Modifier.fillMaxWidth().testTag("settings_about_rebuild_section")) {
         Text(
             text = stringResource(R.string.settings_about_rebuild_title),
             style = MaterialTheme.typography.titleMedium,
@@ -580,6 +704,13 @@ private fun RebuildCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (sectionError != null) {
+            Box(modifier = Modifier.height(8.dp))
+            SectionErrorRow(
+                text = mapError(sectionError),
+                testTag = "settings_about_rebuild_error",
+            )
+        }
         Box(modifier = Modifier.height(8.dp))
         ActionButton(
             text = stringResource(R.string.settings_about_rebuild_action),
@@ -595,6 +726,7 @@ private fun RebuildCard(
 private fun UploadCard(
     busy: Boolean,
     limitMb: Int,
+    sectionError: SettingsCapabilityError?,
     onLimit: (Int) -> Unit,
 ) {
     var text by remember(limitMb) { mutableStateOf(limitMb.toString()) }
@@ -615,6 +747,13 @@ private fun UploadCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (sectionError != null) {
+            Box(modifier = Modifier.height(8.dp))
+            SectionErrorRow(
+                text = mapError(sectionError),
+                testTag = "settings_about_upload_error",
+            )
+        }
         Box(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = text,
@@ -632,6 +771,7 @@ private fun UploadCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .testTag("settings_about_upload_limit"),
         )
     }
@@ -641,8 +781,15 @@ private fun UploadCard(
 private fun DeveloperCard(
     busy: Boolean,
     options: DeveloperOptions,
+    sectionError: SettingsCapabilityError?,
     onOptions: (DeveloperOptions) -> Unit,
 ) {
+    var keywords by remember(options.autoTagLineKeywords) {
+        mutableStateOf(options.autoTagLineKeywords)
+    }
+    var stickyText by remember(options.homeRichPreviewStickyLimit) {
+        mutableStateOf(options.homeRichPreviewStickyLimit.toString())
+    }
     InkCard(
         modifier =
             Modifier
@@ -663,32 +810,87 @@ private fun DeveloperCard(
                     stringResource(R.string.settings_about_developer_locked)
                 },
             style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag("settings_about_developer_status"),
         )
+        if (sectionError != null) {
+            Box(modifier = Modifier.height(8.dp))
+            SectionErrorRow(
+                text = mapError(sectionError),
+                testTag = "settings_about_developer_error",
+            )
+        }
         if (options.unlocked) {
             Box(modifier = Modifier.height(8.dp))
             DevSwitchRow(
                 label = stringResource(R.string.settings_about_developer_public),
                 checked = options.showPublicWorkspaceMemos,
                 enabled = !busy,
+                testTag = "settings_about_developer_public",
                 onChecked = { onOptions(options.copy(showPublicWorkspaceMemos = it)) },
+            )
+            OutlinedTextField(
+                value = keywords,
+                onValueChange = { raw ->
+                    keywords = raw
+                    if (!busy) {
+                        onOptions(options.copy(autoTagLineKeywords = raw))
+                    }
+                },
+                enabled = !busy,
+                label = { Text(stringResource(R.string.settings_about_developer_keywords)) },
+                supportingText = {
+                    Text(stringResource(R.string.settings_about_developer_keywords_hint))
+                },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag("settings_about_developer_keywords"),
             )
             DevSwitchRow(
                 label = stringResource(R.string.settings_about_developer_home),
                 checked = options.showAutoTagLineInHome,
                 enabled = !busy,
+                testTag = "settings_about_developer_home",
                 onChecked = { onOptions(options.copy(showAutoTagLineInHome = it)) },
             )
             DevSwitchRow(
                 label = stringResource(R.string.settings_about_developer_view),
                 checked = options.showAutoTagLineInView,
                 enabled = !busy,
+                testTag = "settings_about_developer_view",
                 onChecked = { onOptions(options.copy(showAutoTagLineInView = it)) },
             )
             DevSwitchRow(
                 label = stringResource(R.string.settings_about_developer_edit),
                 checked = options.showAutoTagLineInEdit,
                 enabled = !busy,
+                testTag = "settings_about_developer_edit",
                 onChecked = { onOptions(options.copy(showAutoTagLineInEdit = it)) },
+            )
+            OutlinedTextField(
+                value = stickyText,
+                onValueChange = { raw ->
+                    val digits = raw.filter { it.isDigit() }
+                    stickyText = digits
+                    val parsed = digits.toIntOrNull() ?: return@OutlinedTextField
+                    val clamped = parsed.coerceIn(0, 2000)
+                    if (!busy) {
+                        onOptions(options.copy(homeRichPreviewStickyLimit = clamped))
+                    }
+                },
+                enabled = !busy,
+                label = { Text(stringResource(R.string.settings_about_developer_sticky_limit)) },
+                supportingText = {
+                    Text(stringResource(R.string.settings_about_developer_sticky_hint))
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag("settings_about_developer_sticky"),
             )
             Box(modifier = Modifier.height(8.dp))
             ActionButton(
@@ -714,13 +916,15 @@ private fun DevSwitchRow(
     label: String,
     checked: Boolean,
     enabled: Boolean,
+    testTag: String,
     onChecked: (Boolean) -> Unit,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp),
+                .heightIn(min = 48.dp)
+                .testTag(testTag),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -728,11 +932,41 @@ private fun DevSwitchRow(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
         )
         Switch(
             checked = checked,
             onCheckedChange = onChecked,
             enabled = enabled,
+        )
+    }
+}
+
+@Composable
+private fun SectionErrorRow(
+    text: String,
+    testTag: String,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+            Modifier
+                .testTag(testTag)
+                .semantics { stateDescription = text },
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Warning,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(end = 4.dp),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

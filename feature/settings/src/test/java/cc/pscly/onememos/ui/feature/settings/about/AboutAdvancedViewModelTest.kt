@@ -31,6 +31,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -403,6 +404,149 @@ class AboutAdvancedViewModelTest {
         }
 
     @Test
+    fun sectionFailure_staysBesideOrigin_andUnrelatedSuccessDoesNotClear() =
+        runBlocking {
+            val fake = FakeAboutCapability()
+            val vm = AboutAdvancedViewModel(fake)
+            val job = launch { vm.uiState.collect {} }
+            try {
+                fake.emit(baseSnapshot())
+                await { vm.uiState.value.snapshot != null }
+
+                fake.nextResult =
+                    AboutAdvancedSettingsResult.Failure(SettingsCapabilityError.StorageFailure)
+                vm.onExportDiagnostics()
+                await {
+                    vm.uiState.value.errorSection == AboutErrorSection.DIAGNOSTICS &&
+                        vm.uiState.value.sectionError == SettingsCapabilityError.StorageFailure
+                }
+                assertEquals(AboutErrorSection.DIAGNOSTICS, vm.uiState.value.errorSection)
+                // 不得误挂到更新分区
+                assertTrue(vm.uiState.value.errorSection != AboutErrorSection.UPDATE)
+
+                // 无关分区成功不得清除诊断错误
+                fake.nextResult = AboutAdvancedSettingsResult.Success
+                val tokenBefore = vm.uiState.value.announcementToken
+                vm.onCheckForUpdates()
+                await { vm.uiState.value.announcementToken > tokenBefore }
+                assertEquals(AboutErrorSection.DIAGNOSTICS, vm.uiState.value.errorSection)
+                assertEquals(SettingsCapabilityError.StorageFailure, vm.uiState.value.sectionError)
+
+                // 本区成功可清除
+                fake.nextResult =
+                    AboutAdvancedSettingsResult.Platform(
+                        SettingsPlatformAction.ShareFile("content://d", "application/json"),
+                    )
+                val token2 = vm.uiState.value.announcementToken
+                vm.onExportDiagnostics()
+                await {
+                    vm.uiState.value.announcementToken > token2 &&
+                        vm.uiState.value.sectionError == null
+                }
+                assertNull(vm.uiState.value.errorSection)
+
+                // 上传失败挂到 UPLOAD
+                fake.nextResult =
+                    AboutAdvancedSettingsResult.Failure(SettingsCapabilityError.InvalidInput)
+                vm.onSetAttachmentUploadLimitMb(-1)
+                await { vm.uiState.value.errorSection == AboutErrorSection.UPLOAD }
+                assertEquals(SettingsCapabilityError.InvalidInput, vm.uiState.value.sectionError)
+
+                // 开发者失败挂到 DEVELOPER
+                fake.nextResult =
+                    AboutAdvancedSettingsResult.Failure(SettingsCapabilityError.StorageFailure)
+                vm.onSetDeveloperOptions(
+                    DeveloperOptions(
+                        unlocked = true,
+                        showPublicWorkspaceMemos = false,
+                        autoTagLineKeywords = "kw",
+                        showAutoTagLineInHome = false,
+                        showAutoTagLineInView = false,
+                        showAutoTagLineInEdit = false,
+                        homeRichPreviewStickyLimit = 10,
+                    ),
+                )
+                await { vm.uiState.value.errorSection == AboutErrorSection.DEVELOPER }
+
+                // 重建失败挂到 REBUILD
+                fake.nextResult =
+                    AboutAdvancedSettingsResult.Failure(SettingsCapabilityError.AlreadyRunning)
+                vm.onConfirmRebuildDerivedFields()
+                await { vm.uiState.value.errorSection == AboutErrorSection.REBUILD }
+            } finally {
+                job.cancel()
+            }
+        }
+
+    @Test
+    fun consecutiveIdenticalResults_bumpAnnouncementToken() =
+        runBlocking {
+            val fake = FakeAboutCapability()
+            val vm = AboutAdvancedViewModel(fake)
+            val job = launch { vm.uiState.collect {} }
+            try {
+                fake.emit(baseSnapshot())
+                await { vm.uiState.value.snapshot != null }
+                assertEquals(0L, vm.uiState.value.announcementToken)
+
+                fake.nextResult = AboutAdvancedSettingsResult.Success
+                vm.onCheckForUpdates()
+                await { vm.uiState.value.announcementToken == 1L }
+                assertEquals(AboutAnnouncementKind.SUCCESS, vm.uiState.value.announcementKind)
+
+                fake.nextResult = AboutAdvancedSettingsResult.Success
+                vm.onCheckForUpdates()
+                await { vm.uiState.value.announcementToken == 2L }
+                assertEquals(AboutAnnouncementKind.SUCCESS, vm.uiState.value.announcementKind)
+
+                fake.nextResult =
+                    AboutAdvancedSettingsResult.Failure(SettingsCapabilityError.NetworkUnavailable)
+                vm.onCheckForUpdates()
+                await { vm.uiState.value.announcementToken == 3L }
+                assertEquals(AboutAnnouncementKind.FAILED, vm.uiState.value.announcementKind)
+
+                fake.nextResult =
+                    AboutAdvancedSettingsResult.Failure(SettingsCapabilityError.NetworkUnavailable)
+                vm.onCheckForUpdates()
+                await { vm.uiState.value.announcementToken == 4L }
+                assertEquals(AboutAnnouncementKind.FAILED, vm.uiState.value.announcementKind)
+            } finally {
+                job.cancel()
+            }
+        }
+
+    @Test
+    fun developerUnlock_viaSetDeveloperOptions_sendsFullOptionsIncludingKeywordsAndSticky() =
+        runBlocking {
+            val fake = FakeAboutCapability()
+            val vm = AboutAdvancedViewModel(fake)
+            val job = launch { vm.uiState.collect {} }
+            try {
+                fake.emit(baseSnapshot())
+                await { vm.uiState.value.snapshot != null }
+                val unlocked =
+                    DeveloperOptions(
+                        unlocked = true,
+                        showPublicWorkspaceMemos = true,
+                        autoTagLineKeywords = "__Atags",
+                        showAutoTagLineInHome = true,
+                        showAutoTagLineInView = false,
+                        showAutoTagLineInEdit = true,
+                        homeRichPreviewStickyLimit = 500,
+                    )
+                fake.nextResult = AboutAdvancedSettingsResult.Success
+                vm.onSetDeveloperOptions(unlocked)
+                await { fake.developerCalls.get() == 1 }
+                assertEquals(unlocked, fake.lastDeveloperOptions.get())
+                assertEquals("__Atags", fake.lastDeveloperOptions.get()!!.autoTagLineKeywords)
+                assertEquals(500, fake.lastDeveloperOptions.get()!!.homeRichPreviewStickyLimit)
+                assertTrue(fake.lastDeveloperOptions.get()!!.unlocked)
+            } finally {
+                job.cancel()
+            }
+        }
+
+    @Test
     fun viewModel_injectsOnlyAboutCapability_andStaticSeparation() {
         val projectDir =
             System.getProperty("oneMemos.projectDir")
@@ -425,6 +569,15 @@ class AboutAdvancedViewModelTest {
         assertTrue(body.contains("SettingsUiEvent.UpdateDelivery") || body.contains("UpdateDelivery("))
         assertTrue(body.contains("MutableSharedFlow"))
         assertTrue(body.contains("replay = 0") || body.contains("replay=0"))
+        // 固定契约：extraBufferCapacity 必须为 1
+        assertTrue(
+            body.contains("extraBufferCapacity = 1") ||
+                body.contains("extraBufferCapacity=1"),
+        )
+        assertFalse(body.contains("extraBufferCapacity = 16"))
+        assertFalse(body.contains("DROP_OLDEST"))
+        assertTrue(body.contains("AboutErrorSection"))
+        assertTrue(body.contains("announcementToken"))
     }
 
     private suspend fun await(

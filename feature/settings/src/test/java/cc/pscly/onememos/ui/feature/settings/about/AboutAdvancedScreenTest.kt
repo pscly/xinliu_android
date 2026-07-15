@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -22,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.settings.AboutAdvancedSettingsCommand
@@ -33,6 +33,7 @@ import cc.pscly.onememos.domain.settings.UpdateSettingsSnapshot
 import cc.pscly.onememos.ui.theme.OneMemosTheme
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -44,7 +45,7 @@ import org.robolectric.annotation.Config
 
 /**
  * 关于与高级 Compose 页：版本/更新/磁贴/捕获/诊断/重建/上传/开发者；
- * 进入无副作用；Quick Capture 只平台事件；错误有文字与语义；触控 ≥48dp。
+ * 分区错误、解锁路径、全部开发者字段、连续播报、STARTED 收集契约。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -69,7 +70,8 @@ class AboutAdvancedScreenTest {
                                     error = SettingsCapabilityError.NetworkUnavailable,
                                 ),
                         ),
-                    persistentError = SettingsCapabilityError.NetworkUnavailable,
+                    sectionError = SettingsCapabilityError.NetworkUnavailable,
+                    errorSection = AboutErrorSection.UPDATE,
                 ),
         )
 
@@ -93,7 +95,6 @@ class AboutAdvancedScreenTest {
         composeRule.onNodeWithTag("settings_about_clear_ignored").performScrollTo()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("settings_about_clear_ignored").assertIsDisplayed()
-        // 错误不只靠颜色：有文字与 stateDescription
         composeRule.onNodeWithText("网络不可用", useUnmergedTree = true).assertIsDisplayed()
         val errNode =
             composeRule.onNodeWithTag("settings_about_update_error", useUnmergedTree = true)
@@ -103,19 +104,219 @@ class AboutAdvancedScreenTest {
     }
 
     @Test
+    fun sectionErrors_renderBesideOrigin_notOnUpdateCard() {
+        var state by
+            mutableStateOf(
+                AboutAdvancedUiState(
+                    loading = false,
+                    snapshot = baseSnapshot(),
+                    sectionError = SettingsCapabilityError.StorageFailure,
+                    errorSection = AboutErrorSection.DIAGNOSTICS,
+                ),
+            )
+        composeRule.setContent {
+            OneMemosTheme {
+                AboutAdvancedContent(
+                    state = state,
+                    callbacks = noopCallbacks(),
+                    showRebuildConfirm = false,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_about_diagnostics_section").performScrollTo()
+        composeRule.waitForIdle()
+        composeRule
+            .onNodeWithTag("settings_about_diagnostics_error", useUnmergedTree = true)
+            .assertExists()
+        assertEquals(
+            0,
+            composeRule
+                .onAllNodesWithTag("settings_about_update_error", useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .size,
+        )
+
+        state =
+            AboutAdvancedUiState(
+                loading = false,
+                snapshot =
+                    baseSnapshot(
+                        developer =
+                            DeveloperOptions(
+                                unlocked = true,
+                                showPublicWorkspaceMemos = false,
+                                autoTagLineKeywords = "kw",
+                                showAutoTagLineInHome = false,
+                                showAutoTagLineInView = false,
+                                showAutoTagLineInEdit = false,
+                                homeRichPreviewStickyLimit = 10,
+                            ),
+                    ),
+                sectionError = SettingsCapabilityError.InvalidInput,
+                errorSection = AboutErrorSection.DEVELOPER,
+            )
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_about_developer_section").performScrollTo()
+        composeRule.waitForIdle()
+        composeRule
+            .onNodeWithTag("settings_about_developer_error", useUnmergedTree = true)
+            .assertExists()
+        assertEquals(
+            0,
+            composeRule
+                .onAllNodesWithTag("settings_about_update_error", useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .size,
+        )
+        assertEquals(
+            0,
+            composeRule
+                .onAllNodesWithTag("settings_about_diagnostics_error", useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .size,
+        )
+    }
+
+    @Test
+    fun developerUnlocked_showsKeywordsAndStickyLimit_andMinHeight48() {
+        val optionsRef = AtomicReference<DeveloperOptions?>(null)
+        setContent(
+            state =
+                AboutAdvancedUiState(
+                    loading = false,
+                    snapshot =
+                        baseSnapshot(
+                            developer =
+                                DeveloperOptions(
+                                    unlocked = true,
+                                    showPublicWorkspaceMemos = true,
+                                    autoTagLineKeywords = "__Atags",
+                                    showAutoTagLineInHome = true,
+                                    showAutoTagLineInView = false,
+                                    showAutoTagLineInEdit = true,
+                                    homeRichPreviewStickyLimit = 500,
+                                ),
+                        ),
+                ),
+            callbacks =
+                noopCallbacks().copy(
+                    onSetDeveloperOptions = { optionsRef.set(it) },
+                ),
+        )
+        composeRule.onNodeWithTag("settings_about_developer_section").performScrollTo()
+        composeRule.waitForIdle()
+        composeRule
+            .onNodeWithTag("settings_about_developer_keywords", useUnmergedTree = true)
+            .assertExists()
+        composeRule
+            .onNodeWithTag("settings_about_developer_sticky", useUnmergedTree = true)
+            .assertExists()
+        assertTrue(
+            composeRule
+                .onAllNodesWithText("__Atags", substring = true, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty(),
+        )
+        assertTrue(
+            composeRule
+                .onAllNodesWithText("500", substring = true, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty(),
+        )
+        composeRule.onNodeWithTag("settings_about_developer_exit").assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithTag("settings_about_export").performScrollTo()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_about_export").assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test
+    fun lockedToUnlocked_sixVersionTaps_passwordThenSetDeveloperOptions() {
+        val optionsRef = AtomicReference<DeveloperOptions?>(null)
+        setContent(
+            state =
+                AboutAdvancedUiState(
+                    loading = false,
+                    snapshot = baseSnapshot(),
+                ),
+            callbacks =
+                noopCallbacks().copy(
+                    onSetDeveloperOptions = { optionsRef.set(it) },
+                ),
+        )
+        repeat(6) {
+            composeRule.onNodeWithTag("settings_about_version").performClick()
+            composeRule.waitForIdle()
+        }
+        composeRule
+            .onNodeWithTag("settings_about_unlock_password", useUnmergedTree = true)
+            .assertExists()
+        composeRule
+            .onNodeWithTag("settings_about_unlock_password", useUnmergedTree = true)
+            .performTextInput(DEVELOPER_UNLOCK_PASSWORD)
+        composeRule.onNodeWithTag("settings_about_unlock_confirm").performClick()
+        composeRule.waitForIdle()
+        val sent = optionsRef.get()
+        assertTrue(sent != null)
+        assertTrue(sent!!.unlocked)
+    }
+
+    @Test
+    fun consecutiveAnnouncements_sameKind_changeSemanticsViaToken() {
+        var state by
+            mutableStateOf(
+                AboutAdvancedUiState(
+                    loading = false,
+                    snapshot = baseSnapshot(),
+                    announcementToken = 1L,
+                    announcementKind = AboutAnnouncementKind.SUCCESS,
+                ),
+            )
+        composeRule.setContent {
+            OneMemosTheme {
+                AboutAdvancedContent(
+                    state = state,
+                    callbacks = noopCallbacks(),
+                    showRebuildConfirm = false,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        val first =
+            composeRule
+                .onNodeWithTag("settings_about_result_announcer")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.StateDescription)
+        state =
+            state.copy(
+                announcementToken = 2L,
+                announcementKind = AboutAnnouncementKind.SUCCESS,
+            )
+        composeRule.waitForIdle()
+        val second =
+            composeRule
+                .onNodeWithTag("settings_about_result_announcer")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.StateDescription)
+        assertTrue(first != null && second != null)
+        assertTrue(first != second)
+        assertTrue(second!!.contains("#2"))
+    }
+
+    @Test
     fun tilesCaptureDiagnosticsRebuildUploadDeveloper_andMinHeight48() {
         val check = AtomicInteger(0)
-        val download = AtomicInteger(0)
         val install = AtomicInteger(0)
-        val clearIgnored = AtomicInteger(0)
         val export = AtomicInteger(0)
         val quickTile = AtomicInteger(0)
         val shotTile = AtomicInteger(0)
         val openQuick = AtomicInteger(0)
         val openShot = AtomicInteger(0)
         val rebuildReq = AtomicInteger(0)
-        val upload = AtomicInteger(0)
-        val developer = AtomicInteger(0)
 
         setContent(
             state =
@@ -144,9 +345,9 @@ class AboutAdvancedScreenTest {
             callbacks =
                 AboutAdvancedContentCallbacks(
                     onCheckForUpdates = { check.incrementAndGet() },
-                    onDownloadUpdate = { download.incrementAndGet() },
+                    onDownloadUpdate = {},
                     onInstallUpdate = { install.incrementAndGet() },
-                    onClearIgnoredUpdate = { clearIgnored.incrementAndGet() },
+                    onClearIgnoredUpdate = {},
                     onExportDiagnostics = { export.incrementAndGet() },
                     onRequestQuickCaptureTile = { quickTile.incrementAndGet() },
                     onRequestScreenshotTile = { shotTile.incrementAndGet() },
@@ -155,8 +356,8 @@ class AboutAdvancedScreenTest {
                     onRequestRebuildDerivedFields = { rebuildReq.incrementAndGet() },
                     onConfirmRebuildDerivedFields = {},
                     onDismissRebuildConfirm = {},
-                    onSetAttachmentUploadLimitMb = { upload.incrementAndGet() },
-                    onSetDeveloperOptions = { developer.incrementAndGet() },
+                    onSetAttachmentUploadLimitMb = {},
+                    onSetDeveloperOptions = {},
                 ),
         )
 
@@ -183,8 +384,6 @@ class AboutAdvancedScreenTest {
             "settings_about_install_update",
             "settings_about_quick_tile",
             "settings_about_quick_open",
-            "settings_about_screenshot_tile",
-            "settings_about_screenshot_open",
             "settings_about_export",
             "settings_about_rebuild",
         ).forEach { tag ->
@@ -193,8 +392,6 @@ class AboutAdvancedScreenTest {
             composeRule.onNodeWithTag(tag).assertHeightIsAtLeast(48.dp)
         }
 
-        composeRule.onNodeWithTag("settings_about_upload_section").performScrollTo()
-        composeRule.waitForIdle()
         composeRule.onNodeWithTag("settings_about_developer_section").performScrollTo()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("settings_about_developer_section").assertExists()
@@ -240,7 +437,6 @@ class AboutAdvancedScreenTest {
                     onSetDeveloperOptions = {},
                 ),
         )
-        // 进入仅渲染，不自动触发检查/导出/下载/安装
         assertEquals(0, check.get())
         assertEquals(0, export.get())
         assertEquals(0, download.get())
@@ -266,7 +462,6 @@ class AboutAdvancedScreenTest {
                             ),
                         callbacks = noopCallbacks(),
                         showRebuildConfirm = false,
-                        lastAnnouncement = null,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -286,7 +481,7 @@ class AboutAdvancedScreenTest {
     }
 
     @Test
-    fun static_noEntrySideEffects_andPlatformUpdateSeparation() {
+    fun static_noEntrySideEffects_startedCollection_andPlatformUpdateSeparation() {
         val projectDir =
             System.getProperty("oneMemos.projectDir")
                 ?: error("oneMemos.projectDir 未设置")
@@ -301,19 +496,25 @@ class AboutAdvancedScreenTest {
         assertFalse(body.contains("startDownload("))
         assertFalse(body.contains("requestDelivery("))
         assertFalse(body.contains("exportDiagnostics("))
-        // 不在 Composable 入口自动执行副作用命令
         assertFalse(body.contains("LaunchedEffect(Unit)"))
-        // 安装/未知来源不走 Platform dispatcher 路径
+        assertTrue(body.contains("repeatOnLifecycle"))
+        assertTrue(body.contains("Lifecycle.State.STARTED"))
         assertFalse(body.contains("OpenUnknownSourcesSettings"))
         assertFalse(body.contains("InstallApk"))
         assertTrue(body.contains("settings_about_"))
-        // 字符串资源前缀
+        assertTrue(body.contains("autoTagLineKeywords") || body.contains("developer_keywords"))
+        assertTrue(body.contains("homeRichPreviewStickyLimit") || body.contains("developer_sticky"))
+        assertTrue(body.contains("DEVELOPER_UNLOCK_PASSWORD") || body.contains("pscly"))
+        assertFalse(body.contains("OneMemosNavKey"))
+        assertFalse(body.contains("AboutAdvancedSettingsKey"))
         val strings =
             File(
                 projectDir,
                 "feature/settings/src/main/res/values/settings_about_strings.xml",
             ).readText()
         assertTrue(strings.contains("settings_about_title"))
+        assertTrue(strings.contains("settings_about_developer_keywords"))
+        assertTrue(strings.contains("settings_about_developer_sticky_limit"))
         assertFalse(strings.contains("name=\"about_"))
     }
 
@@ -330,7 +531,6 @@ class AboutAdvancedScreenTest {
         composeRule.onNodeWithTag("settings_about_quick_open").assertIsEnabled()
         clickTag("settings_about_quick_open")
         assertEquals(1, open.get())
-        // 无导航键依赖：静态检查 Screen 不含 Navigate 键常量
         val projectDir =
             System.getProperty("oneMemos.projectDir")
                 ?: error("oneMemos.projectDir 未设置")
@@ -344,8 +544,7 @@ class AboutAdvancedScreenTest {
     }
 
     private fun clickTag(tag: String) {
-        val node = composeRule.onNodeWithTag(tag)
-        node.performScrollTo()
+        composeRule.onNodeWithTag(tag).performScrollTo()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag(tag).performClick()
         composeRule.waitForIdle()
@@ -355,7 +554,6 @@ class AboutAdvancedScreenTest {
         state: AboutAdvancedUiState,
         callbacks: AboutAdvancedContentCallbacks = noopCallbacks(),
         showRebuildConfirm: Boolean = false,
-        lastAnnouncement: String? = null,
     ) {
         composeRule.setContent {
             OneMemosTheme {
@@ -363,7 +561,6 @@ class AboutAdvancedScreenTest {
                     state = state,
                     callbacks = callbacks,
                     showRebuildConfirm = showRebuildConfirm,
-                    lastAnnouncement = lastAnnouncement,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
