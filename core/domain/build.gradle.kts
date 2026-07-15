@@ -17,10 +17,16 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     }
 }
 
+tasks.withType<Test>().configureEach {
+    systemProperty("oneMemos.projectDir", rootProject.projectDir.absolutePath)
+}
+
 dependencies {
     api(project(":core:model"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
     // 循环任务（RRULE）解析：用于计算下一次 occurrence（recurrence_id_local）。
     implementation(libs.dmfs.lib.recur)
+
+    testImplementation(libs.junit)
 }
