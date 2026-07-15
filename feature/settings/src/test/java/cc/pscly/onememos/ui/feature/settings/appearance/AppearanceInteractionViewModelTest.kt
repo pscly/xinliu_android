@@ -14,8 +14,7 @@ import org.junit.runner.Description
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppearanceInteractionViewModelTest {
-    @get:Rule
-    val mainDispatcherRule = MainDispatcherRule()
+    @get:Rule val mainDispatcherRule = MainDispatcherRule()
 
     @Test
     fun observe_exposesOnlyAppearanceSnapshot_andConstructorInjectsOnlyCapability() = runBlocking {
@@ -25,9 +24,8 @@ class AppearanceInteractionViewModelTest {
         assertEquals(snapshot, viewModel.uiState.value.snapshot)
         assertNull(viewModel.uiState.value.persistentError)
         assertEquals(1, fake.observeCalls)
-        val constructor = AppearanceInteractionViewModel::class.java.declaredConstructors.single()
         assertEquals(listOf(AppearanceInteractionSettingsCapability::class.java),
-            constructor.parameterTypes.toList())
+            AppearanceInteractionViewModel::class.java.declaredConstructors.single().parameterTypes.toList())
     }
 
     @Test
@@ -126,14 +124,21 @@ class AppearanceInteractionViewModelTest {
     }
 
     @Test
-    fun disableIntent_cancelsPendingOverlayPermissionResult() = runBlocking {
-        val (viewModel, fake) = fixture(execute = results(platformResult, successResult, successResult))
+    fun disableIntent_invalidatesGrantedCallbackRetry_beforeCapabilityExecution() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val (viewModel, fake) = fixture(
+            execute = results(platformResult, successResult, successResult),
+        )
+        viewModel.onIntent(enableOverlayIntent)
+        runCurrent()
 
-        viewModel.send(enableOverlayIntent)
-        assertEquals(successToast, viewModel.send(disableOverlayIntent))
+        assertTrue(viewModel.uiState.value.overlayPermissionPending)
         viewModel.onIntent(permissionResult(granted = true))
+        viewModel.onIntent(disableOverlayIntent)
+        advanceUntilIdle()
 
         assertEquals(listOf(enableOverlayCommand, disableOverlayCommand), fake.commands)
+        assertFalse(viewModel.uiState.value.snapshot?.quickCaptureOverlayEnabled ?: true)
     }
 
     @Test
@@ -154,6 +159,7 @@ class AppearanceInteractionViewModelTest {
         viewModel.onIntent(permissionResult(granted = true))
 
         assertEquals(listOf(enableOverlayCommand, disableOverlayCommand), fake.commands)
+        assertFalse(viewModel.uiState.value.snapshot?.quickCaptureOverlayEnabled ?: true)
     }
 
     @Test
@@ -214,62 +220,57 @@ class AppearanceInteractionViewModelTest {
     }
 
     private suspend fun fixture(snapshot: AppearanceInteractionSettingsSnapshot = defaultSnapshot(),
-        execute: suspend (AppearanceInteractionSettingsCommand) -> AppearanceInteractionSettingsResult =
-            { successResult }): Fixture {
+        execute: suspend (AppearanceInteractionSettingsCommand) -> AppearanceInteractionSettingsResult = { successResult },
+    ): Fixture {
         val fake = FakeAppearanceCapability(snapshot, execute)
         val viewModel = AppearanceInteractionViewModel(fake)
         await { !viewModel.uiState.value.loading }
         return Fixture(viewModel, fake)
     }
 
-    private suspend fun AppearanceInteractionViewModel.send(intent: AppearanceInteractionUserIntent) =
-        coroutineScope {
+    private suspend fun AppearanceInteractionViewModel.send(intent: AppearanceInteractionUserIntent) = coroutineScope {
         val event = async(start = CoroutineStart.UNDISPATCHED) { withTimeout(2_000) { events.first() } }
         onIntent(intent)
         event.await()
     }
 
     private fun results(vararg values: AppearanceInteractionSettingsResult):
-        suspend (AppearanceInteractionSettingsCommand) -> AppearanceInteractionSettingsResult {
-        val iterator = values.iterator()
-        return { iterator.next() }
-    }
+        suspend (AppearanceInteractionSettingsCommand) -> AppearanceInteractionSettingsResult =
+        values.iterator().let { iterator -> { iterator.next() } }
 
     private fun AppearanceInteractionSettingsCommand.toIntent(): AppearanceInteractionUserIntent = when (this) {
         is AppearanceInteractionSettingsCommand.SetThemePalette -> AppearanceInteractionUserIntent.SetThemePalette(palette)
         is AppearanceInteractionSettingsCommand.SetThemeMode -> AppearanceInteractionUserIntent.SetThemeMode(mode)
-        is AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled ->
-            AppearanceInteractionUserIntent.SetQuickCaptureOverlayEnabled(enabled)
-        is AppearanceInteractionSettingsCommand.SetSealStampDurationMs ->
-            AppearanceInteractionUserIntent.SetSealStampDurationMs(value)
+        is AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled -> AppearanceInteractionUserIntent.SetQuickCaptureOverlayEnabled(enabled)
+        is AppearanceInteractionSettingsCommand.SetSealStampDurationMs -> AppearanceInteractionUserIntent.SetSealStampDurationMs(value)
     }
 
-    private suspend fun await(condition: () -> Boolean) = withTimeout(2_000) {
-        while (!condition()) delay(10)
-    }
+    private suspend fun await(condition: () -> Boolean) = withTimeout(2_000) { while (!condition()) delay(10) }
 
     private data class Fixture(val viewModel: AppearanceInteractionViewModel, val fake: FakeAppearanceCapability)
 
-    private class FakeAppearanceCapability(initialSnapshot: AppearanceInteractionSettingsSnapshot,
-        private val executeBlock: suspend (AppearanceInteractionSettingsCommand) -> AppearanceInteractionSettingsResult,
+    private class FakeAppearanceCapability(
+        initialSnapshot: AppearanceInteractionSettingsSnapshot, private val executeBlock:
+            suspend (AppearanceInteractionSettingsCommand) -> AppearanceInteractionSettingsResult,
     ) : AppearanceInteractionSettingsCapability {
         private val snapshots = MutableStateFlow(initialSnapshot)
         val commands = mutableListOf<AppearanceInteractionSettingsCommand>()
         var observeCalls = 0
 
-        override fun observe(): Flow<AppearanceInteractionSettingsSnapshot> =
-            snapshots.also { observeCalls += 1 }
+        override fun observe(): Flow<AppearanceInteractionSettingsSnapshot> = snapshots.also { observeCalls += 1 }
 
-        override suspend fun execute(command: AppearanceInteractionSettingsCommand):
-            AppearanceInteractionSettingsResult {
+        override suspend fun execute(command: AppearanceInteractionSettingsCommand): AppearanceInteractionSettingsResult {
             commands += command
-            return executeBlock(command)
+            return executeBlock(command).also { result ->
+                if (result == AppearanceInteractionSettingsResult.Success && command is
+                    AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled
+                ) snapshots.update { it.copy(quickCaptureOverlayEnabled = command.enabled) }
+            }
         }
     }
 
     class MainDispatcherRule : TestWatcher() {
         override fun starting(description: Description) = Dispatchers.setMain(Dispatchers.Unconfined)
-
         override fun finished(description: Description) = Dispatchers.resetMain()
     }
 
@@ -291,8 +292,7 @@ class AppearanceInteractionViewModelTest {
 
         fun durationIntent(value: Int) = AppearanceInteractionUserIntent.SetSealStampDurationMs(value)
 
-        fun defaultSnapshot(commandInFlight: AppearanceInteractionSettingsCommand? = null) =
-            AppearanceInteractionSettingsSnapshot(
+        fun defaultSnapshot(commandInFlight: AppearanceInteractionSettingsCommand? = null) = AppearanceInteractionSettingsSnapshot(
                 themePalette = ThemePalette.PAPER_INK,
                 themeMode = ThemeMode.FOLLOW_SYSTEM,
                 quickCaptureOverlayEnabled = false,

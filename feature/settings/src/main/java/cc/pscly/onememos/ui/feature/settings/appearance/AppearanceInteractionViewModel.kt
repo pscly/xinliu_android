@@ -116,20 +116,21 @@ class AppearanceInteractionViewModel @Inject constructor(
         if (activeCommand != null) return
         if (_uiState.value.snapshot?.commandInFlight != null) return
         val pending = pendingCommands.removeFirstOrNull() ?: return
-        if (
-            pending.overlayGeneration != null &&
-            pending.overlayGeneration != overlayCommandGeneration
-        ) {
+        if (!pending.isCurrent()) {
             startNextCommand()
             return
         }
         activeCommand = pending
         _uiState.update { it.copy(submittingCommand = pending.command) }
         viewModelScope.launch {
+            if (!pending.isCurrent()) {
+                activeCommand = null
+                _uiState.update { it.copy(submittingCommand = null) }
+                startNextCommand()
+                return@launch
+            }
             val result = capability.execute(pending.command)
-            val isCurrent =
-                pending.overlayGeneration == null ||
-                    pending.overlayGeneration == overlayCommandGeneration
+            val isCurrent = pending.isCurrent()
             activeCommand = null
             _uiState.update { it.copy(submittingCommand = null) }
             if (isCurrent) {
@@ -169,9 +170,7 @@ class AppearanceInteractionViewModel @Inject constructor(
     private fun applyPlatformResult(result: SettingsPlatformResult) {
         when (result) {
             is SettingsPlatformResult.OverlayPermissionChanged -> {
-                val generation = overlayPermissionGeneration ?: return
-                overlayPermissionGeneration = null
-                _uiState.update { it.copy(overlayPermissionPending = false) }
+                val generation = consumeCurrentOverlayPermissionGeneration() ?: return
                 if (result.granted) {
                     submit(
                         AppearanceInteractionSettingsCommand
@@ -190,9 +189,7 @@ class AppearanceInteractionViewModel @Inject constructor(
                 }
             }
             is SettingsPlatformResult.Failed -> {
-                val generation = overlayPermissionGeneration ?: return
-                overlayPermissionGeneration = null
-                _uiState.update { it.copy(overlayPermissionPending = false) }
+                val generation = consumeCurrentOverlayPermissionGeneration() ?: return
                 viewModelScope.launch {
                     if (generation == overlayCommandGeneration) {
                         publishError(result.error, SettingsMessage.COMMAND_FAILED)
@@ -204,6 +201,16 @@ class AppearanceInteractionViewModel @Inject constructor(
             -> Unit
         }
     }
+
+    private fun consumeCurrentOverlayPermissionGeneration(): Long? {
+        val generation = overlayPermissionGeneration ?: return null
+        overlayPermissionGeneration = null
+        _uiState.update { it.copy(overlayPermissionPending = false) }
+        return generation.takeIf { it == overlayCommandGeneration }
+    }
+
+    private fun PendingCommand.isCurrent(): Boolean =
+        overlayGeneration == null || overlayGeneration == overlayCommandGeneration
 
     private suspend fun publishError(
         error: SettingsCapabilityError,
