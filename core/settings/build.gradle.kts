@@ -33,4 +33,15 @@ dependencies {
     implementation(project(":core:quicktiles"))
     implementation(project(":core:externalactions"))
     implementation(project(":core:diagnostics"))
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.hilt.android)
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
+
+    testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
