@@ -24,6 +24,7 @@ data class RecordEditingUiState(
     val loading: Boolean = true,
     val snapshot: RecordEditingSettingsSnapshot? = null,
     val persistentError: SettingsCapabilityError? = null,
+    val isSubmitting: Boolean = false,
 )
 
 @HiltViewModel
@@ -50,35 +51,32 @@ class RecordEditingViewModel @Inject constructor(
     }
 
     fun submit(command: RecordEditingSettingsCommand) {
-        val commandInFlight = _uiState.value.snapshot?.commandInFlight
-        if (commandInFlight != null && commandInFlight.matches(command)) return
+        if (!beginSubmission()) return
 
         viewModelScope.launch {
-            when (val result = capability.execute(command)) {
-                RecordEditingSettingsResult.Success -> {
-                    _uiState.update { it.copy(persistentError = null) }
-                    _events.tryEmit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_SUCCEEDED))
+            try {
+                when (val result = capability.execute(command)) {
+                    RecordEditingSettingsResult.Success -> {
+                        _uiState.update { it.copy(persistentError = null) }
+                        _events.emit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_SUCCEEDED))
+                    }
+                    RecordEditingSettingsResult.IgnoredDuplicate -> Unit
+                    is RecordEditingSettingsResult.Failure -> {
+                        _uiState.update { it.copy(persistentError = result.error) }
+                        _events.emit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_FAILED))
+                    }
                 }
-                RecordEditingSettingsResult.IgnoredDuplicate -> Unit
-                is RecordEditingSettingsResult.Failure -> {
-                    _uiState.update { it.copy(persistentError = result.error) }
-                    _events.tryEmit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_FAILED))
-                }
+            } finally {
+                _uiState.update { it.copy(isSubmitting = false) }
             }
         }
     }
-}
 
-private fun RecordEditingSettingsCommand.matches(other: RecordEditingSettingsCommand): Boolean =
-    when (this) {
-        is RecordEditingSettingsCommand.SetDefaultVisibility ->
-            other is RecordEditingSettingsCommand.SetDefaultVisibility
-        is RecordEditingSettingsCommand.SetRegexSearchEnabled ->
-            other is RecordEditingSettingsCommand.SetRegexSearchEnabled
-        is RecordEditingSettingsCommand.SetShowTagCounts ->
-            other is RecordEditingSettingsCommand.SetShowTagCounts
-        is RecordEditingSettingsCommand.SetQuickInsertTimeEnabled ->
-            other is RecordEditingSettingsCommand.SetQuickInsertTimeEnabled
-        is RecordEditingSettingsCommand.SetQuickInsertTimeFormat ->
-            other is RecordEditingSettingsCommand.SetQuickInsertTimeFormat
+    private fun beginSubmission(): Boolean {
+        while (true) {
+            val state = _uiState.value
+            if (state.isSubmitting) return false
+            if (_uiState.compareAndSet(state, state.copy(isSubmitting = true))) return true
+        }
     }
+}

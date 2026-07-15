@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -135,6 +136,7 @@ fun RecordEditingContent(
                     } else {
                         RecordSettings(
                             snapshot = snapshot,
+                            writesEnabled = !uiState.isSubmitting,
                             onSubmit = onSubmit,
                         )
                     }
@@ -160,7 +162,10 @@ private fun RecordHeader(onBack: () -> Unit) {
             text = stringResource(R.string.settings_record_title),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 12.dp),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp),
         )
     }
 }
@@ -214,14 +219,19 @@ private fun PersistentError(error: SettingsCapabilityError) {
 @Composable
 private fun RecordSettings(
     snapshot: RecordEditingSettingsSnapshot,
+    writesEnabled: Boolean,
     onSubmit: (RecordEditingSettingsCommand) -> Unit,
 ) {
-    VisibilitySettings(snapshot = snapshot, onSubmit = onSubmit)
+    VisibilitySettings(
+        snapshot = snapshot,
+        enabled = writesEnabled,
+        onSubmit = onSubmit,
+    )
     SwitchSetting(
         title = stringResource(R.string.settings_record_regex_title),
         description = stringResource(R.string.settings_record_regex_description),
         checked = snapshot.regexSearchEnabled,
-        enabled = snapshot.commandInFlight !is RecordEditingSettingsCommand.SetRegexSearchEnabled,
+        enabled = writesEnabled,
         testTag = "settings_record_regex",
         onCheckedChange = {
             onSubmit(RecordEditingSettingsCommand.SetRegexSearchEnabled(it))
@@ -231,21 +241,25 @@ private fun RecordSettings(
         title = stringResource(R.string.settings_record_tag_counts_title),
         description = stringResource(R.string.settings_record_tag_counts_description),
         checked = snapshot.showTagCounts,
-        enabled = snapshot.commandInFlight !is RecordEditingSettingsCommand.SetShowTagCounts,
+        enabled = writesEnabled,
         testTag = "settings_record_tag_counts",
         onCheckedChange = {
             onSubmit(RecordEditingSettingsCommand.SetShowTagCounts(it))
         },
     )
-    QuickInsertSettings(snapshot = snapshot, onSubmit = onSubmit)
+    QuickInsertSettings(
+        snapshot = snapshot,
+        enabled = writesEnabled,
+        onSubmit = onSubmit,
+    )
 }
 
 @Composable
 private fun VisibilitySettings(
     snapshot: RecordEditingSettingsSnapshot,
+    enabled: Boolean,
     onSubmit: (RecordEditingSettingsCommand) -> Unit,
 ) {
-    val enabled = snapshot.commandInFlight !is RecordEditingSettingsCommand.SetDefaultVisibility
     InkCard {
         SectionTitle(
             title = stringResource(R.string.settings_record_visibility_title),
@@ -310,7 +324,11 @@ private fun VisibilityOption(
             onClick = null,
             enabled = enabled,
         )
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -324,6 +342,100 @@ private fun SwitchSetting(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     InkCard {
+        SwitchSettingHeader(
+            title = title,
+            description = description,
+            checked = checked,
+            enabled = enabled,
+            testTag = testTag,
+            onCheckedChange = onCheckedChange,
+        )
+    }
+}
+
+@Composable
+private fun QuickInsertSettings(
+    snapshot: RecordEditingSettingsSnapshot,
+    enabled: Boolean,
+    onSubmit: (RecordEditingSettingsCommand) -> Unit,
+) {
+    InkCard {
+        SwitchSettingHeader(
+            title = stringResource(R.string.settings_record_quick_insert_title),
+            description = stringResource(R.string.settings_record_quick_insert_description),
+            checked = snapshot.quickInsertTimeEnabled,
+            enabled = enabled,
+            testTag = "settings_record_quick_insert",
+            onCheckedChange = {
+                onSubmit(RecordEditingSettingsCommand.SetQuickInsertTimeEnabled(it))
+            },
+        )
+        Text(
+            text = stringResource(R.string.settings_record_format_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 12.dp),
+        )
+        Column(modifier = Modifier.selectableGroup()) {
+            TimeFormatOption(
+                label = stringResource(R.string.settings_record_format_full),
+                selected = snapshot.quickInsertTimeFormat == QuickInsertTimeFormat.FULL_DATETIME,
+                enabled = enabled,
+                testTag = "settings_record_format_full",
+                onClick = {
+                    onSubmit(
+                        RecordEditingSettingsCommand.SetQuickInsertTimeFormat(
+                            QuickInsertTimeFormat.FULL_DATETIME,
+                        ),
+                    )
+                },
+            )
+            TimeFormatOption(
+                label = stringResource(R.string.settings_record_format_time),
+                selected = snapshot.quickInsertTimeFormat == QuickInsertTimeFormat.TIME_ONLY,
+                enabled = enabled,
+                testTag = "settings_record_format_time",
+                onClick = {
+                    onSubmit(
+                        RecordEditingSettingsCommand.SetQuickInsertTimeFormat(
+                            QuickInsertTimeFormat.TIME_ONLY,
+                        ),
+                    )
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SwitchSettingHeader(
+    title: String,
+    description: String,
+    checked: Boolean,
+    enabled: Boolean,
+    testTag: String,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val largeFont = LocalDensity.current.fontScale >= 1.5f
+    if (largeFont) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            SectionTitle(
+                title = title,
+                description = description,
+            )
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                enabled = enabled,
+                modifier =
+                    Modifier
+                        .align(Alignment.End)
+                        .padding(top = 8.dp)
+                        .heightIn(min = 48.dp)
+                        .testTag(testTag),
+            )
+        }
+    } else {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -342,75 +454,6 @@ private fun SwitchSetting(
                         .padding(start = 12.dp)
                         .heightIn(min = 48.dp)
                         .testTag(testTag),
-            )
-        }
-    }
-}
-
-@Composable
-private fun QuickInsertSettings(
-    snapshot: RecordEditingSettingsSnapshot,
-    onSubmit: (RecordEditingSettingsCommand) -> Unit,
-) {
-    val toggleEnabled =
-        snapshot.commandInFlight !is RecordEditingSettingsCommand.SetQuickInsertTimeEnabled
-    val formatEnabled =
-        snapshot.commandInFlight !is RecordEditingSettingsCommand.SetQuickInsertTimeFormat
-    InkCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SectionTitle(
-                title = stringResource(R.string.settings_record_quick_insert_title),
-                description = stringResource(R.string.settings_record_quick_insert_description),
-                modifier = Modifier.weight(1f),
-            )
-            Switch(
-                checked = snapshot.quickInsertTimeEnabled,
-                onCheckedChange = {
-                    onSubmit(RecordEditingSettingsCommand.SetQuickInsertTimeEnabled(it))
-                },
-                enabled = toggleEnabled,
-                modifier =
-                    Modifier
-                        .padding(start = 12.dp)
-                        .heightIn(min = 48.dp)
-                        .testTag("settings_record_quick_insert"),
-            )
-        }
-        Text(
-            text = stringResource(R.string.settings_record_format_title),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 12.dp),
-        )
-        Column(modifier = Modifier.selectableGroup()) {
-            TimeFormatOption(
-                label = stringResource(R.string.settings_record_format_full),
-                selected = snapshot.quickInsertTimeFormat == QuickInsertTimeFormat.FULL_DATETIME,
-                enabled = formatEnabled,
-                testTag = "settings_record_format_full",
-                onClick = {
-                    onSubmit(
-                        RecordEditingSettingsCommand.SetQuickInsertTimeFormat(
-                            QuickInsertTimeFormat.FULL_DATETIME,
-                        ),
-                    )
-                },
-            )
-            TimeFormatOption(
-                label = stringResource(R.string.settings_record_format_time),
-                selected = snapshot.quickInsertTimeFormat == QuickInsertTimeFormat.TIME_ONLY,
-                enabled = formatEnabled,
-                testTag = "settings_record_format_time",
-                onClick = {
-                    onSubmit(
-                        RecordEditingSettingsCommand.SetQuickInsertTimeFormat(
-                            QuickInsertTimeFormat.TIME_ONLY,
-                        ),
-                    )
-                },
             )
         }
     }
@@ -444,12 +487,16 @@ private fun SectionTitle(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.fillMaxWidth(),
         )
         Text(
             text = description,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
         )
     }
 }

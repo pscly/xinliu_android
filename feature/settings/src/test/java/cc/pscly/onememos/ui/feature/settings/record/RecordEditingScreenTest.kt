@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertHeightIsAtLeast
@@ -24,6 +25,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.model.MemoVisibility
@@ -33,6 +36,7 @@ import cc.pscly.onememos.domain.settings.RecordEditingSettingsSnapshot
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.ui.theme.OneMemosTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,26 +79,19 @@ class RecordEditingScreenTest {
     }
 
     @Test
-    fun matchingCommandInFlight_disablesOnlyCorrespondingControls() {
-        val cases =
+    fun submitting_disablesEveryWriteControl_untilStableStateClears() {
+        val allControls =
             listOf(
-                RecordEditingSettingsCommand.SetDefaultVisibility(MemoVisibility.PUBLIC) to
-                    listOf(
-                        "settings_record_visibility_private",
-                        "settings_record_visibility_protected",
-                        "settings_record_visibility_public",
-                    ),
-                RecordEditingSettingsCommand.SetRegexSearchEnabled(true) to
-                    listOf("settings_record_regex"),
-                RecordEditingSettingsCommand.SetShowTagCounts(false) to
-                    listOf("settings_record_tag_counts"),
-                RecordEditingSettingsCommand.SetQuickInsertTimeEnabled(true) to
-                    listOf("settings_record_quick_insert"),
-                RecordEditingSettingsCommand.SetQuickInsertTimeFormat(QuickInsertTimeFormat.TIME_ONLY) to
-                    listOf("settings_record_format_full", "settings_record_format_time"),
+                "settings_record_visibility_private",
+                "settings_record_visibility_protected",
+                "settings_record_visibility_public",
+                "settings_record_regex",
+                "settings_record_tag_counts",
+                "settings_record_quick_insert",
+                "settings_record_format_full",
+                "settings_record_format_time",
             )
-        val allControls = cases.flatMap { it.second }.distinct()
-        var uiState by androidx.compose.runtime.mutableStateOf(recordState())
+        var uiState by androidx.compose.runtime.mutableStateOf(recordState(isSubmitting = true))
         composeRule.setContent {
             OneMemosTheme {
                 RecordEditingContent(
@@ -106,17 +103,14 @@ class RecordEditingScreenTest {
             }
         }
 
-        cases.forEach { (command, disabledControls) ->
-            uiState = recordState(commandInFlight = command)
-            composeRule.waitForIdle()
-            allControls.forEach { tag ->
-                val node = composeRule.onNodeWithTag(tag)
-                if (tag in disabledControls) {
-                    node.assertIsNotEnabled()
-                } else {
-                    node.assertIsEnabled()
-                }
-            }
+        allControls.forEach { tag ->
+            composeRule.onNodeWithTag(tag).assertIsNotEnabled()
+        }
+
+        uiState = recordState(isSubmitting = false)
+        composeRule.waitForIdle()
+        allControls.forEach { tag ->
+            composeRule.onNodeWithTag(tag).assertIsEnabled()
         }
     }
 
@@ -176,6 +170,34 @@ class RecordEditingScreenTest {
                 .assertIsDisplayed()
                 .assertHeightIsAtLeast(48.dp)
         }
+        listOf(
+            "记录与编辑",
+            "一键插入时间",
+            "显示标签数量",
+            "新建记录时使用的默认可见范围",
+            "在搜索中启用正则表达式匹配",
+            "在标签筛选中显示每个标签的记录数",
+            "在编辑器中提供快速插入当前时间的入口",
+            "完整日期时间，yyyy-MM-dd HH:mm:ss",
+        ).forEach(::assertTextHasNoVisualOverflow)
+    }
+
+    private fun assertTextHasNoVisualOverflow(text: String) {
+        val layoutResults = mutableListOf<TextLayoutResult>()
+        val node = composeRule.onNodeWithText(text, useUnmergedTree = true)
+        node
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
+                action(layoutResults)
+            }
+        val layoutResult = layoutResults.single()
+        assertFalse(
+            "文本发生视觉溢出：$text，size=${layoutResult.size}，" +
+                "lineCount=${layoutResult.lineCount}，" +
+                "didOverflowWidth=${layoutResult.didOverflowWidth}，" +
+                "didOverflowHeight=${layoutResult.didOverflowHeight}",
+            layoutResult.hasVisualOverflow,
+        )
     }
 
     private fun setRecordContent(
@@ -199,6 +221,7 @@ class RecordEditingScreenTest {
     private fun recordState(
         commandInFlight: RecordEditingSettingsCommand? = null,
         error: SettingsCapabilityError? = null,
+        isSubmitting: Boolean = false,
     ): RecordEditingUiState =
         RecordEditingUiState(
             loading = false,
@@ -212,5 +235,6 @@ class RecordEditingScreenTest {
                     commandInFlight = commandInFlight,
                 ),
             persistentError = error,
+            isSubmitting = isSubmitting,
         )
 }
