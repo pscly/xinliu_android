@@ -3,13 +3,10 @@ package cc.pscly.onememos.worker
 import android.Manifest
 import android.app.AlarmManager
 import android.app.PendingIntent
-import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.provider.CalendarContract
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
@@ -50,13 +47,6 @@ private object TodoReminderAlarmStateKeys {
     val SCHEDULED_ALARM_KEYS = stringSetPreferencesKey("todo_reminder_scheduled_alarm_keys")
 }
 
-private val Context.todoCalendarEventDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "todo_calendar_event_state",
-)
-
-private object TodoCalendarEventStateKeys {
-    val EVENT_ENTRIES = stringSetPreferencesKey("todo_calendar_event_entries")
-}
 
 /**
  * Todo 提醒重排 Worker：
@@ -74,6 +64,7 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
     private val todoDao: TodoDao,
     private val settingsRepository: SettingsRepository,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
+    private val systemCalendarGateway: cc.pscly.onememos.calendar.SystemCalendarGateway,
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val workManager = WorkManager.getInstance(applicationContext)
@@ -110,7 +101,7 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
         val calendarSyncEnabled =
             settings.calendarIntegrationEnabled &&
                 calendarId > 0L &&
-                hasCalendarPermissions()
+                systemCalendarGateway.hasPermissions()
 
         val items =
             if (notificationGranted || calendarSyncEnabled) {
@@ -204,12 +195,24 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
         }
 
         if (calendarSyncEnabled) {
-            syncTodoEventsToCalendar(
-                ownerKey = ownerKeyValue,
-                calendarId = calendarId,
-                syncReminders = settings.calendarIntegrationSyncReminders,
-                nowMs = nowMs,
-                items = items,
+            val upperBoundMs = nowMs + TimeUnit.DAYS.toMillis(CALENDAR_MAX_AHEAD_DAYS.toLong())
+            val events =
+                items.mapNotNull { item ->
+                    buildCalendarEventSpecOrNull(
+                        ownerKey = ownerKeyValue,
+                        item = item,
+                        nowMs = nowMs,
+                        upperBoundMs = upperBoundMs,
+                        syncReminders = settings.calendarIntegrationSyncReminders,
+                    )
+                }
+            systemCalendarGateway.syncTodoEvents(
+                cc.pscly.onememos.calendar.CalendarSyncRequest(
+                    ownerKey = ownerKeyValue,
+                    calendarId = calendarId,
+                    syncReminders = settings.calendarIntegrationSyncReminders,
+                    events = events,
+                ),
             )
         }
 
@@ -230,34 +233,6 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
                 prefs.remove(TodoReminderAlarmStateKeys.SCHEDULED_ALARM_KEYS)
             } else {
                 prefs[TodoReminderAlarmStateKeys.SCHEDULED_ALARM_KEYS] = keys
-            }
-        }
-    }
-
-    private fun hasCalendarPermissions(): Boolean {
-        val readGranted =
-            ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.READ_CALENDAR) ==
-                PackageManager.PERMISSION_GRANTED
-        val writeGranted =
-            ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.WRITE_CALENDAR) ==
-                PackageManager.PERMISSION_GRANTED
-        return readGranted && writeGranted
-    }
-
-    private suspend fun loadCalendarEventEntries(): Set<String> {
-        return runCatching {
-            applicationContext.todoCalendarEventDataStore.data.first()[TodoCalendarEventStateKeys.EVENT_ENTRIES]
-        }
-            .getOrNull()
-            ?: emptySet()
-    }
-
-    private suspend fun saveCalendarEventEntries(entries: Set<String>) {
-        applicationContext.todoCalendarEventDataStore.edit { prefs ->
-            if (entries.isEmpty()) {
-                prefs.remove(TodoCalendarEventStateKeys.EVENT_ENTRIES)
-            } else {
-                prefs[TodoCalendarEventStateKeys.EVENT_ENTRIES] = entries
             }
         }
     }
@@ -352,169 +327,13 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
         minutes: Int,
     ): Uri = Uri.parse("onememos://todo-reminder/$ownerKey/$itemId/$minutes")
 
-    // ----------------------------
-    // 日历联动：Todo -> 系统日历
-    // ----------------------------
-    private data class CalendarEventEntry(
-        val ownerKey: String,
-        val itemId: String,
-        val calendarId: Long,
-        val eventId: Long,
-    )
-
-    private fun calendarEventEntryKey(
-        ownerKey: String,
-        itemId: String,
-        calendarId: Long,
-        eventId: Long,
-    ): String = "${ownerKey.trim()}|${itemId.trim()}|${calendarId.coerceAtLeast(0)}|${eventId.coerceAtLeast(0)}"
-
-    private fun parseCalendarEventEntryKey(raw: String): CalendarEventEntry? {
-        val t = raw.trim()
-        if (t.isBlank()) return null
-        val parts = t.split("|")
-        if (parts.size != 4) return null
-
-        val ownerKey = parts[0].trim()
-        val itemId = parts[1].trim()
-        val calendarId = parts[2].trim().toLongOrNull() ?: return null
-        val eventId = parts[3].trim().toLongOrNull() ?: return null
-
-        if (ownerKey.isBlank() || itemId.isBlank()) return null
-        if (calendarId <= 0L || eventId <= 0L) return null
-
-        return CalendarEventEntry(
-            ownerKey = ownerKey,
-            itemId = itemId,
-            calendarId = calendarId,
-            eventId = eventId,
-        )
-    }
-
-    private data class CalendarEventSpec(
-        val itemId: String,
-        val title: String,
-        val description: String,
-        val startAtMs: Long,
-        val endAtMs: Long,
-        val timezoneId: String,
-        val reminderMinutes: List<Int>,
-    )
-
-    private suspend fun syncTodoEventsToCalendar(
-        ownerKey: String,
-        calendarId: Long,
-        syncReminders: Boolean,
-        nowMs: Long,
-        items: List<TodoItemEntity>,
-    ) {
-        if (calendarId <= 0L) return
-        if (!isCalendarWritable(calendarId)) {
-            Log.w(TAG, "日历不可写或不存在：calendarId=$calendarId")
-            return
-        }
-
-        val rawEntries = loadCalendarEventEntries()
-        val parsedEntries = rawEntries.mapNotNull(::parseCalendarEventEntryKey)
-        val ownerEntries = parsedEntries.filter { it.ownerKey == ownerKey }
-        val ownerEntriesByItemId = ownerEntries.groupBy { it.itemId }
-
-        val upperBoundMs = nowMs + TimeUnit.DAYS.toMillis(CALENDAR_MAX_AHEAD_DAYS.toLong())
-        val desiredSpecs =
-            items
-                .asSequence()
-                .mapNotNull { item ->
-                    buildCalendarEventSpecOrNull(
-                        ownerKey = ownerKey,
-                        item = item,
-                        nowMs = nowMs,
-                        upperBoundMs = upperBoundMs,
-                        syncReminders = syncReminders,
-                    )
-                }
-                .toList()
-
-        val desiredItemIds = desiredSpecs.asSequence().map { it.itemId }.toSet()
-
-        val newOwnerEntryKeys = linkedSetOf<String>()
-
-        desiredSpecs.forEach { spec ->
-            val existingCandidates = ownerEntriesByItemId[spec.itemId].orEmpty()
-            val existing =
-                existingCandidates.firstOrNull { it.calendarId == calendarId }
-                    ?: existingCandidates.firstOrNull()
-
-            var effectiveCalendarId = calendarId
-            val eventId =
-                when {
-                    existing == null -> insertCalendarEventSafe(calendarId = calendarId, spec = spec)
-                    existing.calendarId != calendarId -> {
-                        // 用户切换了目标日历：优先在新日历创建；成功后再尽力清理旧事件，避免“先删后建”造成丢失。
-                        val inserted = insertCalendarEventSafe(calendarId = calendarId, spec = spec)
-                        if (inserted != null && inserted > 0L) {
-                            deleteCalendarEventSafe(existing.eventId)
-                            inserted
-                        } else {
-                            // 新建失败：保留旧映射，避免数据丢失（下次重排会再尝试迁移）。
-                            effectiveCalendarId = existing.calendarId
-                            existing.eventId
-                        }
-                    }
-                    else -> {
-                        val updated = updateCalendarEventSafe(eventId = existing.eventId, spec = spec)
-                        if (updated) {
-                            existing.eventId
-                        } else {
-                            // update 失败：优先尝试重建；若重建失败则保留旧映射，避免把事件/映射“删没了”。
-                            val inserted = insertCalendarEventSafe(calendarId = calendarId, spec = spec)
-                            if (inserted != null && inserted > 0L) {
-                                deleteCalendarEventSafe(existing.eventId)
-                                inserted
-                            } else {
-                                existing.eventId
-                            }
-                        }
-                    }
-                }
-
-            if (eventId != null && eventId > 0L) {
-                if (syncReminders) {
-                    replaceCalendarRemindersSafe(eventId = eventId, minutes = spec.reminderMinutes)
-                } else {
-                    clearCalendarRemindersSafe(eventId = eventId)
-                }
-
-                newOwnerEntryKeys +=
-                    calendarEventEntryKey(
-                        ownerKey = ownerKey,
-                        itemId = spec.itemId,
-                        calendarId = effectiveCalendarId,
-                        eventId = eventId,
-                    )
-            }
-        }
-
-        // 清理不再需要的事件（仅清理由本应用记录过映射的 eventId，避免误删用户手动创建的事件）。
-        ownerEntries
-            .filter { it.itemId !in desiredItemIds }
-            .forEach { entry ->
-                deleteCalendarEventSafe(entry.eventId)
-            }
-
-        // 合并保存：只替换当前 ownerKey 的条目。
-        val merged = rawEntries.toMutableSet()
-        merged.removeAll { parseCalendarEventEntryKey(it)?.ownerKey == ownerKey }
-        merged.addAll(newOwnerEntryKeys)
-        saveCalendarEventEntries(merged)
-    }
-
     private fun buildCalendarEventSpecOrNull(
         ownerKey: String,
         item: TodoItemEntity,
         nowMs: Long,
         upperBoundMs: Long,
         syncReminders: Boolean,
-    ): CalendarEventSpec? {
+    ): cc.pscly.onememos.calendar.CalendarEventSpec? {
         val reminders = parseBeforeDueMinutes(item.remindersJson)
         if (reminders.isEmpty()) return null
 
@@ -564,7 +383,7 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
         val reminderMinutes = if (syncReminders) reminders else emptyList()
         val durationMs = TimeUnit.MINUTES.toMillis(CALENDAR_DEFAULT_DURATION_MINUTES.toLong())
 
-        return CalendarEventSpec(
+        return cc.pscly.onememos.calendar.CalendarEventSpec(
             itemId = item.id,
             title = eventTitle,
             description = desc,
@@ -573,114 +392,6 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
             timezoneId = zone.id,
             reminderMinutes = reminderMinutes,
         )
-    }
-
-    private fun isCalendarWritable(calendarId: Long): Boolean {
-        if (calendarId <= 0L) return false
-        return runCatching {
-            val uri = ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, calendarId)
-            val projection =
-                arrayOf(
-                    CalendarContract.Calendars._ID,
-                    CalendarContract.Calendars.VISIBLE,
-                    CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,
-                )
-            applicationContext.contentResolver
-                .query(uri, projection, null, null, null)
-                ?.use { cursor ->
-                    if (!cursor.moveToFirst()) return@use false
-                    val visible = cursor.getInt(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.VISIBLE))
-                    val access = cursor.getInt(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL))
-                    visible == 1 && access >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR
-                }
-                ?: false
-        }.getOrElse { false }
-    }
-
-    private fun insertCalendarEventSafe(
-        calendarId: Long,
-        spec: CalendarEventSpec,
-    ): Long? {
-        return runCatching {
-            val values =
-                ContentValues().apply {
-                    put(CalendarContract.Events.CALENDAR_ID, calendarId)
-                    put(CalendarContract.Events.TITLE, spec.title)
-                    put(CalendarContract.Events.DESCRIPTION, spec.description)
-                    put(CalendarContract.Events.DTSTART, spec.startAtMs)
-                    put(CalendarContract.Events.DTEND, spec.endAtMs)
-                    put(CalendarContract.Events.EVENT_TIMEZONE, spec.timezoneId)
-                    put(CalendarContract.Events.HAS_ALARM, if (spec.reminderMinutes.isEmpty()) 0 else 1)
-                }
-            val uri = applicationContext.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values) ?: return@runCatching null
-            ContentUris.parseId(uri).takeIf { it > 0L }
-        }
-            .onFailure { Log.w(TAG, "写入日历事件失败（insert）", it) }
-            .getOrNull()
-    }
-
-    private fun updateCalendarEventSafe(
-        eventId: Long,
-        spec: CalendarEventSpec,
-    ): Boolean {
-        if (eventId <= 0L) return false
-        return runCatching {
-            val values =
-                ContentValues().apply {
-                    put(CalendarContract.Events.TITLE, spec.title)
-                    put(CalendarContract.Events.DESCRIPTION, spec.description)
-                    put(CalendarContract.Events.DTSTART, spec.startAtMs)
-                    put(CalendarContract.Events.DTEND, spec.endAtMs)
-                    put(CalendarContract.Events.EVENT_TIMEZONE, spec.timezoneId)
-                    put(CalendarContract.Events.HAS_ALARM, if (spec.reminderMinutes.isEmpty()) 0 else 1)
-                }
-            val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
-            val updated = applicationContext.contentResolver.update(uri, values, null, null)
-            updated > 0
-        }
-            .onFailure { Log.w(TAG, "写入日历事件失败（update）", it) }
-            .getOrElse { false }
-    }
-
-    private fun deleteCalendarEventSafe(eventId: Long) {
-        if (eventId <= 0L) return
-        runCatching {
-            val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
-            applicationContext.contentResolver.delete(uri, null, null)
-        }.onFailure { Log.w(TAG, "删除日历事件失败（delete）", it) }
-    }
-
-    private fun clearCalendarRemindersSafe(eventId: Long) {
-        if (eventId <= 0L) return
-        runCatching {
-            applicationContext.contentResolver.delete(
-                CalendarContract.Reminders.CONTENT_URI,
-                "${CalendarContract.Reminders.EVENT_ID}=?",
-                arrayOf(eventId.toString()),
-            )
-        }.onFailure { Log.w(TAG, "清理日历提醒失败", it) }
-    }
-
-    private fun replaceCalendarRemindersSafe(
-        eventId: Long,
-        minutes: List<Int>,
-    ) {
-        if (eventId <= 0L) return
-        runCatching {
-            // 先清理旧提醒，避免多次同步造成重复提醒。
-            clearCalendarRemindersSafe(eventId)
-
-            val unique = minutes.asSequence().map { it.coerceAtLeast(0) }.distinct().toList()
-            unique.forEach { m ->
-                val values =
-                    ContentValues().apply {
-                        put(CalendarContract.Reminders.EVENT_ID, eventId)
-                        put(CalendarContract.Reminders.MINUTES, m)
-                        put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
-                    }
-                applicationContext.contentResolver.insert(CalendarContract.Reminders.CONTENT_URI, values)
-            }
-        }.onFailure { Log.w(TAG, "写入日历提醒失败", it) }
     }
 
     private fun computeTriggersForItem(

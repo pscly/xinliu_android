@@ -104,7 +104,15 @@ class SettingsViewModel @Inject constructor(
     private val todoReminderScheduler: TodoReminderScheduler,
     private val flowBackendApi: FlowBackendApi,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
+    private val systemCalendarGateway: cc.pscly.onememos.calendar.SystemCalendarGateway,
 ) : ViewModel() {
+    fun hasCalendarPermissions(): Boolean = systemCalendarGateway.hasPermissions()
+
+    suspend fun writableCalendars(): List<cc.pscly.onememos.calendar.WritableCalendar> =
+        systemCalendarGateway.writableCalendars().getOrDefault(emptyList())
+
+    suspend fun calendarLabel(calendarId: Long): String? =
+        systemCalendarGateway.calendarLabel(calendarId).getOrNull()
     private val cacheState = MutableStateFlow(CacheSectionState())
     private val changePasswordState = MutableStateFlow(ChangePasswordUiState())
 

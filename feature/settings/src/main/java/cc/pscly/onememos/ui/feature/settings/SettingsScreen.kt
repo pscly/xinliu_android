@@ -2,6 +2,8 @@
 
 package cc.pscly.onememos.ui.feature.settings
 
+import cc.pscly.onememos.calendar.WritableCalendar
+
 import android.app.AlarmManager
 import android.Manifest
 import android.content.Context
@@ -9,7 +11,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
-import android.provider.CalendarContract
 import android.provider.Settings
 import android.widget.Toast
 import java.io.File
@@ -136,7 +137,7 @@ fun SettingsScreen(
     var canDrawOverlays by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var canScheduleExactAlarms by remember { mutableStateOf(alarmManager?.canScheduleExactAlarms() == true) }
     var lastExactAlarmAllowed by remember { mutableStateOf(canScheduleExactAlarms) }
-    var calendarPermissionGranted by remember { mutableStateOf(hasCalendarPermissions(context)) }
+    var calendarPermissionGranted by remember { mutableStateOf(viewModel.hasCalendarPermissions()) }
     var calendarIntegrationPendingEnable by remember { mutableStateOf(false) }
     var selectedCalendarLabel by remember { mutableStateOf<String?>(null) }
     var availableCalendars by remember { mutableStateOf<List<WritableCalendar>>(emptyList()) }
@@ -155,7 +156,7 @@ fun SettingsScreen(
                 if (event == Lifecycle.Event.ON_RESUME) {
                     canDrawOverlays = Settings.canDrawOverlays(context)
                     canScheduleExactAlarms = alarmManager?.canScheduleExactAlarms() == true
-                    calendarPermissionGranted = hasCalendarPermissions(context)
+                    calendarPermissionGranted = viewModel.hasCalendarPermissions()
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -216,10 +217,7 @@ fun SettingsScreen(
 
         selectedCalendarLabel =
             withContext(Dispatchers.IO) {
-                resolveCalendarLabelOrNull(
-                    context = context,
-                    calendarId = calendarId,
-                )
+                viewModel.calendarLabel(calendarId)
             }
     }
 
@@ -694,7 +692,7 @@ fun SettingsScreen(
                         scope.launch {
                             val calendars =
                                 withContext(Dispatchers.IO) {
-                                    queryWritableCalendars(context)
+                                    viewModel.writableCalendars()
                                 }
                             if (calendars.isEmpty()) {
                                 Toast
@@ -1660,133 +1658,7 @@ fun SettingsScreen(
     }
 }
 
-private data class WritableCalendar(
-    val id: Long,
-    val displayName: String,
-    val subtitle: String,
-    val isPrimary: Boolean,
-)
-
-private fun hasCalendarPermissions(context: Context): Boolean {
-    val readGranted =
-        runCatching {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-        }.getOrElse { false }
-    val writeGranted =
-        runCatching {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-        }.getOrElse { false }
-    return readGranted && writeGranted
-}
-
-private fun queryWritableCalendars(context: Context): List<WritableCalendar> {
-    return runCatching {
-        val cr = context.contentResolver
-        val projection =
-            arrayOf(
-                CalendarContract.Calendars._ID,
-                CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
-                CalendarContract.Calendars.ACCOUNT_NAME,
-                CalendarContract.Calendars.OWNER_ACCOUNT,
-                CalendarContract.Calendars.VISIBLE,
-                CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,
-                CalendarContract.Calendars.IS_PRIMARY,
-            )
-        val result = mutableListOf<WritableCalendar>()
-        cr.query(
-            CalendarContract.Calendars.CONTENT_URI,
-            projection,
-            null,
-            null,
-            null,
-        )
-            ?.use { cursor ->
-                val idIdx = cursor.getColumnIndex(CalendarContract.Calendars._ID)
-                val nameIdx = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
-                val accountIdx = cursor.getColumnIndex(CalendarContract.Calendars.ACCOUNT_NAME)
-                val ownerIdx = cursor.getColumnIndex(CalendarContract.Calendars.OWNER_ACCOUNT)
-                val visibleIdx = cursor.getColumnIndex(CalendarContract.Calendars.VISIBLE)
-                val accessIdx = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL)
-                val primaryIdx = cursor.getColumnIndex(CalendarContract.Calendars.IS_PRIMARY)
-
-                while (cursor.moveToNext()) {
-                    val id = cursor.getLong(idIdx)
-                    if (id <= 0L) continue
-
-                    val visible = cursor.getInt(visibleIdx)
-                    if (visible != 1) continue
-
-                    val accessLevel = cursor.getInt(accessIdx)
-                    if (accessLevel < CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR) continue
-
-                    val displayName = cursor.getString(nameIdx)?.trim().orEmpty().ifBlank { "日历 $id" }
-                    val accountName = cursor.getString(accountIdx)?.trim().orEmpty()
-                    val ownerAccount = cursor.getString(ownerIdx)?.trim().orEmpty()
-                    val subtitle =
-                        when {
-                            accountName.isNotBlank() && ownerAccount.isNotBlank() && accountName != ownerAccount ->
-                                "$accountName · $ownerAccount"
-
-                            accountName.isNotBlank() -> accountName
-                            ownerAccount.isNotBlank() -> ownerAccount
-                            else -> "本地日历"
-                        }
-
-                    val isPrimary = cursor.getInt(primaryIdx) == 1
-                    result += WritableCalendar(id = id, displayName = displayName, subtitle = subtitle, isPrimary = isPrimary)
-                }
-            }
-
-        result
-            .distinctBy { it.id }
-            .sortedWith(
-                compareByDescending<WritableCalendar> { it.isPrimary }
-                    .thenBy { it.displayName },
-            )
-    }.getOrElse { emptyList() }
-}
-
-private fun resolveCalendarLabelOrNull(
-    context: Context,
-    calendarId: Long,
-): String? {
-    if (calendarId <= 0L) return null
-    if (!hasCalendarPermissions(context)) return null
-
-    return runCatching {
-        val cr = context.contentResolver
-        val projection =
-            arrayOf(
-                CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
-                CalendarContract.Calendars.ACCOUNT_NAME,
-                CalendarContract.Calendars.OWNER_ACCOUNT,
-            )
-        cr.query(
-            CalendarContract.Calendars.CONTENT_URI,
-            projection,
-            "${CalendarContract.Calendars._ID}=?",
-            arrayOf(calendarId.toString()),
-            null,
-        )
-            ?.use { cursor ->
-                if (!cursor.moveToFirst()) return@use null
-                val name = cursor.getString(0)?.trim().orEmpty()
-                val account = cursor.getString(1)?.trim().orEmpty()
-                val owner = cursor.getString(2)?.trim().orEmpty()
-                val title = name.ifBlank { "日历 $calendarId" }
-                val subtitle =
-                    when {
-                        account.isNotBlank() && owner.isNotBlank() && account != owner -> "$account · $owner"
-                        account.isNotBlank() -> account
-                        owner.isNotBlank() -> owner
-                        else -> ""
-                    }
-                if (subtitle.isBlank()) title else "$title（$subtitle）"
-            }
-    }.getOrNull()
-}
+// WritableCalendar 与日历查询已下沉到 :core:calendar，经 SettingsViewModel 薄转发。
 
 private fun exportDiagnosticsFile(
     context: android.content.Context,
