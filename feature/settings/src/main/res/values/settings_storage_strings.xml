@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_storage_title">存储与离线</string>
+    <string name="settings_storage_loading">正在读取存储设置</string>
+    <string name="settings_storage_state_loading">加载中</string>
+    <string name="settings_storage_state_error">错误</string>
+    <string name="settings_storage_state_cleaning">清理中</string>
+    <string name="settings_storage_state_ready">就绪</string>
+    <string name="settings_storage_error_storage">存储操作失败，已保留上次统计。</string>
+    <string name="settings_storage_error_generic">读取或写入设置失败，请稍后重试。</string>
+
+    <string name="settings_storage_usage_title">当前占用</string>
+    <string name="settings_storage_refresh">刷新占用统计</string>
+    <string name="settings_storage_refreshing">正在刷新占用统计</string>
+    <string name="settings_storage_stats_unavailable">待刷新</string>
+    <string name="settings_storage_usage_database">本地内容（数据库） %1$s</string>
+    <string name="settings_storage_usage_images">图片缓存 %1$s</string>
+    <string name="settings_storage_usage_attachments">附件本地缓存 %1$s</string>
+    <string name="settings_storage_usage_other">其它缓存 %1$s</string>
+    <string name="settings_storage_cache_explanation">缓存只会随浏览逐步写入；清理缓存不会删除服务器数据。</string>
+
+    <string name="settings_storage_prefetch_title">自动预取图片</string>
+    <string name="settings_storage_prefetch_description">联网时缓存最近随笔中的图片，提升离线浏览体验。</string>
+    <string name="settings_storage_range">范围：最近 %1$d 条随笔</string>
+    <string name="settings_storage_range_unlimited">范围：全部随笔</string>
+    <string name="settings_storage_image_limit">上限：最多 %1$d 张图片</string>
+    <string name="settings_storage_image_limit_unlimited">上限：不限图片数量</string>
+    <string name="settings_storage_prefetch_hint">数值为 0 表示不限；关闭预取后仍会保留已缓存内容。</string>
+
+    <string name="settings_storage_attachment_limit">附件缓存上限：%1$d MB</string>
+    <string name="settings_storage_attachment_limit_unlimited">附件缓存上限：无限</string>
+    <string name="settings_storage_attachment_explanation">超过上限会淘汰最旧的附件缓存，不会影响服务器数据；0 表示无限。</string>
+
+    <string name="settings_storage_cleanup_title">清理缓存</string>
+    <string name="settings_storage_cleanup_in_progress">正在清理缓存，请稍候</string>
+    <string name="settings_storage_clear_images">清理图片缓存</string>
+    <string name="settings_storage_clear_images_summary">删除已缓存图片，不影响数据库和服务器数据。</string>
+    <string name="settings_storage_clear_attachments">清理附件缓存</string>
+    <string name="settings_storage_clear_attachments_summary">删除离线附件，不影响服务器数据。</string>
+    <string name="settings_storage_clear_all">清理全部缓存</string>
+    <string name="settings_storage_clear_all_summary">删除图片与附件缓存，保留数据库和设置。</string>
+
+    <string name="settings_storage_confirm_images_title">清理图片缓存？</string>
+    <string name="settings_storage_confirm_images_detail">这会删除本地图片缓存；再次查看时可能需要重新下载。</string>
+    <string name="settings_storage_confirm_attachments_title">清理附件缓存？</string>
+    <string name="settings_storage_confirm_attachments_detail">这会删除离线附件缓存，不会删除服务器数据。</string>
+    <string name="settings_storage_confirm_all_title">清理全部缓存？</string>
+    <string name="settings_storage_confirm_all_detail">这会清理图片与附件缓存，不会删除数据库、设置或服务器数据。</string>
+    <string name="settings_storage_confirm">确定清理</string>
+    <string name="settings_storage_cancel">取消</string>
+</resources>
