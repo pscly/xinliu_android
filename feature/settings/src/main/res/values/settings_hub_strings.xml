@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_hub_title">设置</string>
+    <string name="settings_hub_enter">进入</string>
+    <string name="settings_hub_loading">加载中</string>
+    <string name="settings_hub_ready">就绪</string>
+    <string name="settings_hub_error_generic">暂时无法读取</string>
+    <string name="settings_hub_error_network">网络不可用</string>
+    <string name="settings_hub_error_platform">系统能力不可用</string>
+
+    <string name="settings_hub_section_account">账号与同步</string>
+    <string name="settings_hub_section_record">记录与编辑</string>
+    <string name="settings_hub_section_reminder">提醒与日历</string>
+    <string name="settings_hub_section_storage">存储与离线</string>
+    <string name="settings_hub_section_appearance">外观与交互</string>
+    <string name="settings_hub_section_about">关于与高级</string>
+
+    <string name="settings_hub_issue_auth_expired">登录已失效</string>
+    <string name="settings_hub_issue_sync_failed">最近同步失败</string>
+    <string name="settings_hub_issue_full_resync_failed">全量重同步失败</string>
+    <string name="settings_hub_issue_permission">需要权限</string>
+    <string name="settings_hub_issue_storage">存储异常</string>
+    <string name="settings_hub_issue_update">更新异常</string>
+    <string name="settings_hub_issue_diagnostics">诊断异常</string>
+    <string name="settings_hub_issue_preference">偏好读取失败</string>
+
+    <string name="settings_hub_fact_account_unbound">尚未连接同步账号</string>
+    <string name="settings_hub_fact_account_signed_out">尚未登录</string>
+    <string name="settings_hub_fact_account_auth_expired">登录已失效</string>
+    <string name="settings_hub_fact_account_full_resync_failed">全量重同步失败</string>
+    <string name="settings_hub_fact_account_sync_failed">最近同步失败</string>
+    <string name="settings_hub_fact_account_full_resync_running">全量重同步进行中</string>
+    <string name="settings_hub_fact_account_syncing">同步进行中</string>
+    <string name="settings_hub_fact_account_queued">等待同步</string>
+    <string name="settings_hub_fact_account_healthy">同步正常</string>
+    <string name="settings_hub_fact_last_success">有最近成功记录</string>
+
+    <string name="settings_hub_fact_visibility_private">默认私有</string>
+    <string name="settings_hub_fact_visibility_protected">默认受保护</string>
+    <string name="settings_hub_fact_visibility_public">默认公开</string>
+    <string name="settings_hub_fact_regex_on">正则搜索已开</string>
+    <string name="settings_hub_fact_quick_insert_on">一键插入时间已开</string>
+    <string name="settings_hub_fact_tag_counts_on">标签计数已开</string>
+
+    <string name="settings_hub_fact_reminder_smart">智能提醒</string>
+    <string name="settings_hub_fact_reminder_exact">准点提醒</string>
+    <string name="settings_hub_fact_calendar_off">日历未启用</string>
+    <string name="settings_hub_fact_calendar_connected">日历已连接</string>
+    <string name="settings_hub_fact_calendar_no_target">日历待选择</string>
+
+    <string name="settings_hub_fact_prefetch_on">离线预取已开</string>
+    <string name="settings_hub_fact_prefetch_off">离线预取已关</string>
+    <string name="settings_hub_fact_cache_limit">缓存上限 %1$s MB</string>
+
+    <string name="settings_hub_fact_theme_paper_ink">纸墨主题</string>
+    <string name="settings_hub_fact_theme_indigo">靛蓝主题</string>
+    <string name="settings_hub_fact_theme_cyber">赛博主题</string>
+    <string name="settings_hub_fact_mode_follow">跟随系统</string>
+    <string name="settings_hub_fact_mode_light">浅色</string>
+    <string name="settings_hub_fact_mode_dark">深色</string>
+
+    <string name="settings_hub_fact_version">版本 %1$s</string>
+    <string name="settings_hub_fact_update_idle">更新空闲</string>
+    <string name="settings_hub_fact_update_checking">正在检查更新</string>
+    <string name="settings_hub_fact_update_available">有新版本 %1$s</string>
+    <string name="settings_hub_fact_update_downloading">正在下载更新</string>
+    <string name="settings_hub_fact_update_ready">更新可安装</string>
+    <string name="settings_hub_fact_update_up_to_date">已是最新</string>
+    <string name="settings_hub_fact_update_error">更新失败</string>
+</resources>
