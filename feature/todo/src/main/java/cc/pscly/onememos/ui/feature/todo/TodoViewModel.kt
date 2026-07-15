@@ -10,12 +10,15 @@ import cc.pscly.onememos.domain.model.TodoList
 import cc.pscly.onememos.domain.model.TodoStatuses
 import cc.pscly.onememos.domain.model.TodoOccurrence
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.domain.util.OwnerKeyProvider
 import cc.pscly.onememos.domain.repository.TodoRepository
+import cc.pscly.onememos.navigation.TodoItemKey
 import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import cc.pscly.onememos.domain.sync.TodoReminderTestScheduler
 import cc.pscly.onememos.domain.sync.TodoSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -47,8 +50,78 @@ class TodoViewModel @Inject constructor(
     private val todoReminderScheduler: TodoReminderScheduler,
     private val todoReminderTestScheduler: TodoReminderTestScheduler,
     private val settingsRepository: SettingsRepository,
+    private val ownerKeyProvider: OwnerKeyProvider,
 ) : ViewModel() {
     private val selectedListId = MutableStateFlow<String?>(null)
+    private val targetKey = MutableStateFlow<TodoItemKey?>(null)
+    private var boundKey: TodoItemKey? = null
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val todoItemTargetState: StateFlow<TodoItemTargetState> =
+        combine(targetKey, settingsRepository.settings) { key, settings ->
+            key to settings
+        }.flatMapLatest { (key, settings) ->
+            if (key == null) {
+                kotlinx.coroutines.flow.flowOf<TodoItemTargetState>(TodoItemTargetState.Idle)
+            } else {
+                kotlinx.coroutines.flow.flow<TodoItemTargetState> {
+                    emit(TodoItemTargetState.Loading(key))
+                    val enabled = settings.loginMode == LoginMode.BACKEND && settings.token.isNotBlank()
+                    if (!enabled) {
+                        emit(
+                            TodoItemTargetState.Unavailable(
+                                key = key,
+                                reason = TodoItemUnavailableReason.DISABLED,
+                            ),
+                        )
+                        return@flow
+                    }
+                    val owner = ownerKeyProvider.currentOwnerKeyOrNull()
+                    if (owner.isNullOrBlank() || owner != key.expectedOwnerKey) {
+                        emit(
+                            TodoItemTargetState.Unavailable(
+                                key = key,
+                                reason = TodoItemUnavailableReason.NOT_FOUND_OR_ACCOUNT_MISMATCH,
+                            ),
+                        )
+                        return@flow
+                    }
+                    val item = todoRepository.getItem(key.itemId)
+                    when {
+                        item == null ->
+                            emit(
+                                TodoItemTargetState.Unavailable(
+                                    key = key,
+                                    reason = TodoItemUnavailableReason.NOT_FOUND_OR_ACCOUNT_MISMATCH,
+                                ),
+                            )
+                        !item.deletedAt.isNullOrBlank() ->
+                            emit(
+                                TodoItemTargetState.Unavailable(
+                                    key = key,
+                                    reason = TodoItemUnavailableReason.DELETED,
+                                ),
+                            )
+                        else -> emit(TodoItemTargetState.Ready(key = key, item = item))
+                    }
+                }
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = TodoItemTargetState.Idle,
+        )
+
+    fun bind(key: TodoItemKey) {
+        if (boundKey == key) return
+        boundKey = key
+        targetKey.value = key
+    }
+
+    fun clearTarget() {
+        boundKey = null
+        targetKey.value = null
+    }
     private val statusFilter = MutableStateFlow<String?>(null)
     private val tagFilter = MutableStateFlow("")
     private val includeArchivedLists = MutableStateFlow(false)

@@ -108,6 +108,8 @@ dependencies {
     implementation(project(":core:network"))
     implementation(project(":core:sync"))
     implementation(project(":core:navigation"))
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
     implementation(project(":core:designsystem"))
     implementation(project(":core:settings"))
     implementation(project(":core:update"))

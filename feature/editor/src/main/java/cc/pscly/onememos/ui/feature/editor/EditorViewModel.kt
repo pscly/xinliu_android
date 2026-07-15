@@ -13,6 +13,7 @@ import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.repository.CacheRepository
 import cc.pscly.onememos.domain.repository.MemoRepository
+import cc.pscly.onememos.navigation.EditorKey
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
 import cc.pscly.onememos.domain.tag.TagStat
@@ -101,10 +102,59 @@ class EditorViewModel @Inject constructor(
         }
 
     private val _uiState = MutableStateFlow(EditorUiState(uuid = uuidArg))
+    private var boundKey: EditorKey? = null
+    private var memoLoadStartedFor: String? = null
+
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
 
     private val _events = MutableSharedFlow<EditorEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<EditorEvent> = _events.asSharedFlow()
+
+
+    fun bind(key: EditorKey) {
+        if (boundKey == key) return
+        boundKey = key
+        val uuid = key.uuid?.trim()?.takeIf { it.isNotBlank() } ?: return
+        if (memoLoadStartedFor == uuid) return
+        memoLoadStartedFor = uuid
+        _uiState.update { it.copy(uuid = uuid, loadError = null) }
+        viewModelScope.launch {
+            val memo = memoRepository.getMemo(uuid)
+            if (memo == null) {
+                _uiState.update { it.copy(loadError = "记录不存在或已被删除") }
+                return@launch
+            }
+            val attachmentsUi =
+                memo.attachments.map { a ->
+                    EditorAttachmentUi(
+                        key = a.remoteName ?: a.localUri ?: "attachment_${a.id}",
+                        localUri = a.localUri,
+                        cacheUri = a.cacheUri,
+                        remoteName = a.remoteName,
+                        filename = a.filename,
+                        mimeType = a.mimeType,
+                        createdAt = a.createdAt,
+                    )
+                }
+            _uiState.update {
+                it.copy(
+                    uuid = memo.uuid,
+                    serverId = memo.serverId,
+                    syncStatus = memo.syncStatus,
+                    content = TextFieldValue(memo.content),
+                    tagSourceText = memo.content,
+                    createdAt = memo.createdAt,
+                    updatedAt = memo.updatedAt,
+                    attachments = attachmentsUi,
+                    lastSyncError = memo.lastSyncError,
+                    loadError = null,
+                )
+            }
+            applyAutoTagLineVisibility()
+            schedulePrefetchAttachmentCache()
+        }
+    }
+
 
     private val cachingRemoteNames = mutableSetOf<String>()
     private var creatorHintPushed: Boolean = false
@@ -210,6 +260,7 @@ class EditorViewModel @Inject constructor(
         }
 
         if (!uuidArg.isNullOrBlank()) {
+            memoLoadStartedFor = uuidArg
             viewModelScope.launch {
                 val memo = memoRepository.getMemo(uuidArg)
                 if (memo == null) {

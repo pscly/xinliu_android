@@ -11,6 +11,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.domain.repository.MemoRepository
+import cc.pscly.onememos.navigation.ShareCardKey
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.ui.theme.OneMemosTheme
@@ -49,11 +50,58 @@ class ShareCardViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ShareCardUiState(uuid = uuidArg, loading = true))
     val uiState: StateFlow<ShareCardUiState> = _uiState.asStateFlow()
 
+    private var boundKey: ShareCardKey? = null
+    private var loadStartedFor: String? = null
+
+    fun bind(key: ShareCardKey) {
+        if (boundKey == key) return
+        boundKey = key
+        val uuid = key.uuid.trim().takeIf { it.isNotBlank() } ?: return
+        if (loadStartedFor == uuid) return
+        loadStartedFor = uuid
+        _uiState.update { it.copy(uuid = uuid, loading = true, error = null) }
+        viewModelScope.launch {
+            val memo = memoRepository.getMemo(uuid)
+            if (memo == null) {
+                _uiState.update { it.copy(loading = false, error = "记录不存在或已被删除") }
+                return@launch
+            }
+            val settings = settingsRepository.settings.first()
+            val keywords = AutoTagLineHider.parseKeywords(settings.devAutoTagLineKeywords)
+            val content =
+                if (settings.devShowAutoTagLineInView) {
+                    memo.content
+                } else {
+                    AutoTagLineHider.hideFast(memo.content, keywords)
+                }
+            val tags = TagExtractor.extractAll(content)
+            val photos = withContext(Dispatchers.IO) { loadUsableImages(memo.attachments, maxCount = 3, maxSizePx = 720) }
+            val background = photos.firstOrNull()
+            val theme = if (background != null) ShareCardTheme.GUANG_YING else ShareCardTheme.SU_LV
+            _uiState.update {
+                it.copy(
+                    loading = false,
+                    error = null,
+                    content = content,
+                    createdAt = memo.createdAt,
+                    tags = tags,
+                    backgroundBitmap = background,
+                    photoBitmaps = photos,
+                    qrEnabled = true,
+                    qrText = "https://github.com/pscly/onememos",
+                    theme = theme,
+                )
+            }
+            refreshQr()
+        }
+    }
+
     // 体验优化：二维码生成可能被频繁触发（开关/文本变化）。用递增 token 丢弃过期结果，避免“旧二维码闪回”。
     private var qrGenerationId: Int = 0
 
     init {
         val uuid = uuidArg?.trim().takeIf { !it.isNullOrBlank() }
+        if (uuid != null) loadStartedFor = uuid
         if (uuid == null) {
             _uiState.update { it.copy(loading = false, error = "参数错误：uuid 为空") }
         } else {

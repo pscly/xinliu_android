@@ -13,6 +13,8 @@ import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
 import cc.pscly.onememos.ui.Routes
+import cc.pscly.onememos.navigation.AuthKey
+import cc.pscly.onememos.navigation.AuthMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,6 +74,19 @@ class AuthViewModel @Inject constructor(
     val events: SharedFlow<AuthEvent> = _events.asSharedFlow()
 
     private var initialized = false
+    private var boundKey: AuthKey? = null
+
+    fun bind(key: AuthKey) {
+        if (boundKey == key) return
+        boundKey = key
+        // 幂等：若 init 已完成则按 key 调整 tab；否则写入 startMode 语义
+        val wantCustom = key.mode == AuthMode.CUSTOM_TOKEN
+        if (initialized) {
+            _uiState.update {
+                it.copy(tab = if (wantCustom) AuthTab.CUSTOM else AuthTab.BACKEND, error = null)
+            }
+        }
+    }
 
     init {
         viewModelScope.launch {

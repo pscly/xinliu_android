@@ -74,9 +74,12 @@ import java.time.LocalTime
 @Composable
 fun TodoScreen(
     onOpenDrawer: () -> Unit,
+    targetKey: cc.pscly.onememos.navigation.TodoItemKey? = null,
+    onTargetDismiss: (() -> Unit)? = null,
+    viewModel: TodoViewModel = hiltViewModel(),
 ) {
-    val viewModel: TodoViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val targetState by viewModel.todoItemTargetState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val hasAnyReminders by viewModel.hasAnyReminders.collectAsStateWithLifecycle()
@@ -106,6 +109,30 @@ fun TodoScreen(
     var showCreateItem by remember { mutableStateOf(false) }
     var createItemInitialListId by remember { mutableStateOf<String?>(null) }
     var editingItem by remember { mutableStateOf<TodoItem?>(null) }
+    var targetUnavailableShown by remember(targetKey) { mutableStateOf(false) }
+
+    LaunchedEffect(targetKey) {
+        if (targetKey != null) {
+            viewModel.bind(targetKey)
+        }
+    }
+
+    // Navigation 3 typed target: Ready 复用编辑对话框；Unavailable 一次提示后弹栈。
+    LaunchedEffect(targetState) {
+        when (val s = targetState) {
+            is TodoItemTargetState.Ready -> {
+                if (editingItem?.id != s.item.id) {
+                    editingItem = s.item
+                }
+            }
+            is TodoItemTargetState.Unavailable -> {
+                if (!targetUnavailableShown) {
+                    targetUnavailableShown = true
+                }
+            }
+            else -> Unit
+        }
+    }
 
     var moreMenuExpanded by remember { mutableStateOf(false) }
     var showTagInput by remember { mutableStateOf(false) }
@@ -508,6 +535,33 @@ fun TodoScreen(
         )
     }
 
+
+    if (targetUnavailableShown && targetState is TodoItemTargetState.Unavailable) {
+        val reason = (targetState as TodoItemTargetState.Unavailable).reason
+        val msg =
+            when (reason) {
+                TodoItemUnavailableReason.DISABLED -> "待办未启用或未登录"
+                TodoItemUnavailableReason.DELETED -> "该待办已删除"
+                TodoItemUnavailableReason.NOT_FOUND_OR_ACCOUNT_MISMATCH -> "待办不存在或账号不匹配"
+            }
+        AlertDialog(
+            onDismissRequest = {
+                targetUnavailableShown = false
+                onTargetDismiss?.invoke()
+            },
+            title = { Text("无法打开待办") },
+            text = { Text(msg) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        targetUnavailableShown = false
+                        onTargetDismiss?.invoke()
+                    },
+                ) { Text("知道了") }
+            },
+        )
+    }
+
     if (editingItem != null) {
         val item = editingItem ?: return
         val occurrencesFlow = remember(item.id) { viewModel.observeOccurrences(itemId = item.id, includeDeleted = false) }
@@ -525,7 +579,12 @@ fun TodoScreen(
             },
             onRequestTestReminder = viewModel::requestTestReminder,
             onRequestReminderReschedule = viewModel::requestReminderReschedule,
-            onDismiss = { editingItem = null },
+            onDismiss = {
+                editingItem = null
+                if (targetKey != null) {
+                    onTargetDismiss?.invoke()
+                }
+            },
         )
     }
 
