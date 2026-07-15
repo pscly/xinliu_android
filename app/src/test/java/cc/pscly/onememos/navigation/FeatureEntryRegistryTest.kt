@@ -26,18 +26,7 @@ class FeatureEntryRegistryTest {
             val path = System.getProperty("oneMemos.projectDir")
             require(!path.isNullOrBlank()) { "oneMemos.projectDir missing" }
             projectDir = File(path)
-            contributors =
-                listOf(
-                    HomeEntryContributor,
-                    CollectionsEntryContributor,
-                    TodoEntryContributor,
-                    ProfileEntryContributor,
-                    EditorEntryContributor,
-                    ShareCardEntryContributor,
-                    AuthEntryContributor,
-                    WelcomeEntryContributor,
-                    LegacySettingsEntryContributor,
-                )
+            contributors = appEntryContributors
         }
     }
 

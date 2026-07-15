@@ -171,6 +171,7 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
                             .setInputData(
                                 workDataOf(
                                     TodoReminderNotifyWorker.KEY_ITEM_ID to trigger.itemId,
+                                    TodoReminderNotifyWorker.KEY_OWNER_KEY to ownerKeyValue,
                                     TodoReminderNotifyWorker.KEY_DUE_AT_LOCAL to trigger.dueAtLocal,
                                     TodoReminderNotifyWorker.KEY_BEFORE_MINUTES to trigger.beforeMinutes,
                                 ),
@@ -179,6 +180,7 @@ class TodoReminderRescheduleWorker @AssistedInject constructor(
 
                     workManager.enqueueUniqueWork(
                         TodoReminderNotifyWorker.uniqueWorkName(
+                            ownerKey = ownerKeyValue,
                             itemId = trigger.itemId,
                             triggerAtMs = trigger.triggerAtMs,
                             minutes = trigger.beforeMinutes,

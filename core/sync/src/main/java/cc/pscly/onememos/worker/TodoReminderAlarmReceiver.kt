@@ -99,16 +99,13 @@ class TodoReminderAlarmReceiver : BroadcastReceiver() {
         ensureChannel(appContext)
 
         val launchIntent =
-            appContext.packageManager.getLaunchIntentForPackage(appContext.packageName)?.apply {
-                flags =
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(TodoReminderNotifyWorker.EXTRA_START_ROUTE, "todo")
-            }
-                ?: return
+            TodoReminderLaunchIntentFactory.createOpenTodoIntent(
+                context = appContext,
+                itemId = itemId,
+                ownerKey = ownerKey,
+            )
 
-        val requestCode = itemId.hashCode()
+        val requestCode = "$ownerKey|$itemId".hashCode()
         val pendingIntent =
             PendingIntent.getActivity(
                 appContext,

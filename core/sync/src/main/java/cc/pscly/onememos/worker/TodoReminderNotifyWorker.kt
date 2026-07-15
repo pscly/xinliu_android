@@ -48,7 +48,11 @@ class TodoReminderNotifyWorker @AssistedInject constructor(
         if (settings.loginMode != LoginMode.BACKEND) return Result.success()
         if (settings.token.trim().isBlank()) return Result.success()
 
+        val expectedOwnerKey = inputData.getString(KEY_OWNER_KEY)?.trim().orEmpty()
+        if (expectedOwnerKey.isBlank()) return Result.success()
+
         val ownerKey = currentOwnerKeyOrNull() ?: return Result.success()
+        if (ownerKey != expectedOwnerKey) return Result.success()
 
         val itemId = inputData.getString(KEY_ITEM_ID)?.trim().orEmpty()
         if (itemId.isBlank()) return Result.success()
@@ -74,17 +78,13 @@ class TodoReminderNotifyWorker @AssistedInject constructor(
         ensureChannel()
 
         val intent =
-            applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)?.apply {
-                // 单击通知直接进入待办页（当前不做“直接打开某条任务”的深链，先保证可用性）。
-                flags =
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(EXTRA_START_ROUTE, "todo")
-            }
-                ?: return Result.success()
+            TodoReminderLaunchIntentFactory.createOpenTodoIntent(
+                context = applicationContext,
+                itemId = itemId,
+                ownerKey = ownerKey,
+            )
 
-        val requestCode = itemId.hashCode()
+        val requestCode = "$ownerKey|$itemId".hashCode()
         val pendingIntent =
             PendingIntent.getActivity(
                 applicationContext,
@@ -163,16 +163,19 @@ class TodoReminderNotifyWorker @AssistedInject constructor(
         const val TAG = "todo_reminder_notify"
         const val CHANNEL_ID = "todo_reminders"
 
+        @Deprecated("迁移期兼容常量；Task 12 后生产者改用 ACTION_OPEN_TODO")
         const val EXTRA_START_ROUTE = "cc.pscly.onememos.extra.START_ROUTE"
 
         const val KEY_ITEM_ID = "itemId"
+        const val KEY_OWNER_KEY = "ownerKey"
         const val KEY_DUE_AT_LOCAL = "dueAtLocal"
         const val KEY_BEFORE_MINUTES = "beforeMinutes"
 
         fun uniqueWorkName(
+            ownerKey: String,
             itemId: String,
             triggerAtMs: Long,
             minutes: Int,
-        ): String = "todo_reminder_notify:$itemId:$triggerAtMs:$minutes"
+        ): String = "todo_reminder_notify:${ownerKey.trim()}:$itemId:$triggerAtMs:$minutes"
     }
 }

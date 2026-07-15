@@ -2,6 +2,7 @@ package cc.pscly.onememos
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,9 +11,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.core.performance.requestMaxRefreshRate
+import cc.pscly.onememos.navigation.ExternalNavigationInput
+import cc.pscly.onememos.navigation.ExternalNavigationIntentParser
 import cc.pscly.onememos.ui.AppViewModel
 import cc.pscly.onememos.ui.OneMemosApp
 import cc.pscly.onememos.ui.theme.OneMemosTheme
@@ -21,27 +24,36 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
-    private var startEditorUuid: String? by mutableStateOf(null)
-    private var startRoute: String? by mutableStateOf(null)
+    private var pendingExternalInput: ExternalNavigationInput? by mutableStateOf(null)
+    private var initialIntentConsumed: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestMaxRefreshRate()
         enableEdgeToEdge()
-        startEditorUuid = intent.getStringExtra(EXTRA_START_EDITOR_UUID)
-        startRoute = intent.getStringExtra(EXTRA_START_ROUTE)
+
+        initialIntentConsumed =
+            savedInstanceState?.getBoolean(STATE_INITIAL_INTENT_CONSUMED, false) == true
+        if (!initialIntentConsumed) {
+            pendingExternalInput = ExternalNavigationIntentParser.parse(intent)
+            if (pendingExternalInput != null) {
+                Log.d(TAG, "onCreate 解析外部输入：$pendingExternalInput")
+            }
+        }
+
         val activity = this
         setContent {
-            // 某些 ROM/依赖组合下，lifecycle-compose 的 LocalLifecycleOwner 可能未被自动注入，显式提供以避免启动崩溃。
             CompositionLocalProvider(LocalLifecycleOwner provides activity) {
-                val themeConfig = appViewModel.themeConfig.collectAsStateWithLifecycle(lifecycleOwner = activity).value
+                val themeConfig =
+                    appViewModel.themeConfig.collectAsStateWithLifecycle(lifecycleOwner = activity).value
                 OneMemosTheme(config = themeConfig) {
                     OneMemosApp(
                         appViewModel = appViewModel,
-                        startEditorUuid = startEditorUuid,
-                        onStartEditorHandled = { startEditorUuid = null },
-                        startRoute = startRoute,
-                        onStartRouteHandled = { startRoute = null },
+                        pendingExternalInput = pendingExternalInput,
+                        onExternalInputConsumed = {
+                            pendingExternalInput = null
+                            initialIntentConsumed = true
+                        },
                     )
                 }
             }
@@ -60,11 +72,22 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        startEditorUuid = intent.getStringExtra(EXTRA_START_EDITOR_UUID)
-        startRoute = intent.getStringExtra(EXTRA_START_ROUTE)
+        setIntent(intent)
+        // onNewIntent 总是新投递：重置消费标记后再解析。
+        initialIntentConsumed = false
+        pendingExternalInput = ExternalNavigationIntentParser.parse(intent)
+        Log.d(TAG, "onNewIntent 解析外部输入：$pendingExternalInput")
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_INITIAL_INTENT_CONSUMED, initialIntentConsumed)
     }
 
     companion object {
+        private const val TAG = "MainActivity"
+        private const val STATE_INITIAL_INTENT_CONSUMED = "one_memos_initial_intent_consumed"
+
         const val EXTRA_START_EDITOR_UUID = "cc.pscly.onememos.extra.START_EDITOR_UUID"
         const val EXTRA_START_ROUTE = "cc.pscly.onememos.extra.START_ROUTE"
     }

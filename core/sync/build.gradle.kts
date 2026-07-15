@@ -28,6 +28,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:database"))
+    implementation(project(":core:navigation"))
     implementation(project(":core:network"))
     implementation(project(":core:data"))
     implementation(project(":core:calendar"))
