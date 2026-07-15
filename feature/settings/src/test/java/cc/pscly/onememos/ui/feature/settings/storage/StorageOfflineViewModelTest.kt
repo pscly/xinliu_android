@@ -9,6 +9,7 @@ import cc.pscly.onememos.domain.settings.StorageOfflineSettingsSnapshot
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
 import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -246,6 +247,95 @@ class StorageOfflineViewModelTest {
             assertNull(replayed)
         }
 
+    @Test
+    fun rapidLimitCommits_areSerialized_andFinalValueIsNotDropped() =
+        runBlocking {
+            val releaseFirst = CompletableDeferred<Unit>()
+            val fake = FakeStorageCapability()
+            fake.executeBlock = { command ->
+                val active = fake.activeExecutions.incrementAndGet()
+                fake.maxActiveExecutions.updateAndGet { current -> maxOf(current, active) }
+                try {
+                    if (command == StorageOfflineSettingsCommand.SetPrefetchMemoLimit(20)) {
+                        releaseFirst.await()
+                    }
+                    StorageOfflineSettingsResult.Success
+                } finally {
+                    fake.activeExecutions.decrementAndGet()
+                }
+            }
+            val viewModel = StorageOfflineViewModel(fake)
+
+            viewModel.setPrefetchMemoLimit(20)
+            viewModel.setPrefetchMemoLimit(37)
+
+            await { fake.commands.isNotEmpty() }
+            delay(50)
+            assertEquals(1, fake.commands.size)
+            releaseFirst.complete(Unit)
+            await { fake.commands.size == 2 }
+            assertEquals(
+                listOf(
+                    StorageOfflineSettingsCommand.SetPrefetchMemoLimit(20),
+                    StorageOfflineSettingsCommand.SetPrefetchMemoLimit(37),
+                ),
+                fake.commands.toList(),
+            )
+            assertEquals(1, fake.maxActiveExecutions.get())
+        }
+
+    @Test
+    fun refreshWhileCleanupPending_isSuppressed_andPageStaysDisabled() =
+        runBlocking {
+            val releaseCleanup = CompletableDeferred<Unit>()
+            val fake = FakeStorageCapability()
+            fake.executeBlock = { command ->
+                if (command == StorageOfflineSettingsCommand.ClearAllCache) {
+                    releaseCleanup.await()
+                }
+                StorageOfflineSettingsResult.Success
+            }
+            val viewModel = StorageOfflineViewModel(fake)
+
+            viewModel.confirmClearAllCache()
+            assertTrue(viewModel.uiState.value.cleanupDisabled)
+            viewModel.refreshStats()
+            delay(50)
+
+            assertEquals(listOf(StorageOfflineSettingsCommand.ClearAllCache), fake.commands.toList())
+            assertTrue(viewModel.uiState.value.cleanupDisabled)
+            releaseCleanup.complete(Unit)
+            await { !viewModel.uiState.value.cleanupDisabled }
+        }
+
+    @Test
+    fun unrelatedSuccess_doesNotClearCleanupError_untilStorageRecoverySucceeds() =
+        runBlocking {
+            val fake = FakeStorageCapability()
+            fake.executeBlock = { command ->
+                when (command) {
+                    StorageOfflineSettingsCommand.ClearImageCache ->
+                        StorageOfflineSettingsResult.Failure(SettingsCapabilityError.StorageFailure)
+                    else -> StorageOfflineSettingsResult.Success
+                }
+            }
+            val viewModel = StorageOfflineViewModel(fake)
+
+            viewModel.confirmClearImageCache()
+            await { viewModel.uiState.value.persistentError != null }
+            viewModel.setImagePrefetchEnabled(false)
+            await { fake.commands.size == 2 }
+            assertEquals(SettingsCapabilityError.StorageFailure, viewModel.uiState.value.persistentError)
+
+            viewModel.confirmClearAttachmentCache()
+            await { fake.commands.size == 3 && !viewModel.uiState.value.operationDisabled }
+            assertEquals(SettingsCapabilityError.StorageFailure, viewModel.uiState.value.persistentError)
+
+            viewModel.refreshStats()
+            await { fake.commands.size == 4 }
+            await { viewModel.uiState.value.persistentError == null }
+        }
+
     private suspend fun await(
         timeoutMs: Long = 2_000L,
         condition: suspend () -> Boolean,
@@ -262,6 +352,8 @@ class StorageOfflineViewModelTest {
     ) : StorageOfflineSettingsCapability {
         val snapshots = MutableStateFlow(initial)
         val commands = Collections.synchronizedList(mutableListOf<StorageOfflineSettingsCommand>())
+        val activeExecutions = AtomicInteger(0)
+        val maxActiveExecutions = AtomicInteger(0)
         var executeBlock: suspend (StorageOfflineSettingsCommand) -> StorageOfflineSettingsResult = {
             StorageOfflineSettingsResult.Success
         }

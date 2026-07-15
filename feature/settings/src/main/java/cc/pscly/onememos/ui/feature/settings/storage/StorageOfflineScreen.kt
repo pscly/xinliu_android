@@ -25,6 +25,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,7 +38,10 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import cc.pscly.onememos.domain.model.CacheStats
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.domain.settings.StorageOfflineSettingsCommand
@@ -79,12 +83,15 @@ sealed interface StorageOfflineUiAction {
 @Composable
 fun StorageOfflineScreen(viewModel: StorageOfflineViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
     var confirmation by remember { mutableStateOf<SettingsConfirmation?>(null) }
 
-    LaunchedEffect(viewModel) {
-        viewModel.events.collectLatest { event ->
-            if (event is SettingsUiEvent.Confirm) {
-                confirmation = event.request
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.events.collectLatest { event ->
+                if (event is SettingsUiEvent.Confirm) {
+                    confirmation = event.request
+                }
             }
         }
     }
@@ -109,7 +116,7 @@ fun StorageOfflineContent(
         when {
             uiState.loading -> stringResource(R.string.settings_storage_state_loading)
             uiState.persistentError != null -> stringResource(R.string.settings_storage_state_error)
-            uiState.cleanupDisabled -> stringResource(R.string.settings_storage_state_cleaning)
+            uiState.cleanupActive -> stringResource(R.string.settings_storage_state_cleaning)
             else -> stringResource(R.string.settings_storage_state_ready)
         }
     val scroll = rememberScrollState()
@@ -174,10 +181,29 @@ private fun StorageOfflineBody(
 
     uiState.persistentError?.let { error -> StorageErrorCard(error) }
     uiState.snapshot?.let { snapshot ->
-        StorageUsageCard(snapshot = snapshot, onRefresh = { onAction(StorageOfflineUiAction.RefreshStats) })
-        OfflinePrefetchCard(snapshot = snapshot, onAction = onAction)
-        AttachmentLimitCard(snapshot = snapshot, onAction = onAction)
-        CleanupSection(disabled = uiState.cleanupDisabled, onAction = onAction)
+        StorageUsageCard(
+            snapshot = snapshot,
+            refreshing =
+                uiState.refreshSubmitting ||
+                    snapshot.commandInFlight == StorageOfflineSettingsCommand.RefreshStats,
+            enabled = !uiState.operationDisabled,
+            onRefresh = { onAction(StorageOfflineUiAction.RefreshStats) },
+        )
+        OfflinePrefetchCard(
+            snapshot = snapshot,
+            enabled = !uiState.operationDisabled,
+            onAction = onAction,
+        )
+        AttachmentLimitCard(
+            snapshot = snapshot,
+            enabled = !uiState.operationDisabled,
+            onAction = onAction,
+        )
+        CleanupSection(
+            disabled = uiState.cleanupDisabled,
+            inProgress = uiState.cleanupActive,
+            onAction = onAction,
+        )
     }
 }
 
@@ -200,9 +226,10 @@ private fun StorageErrorCard(error: SettingsCapabilityError) {
 @Composable
 private fun StorageUsageCard(
     snapshot: StorageOfflineSettingsSnapshot,
+    refreshing: Boolean,
+    enabled: Boolean,
     onRefresh: () -> Unit,
 ) {
-    val refreshing = snapshot.commandInFlight == StorageOfflineSettingsCommand.RefreshStats
     InkCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -217,7 +244,7 @@ private fun StorageUsageCard(
             SealIconButton(
                 icon = Icons.Filled.Refresh,
                 contentDescription = stringResource(R.string.settings_storage_refresh),
-                enabled = !refreshing,
+                enabled = enabled,
                 onClick = onRefresh,
                 modifier = Modifier.testTag("settings_storage_refresh"),
             )
@@ -265,6 +292,7 @@ private fun StorageStats(stats: CacheStats?) {
 @Composable
 private fun OfflinePrefetchCard(
     snapshot: StorageOfflineSettingsSnapshot,
+    enabled: Boolean,
     onAction: (StorageOfflineUiAction) -> Unit,
 ) {
     InkCard {
@@ -288,47 +316,52 @@ private fun OfflinePrefetchCard(
                 onCheckedChange = {
                     onAction(StorageOfflineUiAction.SetImagePrefetchEnabled(it))
                 },
+                enabled = enabled,
                 modifier = Modifier.testTag("settings_storage_prefetch_switch"),
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text =
-                if (snapshot.prefetchMemoLimit <= 0) {
-                    stringResource(R.string.settings_storage_range_unlimited)
-                } else {
-                    stringResource(R.string.settings_storage_range, snapshot.prefetchMemoLimit)
-                },
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Slider(
-            value = snapshot.prefetchMemoLimit.coerceIn(0, 100).toFloat(),
-            onValueChange = {
-                onAction(StorageOfflineUiAction.SetPrefetchMemoLimit(it.roundToInt()))
+        IntegerLimitSlider(
+            persistedValue = snapshot.prefetchMemoLimit,
+            defaultMaximum = 100,
+            defaultSteps = 19,
+            enabled = enabled && snapshot.imagePrefetchEnabled,
+            tag = "settings_storage_memo_limit",
+            label = { value ->
+                Text(
+                    text =
+                        if (value <= 0) {
+                            stringResource(R.string.settings_storage_range_unlimited)
+                        } else {
+                            stringResource(R.string.settings_storage_range, value)
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             },
-            valueRange = 0f..100f,
-            steps = 19,
-            enabled = snapshot.imagePrefetchEnabled,
-            modifier = Modifier.testTag("settings_storage_memo_limit"),
-        )
-        Text(
-            text =
-                if (snapshot.prefetchImageLimit <= 0) {
-                    stringResource(R.string.settings_storage_image_limit_unlimited)
-                } else {
-                    stringResource(R.string.settings_storage_image_limit, snapshot.prefetchImageLimit)
-                },
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Slider(
-            value = snapshot.prefetchImageLimit.coerceIn(0, 200).toFloat(),
-            onValueChange = {
-                onAction(StorageOfflineUiAction.SetPrefetchImageLimit(it.roundToInt()))
+            onValueCommitted = {
+                onAction(StorageOfflineUiAction.SetPrefetchMemoLimit(it))
             },
-            valueRange = 0f..200f,
-            steps = 39,
-            enabled = snapshot.imagePrefetchEnabled,
-            modifier = Modifier.testTag("settings_storage_image_limit"),
+        )
+        IntegerLimitSlider(
+            persistedValue = snapshot.prefetchImageLimit,
+            defaultMaximum = 200,
+            defaultSteps = 39,
+            enabled = enabled && snapshot.imagePrefetchEnabled,
+            tag = "settings_storage_image_limit",
+            label = { value ->
+                Text(
+                    text =
+                        if (value <= 0) {
+                            stringResource(R.string.settings_storage_image_limit_unlimited)
+                        } else {
+                            stringResource(R.string.settings_storage_image_limit, value)
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            onValueCommitted = {
+                onAction(StorageOfflineUiAction.SetPrefetchImageLimit(it))
+            },
         )
         Text(
             text = stringResource(R.string.settings_storage_prefetch_hint),
@@ -341,29 +374,33 @@ private fun OfflinePrefetchCard(
 @Composable
 private fun AttachmentLimitCard(
     snapshot: StorageOfflineSettingsSnapshot,
+    enabled: Boolean,
     onAction: (StorageOfflineUiAction) -> Unit,
 ) {
     InkCard {
-        Text(
-            text =
-                if (snapshot.attachmentCacheLimitMb <= 0) {
-                    stringResource(R.string.settings_storage_attachment_limit_unlimited)
-                } else {
-                    stringResource(
-                        R.string.settings_storage_attachment_limit,
-                        snapshot.attachmentCacheLimitMb,
-                    )
-                },
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Slider(
-            value = snapshot.attachmentCacheLimitMb.coerceIn(0, 2_048).toFloat(),
-            onValueChange = {
-                onAction(StorageOfflineUiAction.SetAttachmentCacheLimitMb(it.roundToInt()))
+        IntegerLimitSlider(
+            persistedValue = snapshot.attachmentCacheLimitMb,
+            defaultMaximum = 2_048,
+            defaultSteps = 31,
+            enabled = enabled,
+            tag = "settings_storage_attachment_limit",
+            label = { value ->
+                Text(
+                    text =
+                        if (value <= 0) {
+                            stringResource(R.string.settings_storage_attachment_limit_unlimited)
+                        } else {
+                            stringResource(
+                                R.string.settings_storage_attachment_limit,
+                                value,
+                            )
+                        },
+                    style = MaterialTheme.typography.bodyLarge,
+                )
             },
-            valueRange = 0f..2_048f,
-            steps = 31,
-            modifier = Modifier.testTag("settings_storage_attachment_limit"),
+            onValueCommitted = {
+                onAction(StorageOfflineUiAction.SetAttachmentCacheLimitMb(it))
+            },
         )
         Text(
             text = stringResource(R.string.settings_storage_attachment_explanation),
@@ -374,8 +411,48 @@ private fun AttachmentLimitCard(
 }
 
 @Composable
+private fun IntegerLimitSlider(
+    persistedValue: Int,
+    defaultMaximum: Int,
+    defaultSteps: Int,
+    enabled: Boolean,
+    tag: String,
+    label: @Composable (Int) -> Unit,
+    onValueCommitted: (Int) -> Unit,
+) {
+    var localValue by remember { mutableIntStateOf(persistedValue.coerceAtLeast(0)) }
+    var interactionInProgress by remember { mutableStateOf(false) }
+    LaunchedEffect(persistedValue, enabled) {
+        if (enabled && !interactionInProgress) {
+            localValue = persistedValue.coerceAtLeast(0)
+        }
+    }
+    val maximum = maxOf(defaultMaximum, persistedValue, localValue).coerceAtLeast(1)
+
+    label(localValue)
+    Slider(
+        value = localValue.toFloat(),
+        onValueChange = { value ->
+            interactionInProgress = true
+            localValue = value.roundToInt()
+        },
+        onValueChangeFinished = {
+            interactionInProgress = false
+            if (localValue != persistedValue) {
+                onValueCommitted(localValue)
+            }
+        },
+        valueRange = 0f..maximum.toFloat(),
+        steps = if (maximum == defaultMaximum) defaultSteps else 0,
+        enabled = enabled,
+        modifier = Modifier.testTag(tag),
+    )
+}
+
+@Composable
 private fun CleanupSection(
     disabled: Boolean,
+    inProgress: Boolean,
     onAction: (StorageOfflineUiAction) -> Unit,
 ) {
     Text(
@@ -383,7 +460,7 @@ private fun CleanupSection(
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold,
     )
-    if (disabled) {
+    if (inProgress) {
         Text(
             text = stringResource(R.string.settings_storage_cleanup_in_progress),
             style = MaterialTheme.typography.bodyMedium,

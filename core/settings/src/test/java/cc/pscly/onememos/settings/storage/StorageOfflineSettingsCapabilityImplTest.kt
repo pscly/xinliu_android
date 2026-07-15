@@ -16,6 +16,7 @@ import cc.pscly.onememos.domain.settings.StorageOfflineSettingsCommand
 import cc.pscly.onememos.domain.settings.StorageOfflineSettingsResult
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -157,6 +158,22 @@ class StorageOfflineSettingsCapabilityImplTest {
         }
 
     @Test
+    fun cacheDeletionFailure_reachesCapability_andSkipsStatisticsRefresh() =
+        runBlocking {
+            val cache = FakeCacheRepository()
+            cache.clearAllBlock = { throw IOException("deleteRecursively returned false") }
+            val cap = StorageOfflineSettingsCapabilityImpl(FakeSettingsRepository(AppSettings()), cache)
+
+            assertEquals(
+                StorageOfflineSettingsResult.Failure(SettingsCapabilityError.StorageFailure),
+                cap.execute(StorageOfflineSettingsCommand.ClearAllCache),
+            )
+            assertEquals(1, cache.clearAllCalls.get())
+            assertEquals(0, cache.statsCalls.get())
+            assertNull(cap.observe().first().cacheStats)
+        }
+
+    @Test
     fun concurrentClearAll_secondIsIgnoredDuplicate() =
         runBlocking {
             val cache = FakeCacheRepository(holdMs = 250L)
@@ -175,6 +192,56 @@ class StorageOfflineSettingsCapabilityImplTest {
             assertEquals(StorageOfflineSettingsResult.IgnoredDuplicate, second)
             assertEquals(StorageOfflineSettingsResult.Success, first.await())
             assertEquals(1, cache.clearAllCalls.get())
+        }
+
+    @Test
+    fun refreshThenCleanup_areSerialized_andCleanupStatisticsWin() =
+        runBlocking {
+            val refreshEntered = CompletableDeferred<Unit>()
+            val releaseRefresh = CompletableDeferred<Unit>()
+            val staleStats =
+                CacheStats(
+                    databaseBytes = 100,
+                    imageCacheBytes = 200,
+                    attachmentCacheBytes = 300,
+                    otherCacheBytes = 400,
+                )
+            val cleanupStats =
+                CacheStats(
+                    databaseBytes = 100,
+                    imageCacheBytes = 0,
+                    attachmentCacheBytes = 0,
+                    otherCacheBytes = 4,
+                )
+            val cache = FakeCacheRepository()
+            cache.statsBlock = { call ->
+                if (call == 1) {
+                    refreshEntered.complete(Unit)
+                    releaseRefresh.await()
+                    staleStats
+                } else {
+                    cleanupStats
+                }
+            }
+            val cap = StorageOfflineSettingsCapabilityImpl(FakeSettingsRepository(AppSettings()), cache)
+
+            val refresh =
+                async(Dispatchers.IO) {
+                    cap.execute(StorageOfflineSettingsCommand.RefreshStats)
+                }
+            refreshEntered.await()
+            val cleanup =
+                async(Dispatchers.IO) {
+                    cap.execute(StorageOfflineSettingsCommand.ClearAllCache)
+                }
+
+            delay(50)
+            assertEquals(0, cache.clearAllCalls.get())
+            releaseRefresh.complete(Unit)
+
+            assertEquals(StorageOfflineSettingsResult.Success, refresh.await())
+            assertEquals(StorageOfflineSettingsResult.Success, cleanup.await())
+            assertEquals(cleanupStats, cap.observe().first().cacheStats)
         }
 
     private class FakeSettingsRepository(
@@ -266,10 +333,12 @@ class StorageOfflineSettingsCapabilityImplTest {
         val clearAttachmentCalls = AtomicInteger(0)
         val clearAllCalls = AtomicInteger(0)
         var failClear: Boolean = false
+        var statsBlock: suspend (Int) -> CacheStats = { stats }
+        var clearAllBlock: suspend () -> Unit = {}
 
         override suspend fun getCacheStats(): CacheStats {
-            statsCalls.incrementAndGet()
-            return stats
+            val call = statsCalls.incrementAndGet()
+            return statsBlock(call)
         }
 
         override suspend fun clearImageCache() {
@@ -288,6 +357,7 @@ class StorageOfflineSettingsCapabilityImplTest {
             clearAllCalls.incrementAndGet()
             if (failClear) throw IOException("disk full")
             if (holdMs > 0L) Thread.sleep(holdMs)
+            clearAllBlock()
         }
 
         override suspend fun ensureImageAttachmentCached(

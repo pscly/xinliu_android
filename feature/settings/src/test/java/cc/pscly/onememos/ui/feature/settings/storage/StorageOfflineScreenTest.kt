@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
@@ -15,19 +16,32 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.model.CacheStats
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
+import cc.pscly.onememos.domain.settings.StorageOfflineSettingsCapability
+import cc.pscly.onememos.domain.settings.StorageOfflineSettingsCommand
+import cc.pscly.onememos.domain.settings.StorageOfflineSettingsResult
 import cc.pscly.onememos.domain.settings.StorageOfflineSettingsSnapshot
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
 import cc.pscly.onememos.ui.theme.OneMemosTheme
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -93,6 +107,83 @@ class StorageOfflineScreenTest {
         assertTrue(actions.contains(StorageOfflineUiAction.SetPrefetchMemoLimit(25)))
         assertTrue(actions.contains(StorageOfflineUiAction.SetPrefetchImageLimit(50)))
         assertTrue(actions.contains(StorageOfflineUiAction.SetAttachmentCacheLimitMb(512)))
+    }
+
+    @Test
+    fun sliderDrag_updatesLocally_andCommitsOnlyFinalValueOnInteractionFinish() {
+        val actions = mutableListOf<StorageOfflineUiAction>()
+        setPage(onAction = actions::add)
+
+        composeRule
+            .onNodeWithTag("settings_storage_memo_limit")
+            .performScrollTo()
+            .performTouchInput {
+                swipe(
+                    start = Offset(centerRight.x * 0.12f, center.y),
+                    end = Offset(right + 100f, center.y),
+                    durationMillis = 300,
+                )
+            }
+
+        assertEquals(listOf(StorageOfflineUiAction.SetPrefetchMemoLimit(100)), actions)
+    }
+
+    @Test
+    fun sliders_preserveArbitraryPersistedValuesOutsideDefaultRanges() {
+        val arbitraryState =
+            readyState.copy(
+                snapshot =
+                    readyState.snapshot!!.copy(
+                        prefetchMemoLimit = 137,
+                        prefetchImageLimit = 333,
+                        attachmentCacheLimitMb = 4_096,
+                    ),
+            )
+        composeRule.setContent {
+            OneMemosTheme {
+                StorageOfflineContent(
+                    uiState = arbitraryState,
+                    confirmation = null,
+                    onAction = {},
+                    onDismissConfirmation = {},
+                )
+            }
+        }
+
+        listOf(
+            "settings_storage_memo_limit" to 137f,
+            "settings_storage_image_limit" to 333f,
+            "settings_storage_attachment_limit" to 4_096f,
+        ).forEach { (tag, expected) ->
+            composeRule
+                .onNodeWithTag(tag)
+                .performScrollTo()
+                .assert(
+                    SemanticsMatcher("进度保留持久值 $expected") { node ->
+                        node.config[SemanticsProperties.ProgressBarRangeInfo].current == expected
+                    },
+                )
+        }
+    }
+
+    @Test
+    fun confirmationEvents_areCollectedOnlyWhileLifecycleIsStarted() {
+        val lifecycleOwner = TestLifecycleOwner(Lifecycle.State.CREATED)
+        val viewModel = StorageOfflineViewModel(FakeScreenCapability())
+        composeRule.setContent {
+            CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) {
+                OneMemosTheme { StorageOfflineScreen(viewModel) }
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.runOnIdle { viewModel.requestClearAllCache() }
+        composeRule.onAllNodesWithText("清理全部缓存？").assertCountEquals(0)
+
+        composeRule.runOnIdle { lifecycleOwner.currentState = Lifecycle.State.STARTED }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { viewModel.requestClearAllCache() }
+        composeRule.onNodeWithText("清理全部缓存？").assertIsDisplayed()
     }
 
     @Test
@@ -187,6 +278,7 @@ class StorageOfflineScreenTest {
         ).forEach { tag ->
             composeRule.onNodeWithTag(tag).performScrollTo().assertIsNotEnabled()
         }
+        composeRule.onNodeWithTag("settings_storage_refresh").performScrollTo().assertIsNotEnabled()
     }
 
     @Test
@@ -241,6 +333,27 @@ class StorageOfflineScreenTest {
         val detail: String,
         val confirmedAction: StorageOfflineUiAction,
     )
+
+    private class FakeScreenCapability : StorageOfflineSettingsCapability {
+        private val snapshots = MutableStateFlow(readyState.snapshot!!)
+
+        override fun observe(): Flow<StorageOfflineSettingsSnapshot> = snapshots
+
+        override suspend fun execute(command: StorageOfflineSettingsCommand): StorageOfflineSettingsResult =
+            StorageOfflineSettingsResult.Success
+    }
+
+    private class TestLifecycleOwner(initialState: Lifecycle.State) : LifecycleOwner {
+        private val registry = LifecycleRegistry(this).apply { currentState = initialState }
+
+        override val lifecycle: Lifecycle = registry
+
+        var currentState: Lifecycle.State
+            get() = registry.currentState
+            set(value) {
+                registry.currentState = value
+            }
+    }
 
     private companion object {
         val readyState =

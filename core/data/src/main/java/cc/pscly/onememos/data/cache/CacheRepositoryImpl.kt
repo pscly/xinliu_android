@@ -15,10 +15,12 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 @Singleton
@@ -59,48 +61,42 @@ class CacheRepositoryImpl @Inject constructor(
         }
 
     override suspend fun clearImageCache() =
-        withContext(Dispatchers.IO) {
-            runCatching { imageLoader.memoryCache?.clear() }
-            runCatching { imageLoader.diskCache?.clear() }
-            runCatching { imageDiskCacheDir.deleteRecursively() }
-            runCatching { imageDiskCacheDir.mkdirs() }
-            Unit
+        clearStorage("清理图片缓存") {
+            imageLoader.memoryCache?.clear()
+            imageLoader.diskCache?.clear()
+            recreateDirectory(imageDiskCacheDir)
         }
 
     override suspend fun clearAttachmentCache() =
-        withContext(Dispatchers.IO) {
-            runCatching { attachmentCacheRootDir.deleteRecursively() }
-            runCatching { attachmentCacheRootDir.mkdirs() }
-            runCatching { memoDao.clearAllAttachmentCacheUris() }
+        clearStorage("清理附件缓存") {
+            recreateDirectory(attachmentCacheRootDir)
+            memoDao.clearAllAttachmentCacheUris()
             synchronized(attachmentTrimLock) {
                 attachmentCacheBytesEstimate = 0L
                 attachmentTrimSinceLastScan = 0
                 lastAttachmentTrimAtMs = 0L
             }
-            Unit
         }
 
     override suspend fun clearAllCache() =
-        withContext(Dispatchers.IO) {
-            runCatching { imageLoader.memoryCache?.clear() }
-            runCatching { imageLoader.diskCache?.clear() }
+        clearStorage("清理全部缓存") {
+            imageLoader.memoryCache?.clear()
+            imageLoader.diskCache?.clear()
 
             // cacheDir 只包含可安全清理的临时文件；不会触及数据库/设置等持久数据。
             context.cacheDir.listFiles()?.forEach { child ->
-                runCatching { child.deleteRecursively() }
+                deleteRecursively(child)
             }
-            runCatching { context.cacheDir.mkdirs() }
+            ensureDirectory(context.cacheDir)
 
             // “清理全部缓存”也应该覆盖附件持久缓存（filesDir），否则用户很难理解为什么还占空间。
-            runCatching { attachmentCacheRootDir.deleteRecursively() }
-            runCatching { attachmentCacheRootDir.mkdirs() }
-            runCatching { memoDao.clearAllAttachmentCacheUris() }
+            recreateDirectory(attachmentCacheRootDir)
+            memoDao.clearAllAttachmentCacheUris()
             synchronized(attachmentTrimLock) {
                 attachmentCacheBytesEstimate = 0L
                 attachmentTrimSinceLastScan = 0
                 lastAttachmentTrimAtMs = 0L
             }
-            Unit
         }
 
     override suspend fun ensureImageAttachmentCached(
@@ -192,6 +188,39 @@ class CacheRepositoryImpl @Inject constructor(
             sum += fileBytes(context.getDatabasePath("$name-shm"))
         }
         return sum
+    }
+
+    private suspend fun clearStorage(
+        operation: String,
+        block: suspend () -> Unit,
+    ) =
+        withContext(Dispatchers.IO) {
+            try {
+                block()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: IOException) {
+                throw error
+            } catch (error: Exception) {
+                throw IOException("${operation}失败", error)
+            }
+        }
+
+    private fun recreateDirectory(directory: File) {
+        deleteRecursively(directory)
+        ensureDirectory(directory)
+    }
+
+    private fun deleteRecursively(file: File) {
+        if (!file.deleteRecursively()) {
+            throw IOException("无法删除缓存路径：${file.absolutePath}")
+        }
+    }
+
+    private fun ensureDirectory(directory: File) {
+        if (!directory.mkdirs() && !directory.isDirectory) {
+            throw IOException("无法创建缓存路径：${directory.absolutePath}")
+        }
     }
 
     private fun fileBytes(file: File?): Long = if (file != null && file.exists() && file.isFile) file.length() else 0L

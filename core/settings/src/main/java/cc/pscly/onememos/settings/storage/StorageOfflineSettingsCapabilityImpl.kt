@@ -12,10 +12,12 @@ import cc.pscly.onememos.settings.SettingsCapabilityErrorMapper
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * 存储与离线深能力：组合设置与缓存统计。
@@ -29,6 +31,7 @@ class StorageOfflineSettingsCapabilityImpl @Inject constructor(
     private val commandInFlight = MutableStateFlow<StorageOfflineSettingsCommand?>(null)
     private val cacheStats = MutableStateFlow<CacheStats?>(null)
     private val locks = ConcurrentHashMap<String, Mutex>()
+    private val operationMutex = Mutex()
 
     override fun observe(): Flow<StorageOfflineSettingsSnapshot> =
         combine(settingsRepository.settings, commandInFlight, cacheStats) { settings, inFlight, stats ->
@@ -47,67 +50,71 @@ class StorageOfflineSettingsCapabilityImpl @Inject constructor(
         if (!lock.tryLock()) {
             return StorageOfflineSettingsResult.IgnoredDuplicate
         }
-        commandInFlight.value = command
         return try {
-            when (command) {
-                is StorageOfflineSettingsCommand.SetImagePrefetchEnabled -> {
-                    settingsRepository.setOfflineImagePrefetchEnabled(command.enabled)
-                    StorageOfflineSettingsResult.Success
+            operationMutex.withLock {
+                commandInFlight.value = command
+                try {
+                    executeSerially(command)
+                } finally {
+                    commandInFlight.value = null
                 }
+            }
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private suspend fun executeSerially(command: StorageOfflineSettingsCommand): StorageOfflineSettingsResult =
+        try {
+            when (command) {
+                is StorageOfflineSettingsCommand.SetImagePrefetchEnabled ->
+                    settingsRepository.setOfflineImagePrefetchEnabled(command.enabled)
                 is StorageOfflineSettingsCommand.SetPrefetchMemoLimit -> {
                     if (command.value < 0) {
                         return StorageOfflineSettingsResult.Failure(SettingsCapabilityError.InvalidInput)
                     }
                     settingsRepository.setOfflineImagePrefetchMaxMemos(command.value)
-                    StorageOfflineSettingsResult.Success
                 }
                 is StorageOfflineSettingsCommand.SetPrefetchImageLimit -> {
                     if (command.value < 0) {
                         return StorageOfflineSettingsResult.Failure(SettingsCapabilityError.InvalidInput)
                     }
                     settingsRepository.setOfflineImagePrefetchMaxImages(command.value)
-                    StorageOfflineSettingsResult.Success
                 }
                 is StorageOfflineSettingsCommand.SetAttachmentCacheLimitMb -> {
                     if (command.value < 0) {
                         return StorageOfflineSettingsResult.Failure(SettingsCapabilityError.InvalidInput)
                     }
                     settingsRepository.setAttachmentCacheMaxMb(command.value)
-                    StorageOfflineSettingsResult.Success
                 }
-                StorageOfflineSettingsCommand.RefreshStats -> {
-                    refreshStatsOrThrow()
-                    StorageOfflineSettingsResult.Success
-                }
+                StorageOfflineSettingsCommand.RefreshStats -> refreshStatsOrThrow()
                 StorageOfflineSettingsCommand.ClearImageCache -> {
                     cacheRepository.clearImageCache()
                     refreshStatsOrThrow()
-                    StorageOfflineSettingsResult.Success
                 }
                 StorageOfflineSettingsCommand.ClearAttachmentCache -> {
                     cacheRepository.clearAttachmentCache()
                     refreshStatsOrThrow()
-                    StorageOfflineSettingsResult.Success
                 }
                 StorageOfflineSettingsCommand.ClearAllCache -> {
                     cacheRepository.clearAllCache()
                     refreshStatsOrThrow()
-                    StorageOfflineSettingsResult.Success
                 }
             }
-        } catch (t: Throwable) {
-            val mapped = SettingsCapabilityErrorMapper.map(t)
-            StorageOfflineSettingsResult.Failure(
-                when (mapped) {
-                    is SettingsCapabilityError.Unknown,
-                    SettingsCapabilityError.NetworkUnavailable,
-                    -> SettingsCapabilityError.StorageFailure
-                    else -> mapped
-                },
-            )
-        } finally {
-            commandInFlight.value = null
-            lock.unlock()
+            StorageOfflineSettingsResult.Success
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            StorageOfflineSettingsResult.Failure(error.toStorageError())
+        }
+
+    private fun Throwable.toStorageError(): SettingsCapabilityError {
+        val mapped = SettingsCapabilityErrorMapper.map(this)
+        return when (mapped) {
+            is SettingsCapabilityError.Unknown,
+            SettingsCapabilityError.NetworkUnavailable,
+            -> SettingsCapabilityError.StorageFailure
+            else -> mapped
         }
     }
 
