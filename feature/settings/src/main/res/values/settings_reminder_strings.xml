@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_reminder_title">提醒与日历</string>
+    <string name="settings_reminder_loading">正在读取提醒设置</string>
+    <string name="settings_reminder_mode_section">提醒模式</string>
+    <string name="settings_reminder_mode_smart">智能提醒</string>
+    <string name="settings_reminder_mode_smart_summary">兼顾省电策略，提醒时间可能略有延迟</string>
+    <string name="settings_reminder_mode_exact">准点提醒</string>
+    <string name="settings_reminder_mode_exact_summary">尽量按设定时间提醒，需系统允许精确闹钟</string>
+    <string name="settings_reminder_selected">已选</string>
+    <string name="settings_reminder_select">选择</string>
+
+    <string name="settings_reminder_calendar_section">系统日历</string>
+    <string name="settings_reminder_calendar_enabled">写入系统日历</string>
+    <string name="settings_reminder_calendar_enabled_summary">将待办日期同步到选定的可写日历</string>
+    <string name="settings_reminder_permission_granted_status">可访问系统日历</string>
+    <string name="settings_reminder_permission_denied_status">日历权限未授予</string>
+    <string name="settings_reminder_permission_unknown_status">开启日历时将请求读取与写入权限</string>
+    <string name="settings_reminder_calendar_list">可写日历</string>
+    <string name="settings_reminder_calendar_empty">未找到可写日历</string>
+    <string name="settings_reminder_calendar_current">当前</string>
+    <string name="settings_reminder_calendar_choose">选用</string>
+    <string name="settings_reminder_calendar_clear">清除日历选择</string>
+    <string name="settings_reminder_sync_reminders">同步日历提醒</string>
+    <string name="settings_reminder_sync_reminders_summary">同时使用系统日历中的提醒时间</string>
+
+    <string name="settings_reminder_reschedule">立即重排提醒</string>
+    <string name="settings_reminder_reschedule_summary">按当前设置重新安排全部待办提醒</string>
+    <string name="settings_reminder_permission_granted">日历权限已授予</string>
+    <string name="settings_reminder_error_authentication">登录状态已失效</string>
+    <string name="settings_reminder_error_network">网络不可用</string>
+    <string name="settings_reminder_error_permission">日历权限未授予</string>
+    <string name="settings_reminder_error_platform">未找到可写日历</string>
+    <string name="settings_reminder_error_invalid">提醒设置无效</string>
+    <string name="settings_reminder_error_running">操作正在进行</string>
+    <string name="settings_reminder_error_storage">暂时无法保存提醒设置</string>
+    <string name="settings_reminder_error_unknown">提醒与日历暂时不可用</string>
+    <string name="settings_reminder_toast_success">设置已更新</string>
+    <string name="settings_reminder_toast_failed">操作失败，请查看页面提示</string>
+    <string name="settings_reminder_toast_permission_denied">未授予完整日历权限</string>
+</resources>
