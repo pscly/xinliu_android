@@ -116,6 +116,7 @@ fun ReminderCalendarContent(
                         text = stringResource(R.string.settings_reminder_title),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     val snapshot = uiState.snapshot
                     if (snapshot == null) {
@@ -128,7 +129,8 @@ fun ReminderCalendarContent(
                             Text(stringResource(R.string.settings_reminder_loading))
                         }
                     } else {
-                        val controlsEnabled = snapshot.commandInFlight == null
+                        val controlsEnabled =
+                            snapshot.commandInFlight == null && !uiState.platformRequestPending
                         val calendarActive =
                             snapshot.permission == CalendarPermissionState.GRANTED && snapshot.calendarEnabled
                         SectionTitle(R.string.settings_reminder_mode_section)
@@ -191,6 +193,7 @@ fun ReminderCalendarContent(
                             Text(
                                 text = stringResource(R.string.settings_reminder_reschedule_summary),
                                 style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             OutlinedButton(
                                 onClick = { onIntent(ReminderCalendarUserIntent.Reschedule) },
@@ -240,7 +243,11 @@ private fun ChoiceRow(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(summary, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             Text(state, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 12.dp))
         }
@@ -260,7 +267,11 @@ private fun SettingSwitch(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(summary, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             Switch(
                 checked = checked,

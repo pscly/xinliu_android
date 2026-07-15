@@ -28,6 +28,8 @@ data class ReminderCalendarUiState(
     val snapshot: ReminderCalendarSettingsSnapshot? = null,
     val persistentError: SettingsCapabilityError? = null,
     val notice: ReminderCalendarNotice? = null,
+    val platformRequestPending: Boolean = false,
+    val pendingPlatformCommand: ReminderCalendarSettingsCommand? = null,
 )
 
 enum class ReminderCalendarNotice {
@@ -60,8 +62,6 @@ class ReminderCalendarViewModel @Inject constructor(
     private val mutableEvents = MutableSharedFlow<SettingsUiEvent>(replay = 0, extraBufferCapacity = 1)
     val events: SharedFlow<SettingsUiEvent> = mutableEvents.asSharedFlow()
 
-    private var pendingPlatformCommand: ReminderCalendarSettingsCommand? = null
-
     init {
         viewModelScope.launch {
             capability.observe().collect { snapshot ->
@@ -72,6 +72,11 @@ class ReminderCalendarViewModel @Inject constructor(
 
     fun onIntent(intent: ReminderCalendarUserIntent) {
         viewModelScope.launch {
+            if (intent !is ReminderCalendarUserIntent.ApplyPlatformResult &&
+                mutableUiState.value.platformRequestPending
+            ) {
+                return@launch
+            }
             when (intent) {
                 is ReminderCalendarUserIntent.SetReminderMode ->
                     execute(ReminderCalendarSettingsCommand.SetReminderMode(intent.mode))
@@ -92,23 +97,29 @@ class ReminderCalendarViewModel @Inject constructor(
     }
 
     private suspend fun applyPlatformResult(result: SettingsPlatformResult) {
+        val pendingCommand = mutableUiState.value.pendingPlatformCommand ?: return
+        mutableUiState.update {
+            it.copy(
+                platformRequestPending = false,
+                pendingPlatformCommand = null,
+            )
+        }
         when (result) {
-            is SettingsPlatformResult.Permissions -> applyPermissions(result)
-            is SettingsPlatformResult.Failed -> {
-                pendingPlatformCommand = null
-                showFailure(result.error)
-            }
+            is SettingsPlatformResult.Permissions -> applyPermissions(pendingCommand, result)
+            is SettingsPlatformResult.Failed -> showFailure(result.error)
             SettingsPlatformResult.Completed,
             is SettingsPlatformResult.OverlayPermissionChanged,
             -> Unit
         }
     }
 
-    private suspend fun applyPermissions(result: SettingsPlatformResult.Permissions) {
+    private suspend fun applyPermissions(
+        pendingCommand: ReminderCalendarSettingsCommand,
+        result: SettingsPlatformResult.Permissions,
+    ) {
         val permissionResult =
             capability.execute(ReminderCalendarSettingsCommand.ApplyPermissionResult(result.granted))
         if (permissionResult is ReminderCalendarSettingsResult.Failure) {
-            pendingPlatformCommand = null
             showFailure(permissionResult.error)
             return
         }
@@ -119,7 +130,6 @@ class ReminderCalendarViewModel @Inject constructor(
                     setOf(SettingsPermission.READ_CALENDAR, SettingsPermission.WRITE_CALENDAR),
                 )
         if (!allGranted) {
-            pendingPlatformCommand = null
             mutableUiState.update {
                 it.copy(
                     persistentError = SettingsCapabilityError.PermissionDenied,
@@ -133,13 +143,7 @@ class ReminderCalendarViewModel @Inject constructor(
         mutableUiState.update {
             it.copy(persistentError = null, notice = ReminderCalendarNotice.PERMISSION_GRANTED)
         }
-        val command = pendingPlatformCommand
-        pendingPlatformCommand = null
-        if (command != null) {
-            execute(command)
-        } else {
-            mutableEvents.emit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_SUCCEEDED))
-        }
+        execute(pendingCommand)
     }
 
     private suspend fun execute(command: ReminderCalendarSettingsCommand) {
@@ -150,7 +154,12 @@ class ReminderCalendarViewModel @Inject constructor(
             }
             ReminderCalendarSettingsResult.IgnoredDuplicate -> Unit
             is ReminderCalendarSettingsResult.Platform -> {
-                pendingPlatformCommand = command
+                mutableUiState.update {
+                    it.copy(
+                        platformRequestPending = true,
+                        pendingPlatformCommand = command,
+                    )
+                }
                 mutableEvents.emit(SettingsUiEvent.Platform(result.action))
             }
             is ReminderCalendarSettingsResult.Failure -> showFailure(result.error)

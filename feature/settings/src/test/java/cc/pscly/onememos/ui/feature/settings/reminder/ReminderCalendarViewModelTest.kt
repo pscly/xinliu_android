@@ -24,10 +24,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -188,6 +192,119 @@ class ReminderCalendarViewModelTest {
             await { viewModel.uiState.value.snapshot != null }
             assertEquals(inFlight, viewModel.uiState.value.snapshot?.commandInFlight)
         }
+
+    @Test
+    fun permissionRequest_pendingStateSuppressesDuplicateUntilResult() {
+        val dispatcher = StandardTestDispatcher()
+        Dispatchers.setMain(dispatcher)
+        try {
+            runTest(dispatcher) {
+                val fake = FakeCapability(snapshot(permission = CalendarPermissionState.UNKNOWN))
+                val request =
+                    SettingsPlatformAction.RequestPermissions(
+                        setOf(SettingsPermission.READ_CALENDAR, SettingsPermission.WRITE_CALENDAR),
+                    )
+                fake.responder = { command ->
+                    if (command is ReminderCalendarSettingsCommand.SetCalendarEnabled &&
+                        fake.commands.count { it is ReminderCalendarSettingsCommand.SetCalendarEnabled } == 1
+                    ) {
+                        ReminderCalendarSettingsResult.Platform(request)
+                    } else {
+                        ReminderCalendarSettingsResult.Success
+                    }
+                }
+                val viewModel = ReminderCalendarViewModel(fake)
+                val events = CopyOnWriteArrayList<SettingsUiEvent>()
+                val collector =
+                    launch(start = CoroutineStart.UNDISPATCHED) {
+                        viewModel.events.collect(events::add)
+                    }
+                runCurrent()
+
+                viewModel.onIntent(ReminderCalendarUserIntent.SetCalendarEnabled(true))
+                runCurrent()
+
+                assertTrue(viewModel.uiState.value.platformRequestPending)
+                assertEquals(
+                    ReminderCalendarSettingsCommand.SetCalendarEnabled(true),
+                    viewModel.uiState.value.pendingPlatformCommand,
+                )
+                assertEquals(listOf(ReminderCalendarSettingsCommand.SetCalendarEnabled(true)), fake.commands)
+                assertEquals(listOf(SettingsUiEvent.Platform(request)), events)
+
+                viewModel.onIntent(ReminderCalendarUserIntent.SetCalendarEnabled(true))
+                runCurrent()
+
+                assertEquals(listOf(ReminderCalendarSettingsCommand.SetCalendarEnabled(true)), fake.commands)
+                assertEquals(listOf(SettingsUiEvent.Platform(request)), events)
+
+                val permissions =
+                    SettingsPlatformResult.Permissions(
+                        granted = request.permissions,
+                        denied = emptySet(),
+                    )
+                viewModel.onIntent(ReminderCalendarUserIntent.ApplyPlatformResult(permissions))
+                runCurrent()
+
+                assertFalse(viewModel.uiState.value.platformRequestPending)
+                assertNull(viewModel.uiState.value.pendingPlatformCommand)
+                assertEquals(
+                    listOf(
+                        ReminderCalendarSettingsCommand.SetCalendarEnabled(true),
+                        ReminderCalendarSettingsCommand.ApplyPermissionResult(permissions.granted),
+                        ReminderCalendarSettingsCommand.SetCalendarEnabled(true),
+                    ),
+                    fake.commands,
+                )
+                assertEquals(1, events.count { it == SettingsUiEvent.Toast(SettingsMessage.COMMAND_SUCCEEDED) })
+
+                viewModel.onIntent(ReminderCalendarUserIntent.ApplyPlatformResult(permissions))
+                runCurrent()
+
+                assertEquals(3, fake.commands.size)
+                assertEquals(1, events.count { it == SettingsUiEvent.Toast(SettingsMessage.COMMAND_SUCCEEDED) })
+                collector.cancel()
+            }
+        } finally {
+            Dispatchers.setMain(Dispatchers.Unconfined)
+        }
+    }
+
+    @Test
+    fun duplicatePermissionResult_withoutPendingCommand_isIgnored() {
+        val dispatcher = StandardTestDispatcher()
+        Dispatchers.setMain(dispatcher)
+        try {
+            runTest(dispatcher) {
+                val fake = FakeCapability(snapshot(permission = CalendarPermissionState.GRANTED))
+                val viewModel = ReminderCalendarViewModel(fake)
+                val events = CopyOnWriteArrayList<SettingsUiEvent>()
+                val collector =
+                    launch(start = CoroutineStart.UNDISPATCHED) {
+                        viewModel.events.collect(events::add)
+                    }
+                runCurrent()
+
+                viewModel.onIntent(
+                    ReminderCalendarUserIntent.ApplyPlatformResult(
+                        SettingsPlatformResult.Permissions(
+                            granted = setOf(SettingsPermission.READ_CALENDAR, SettingsPermission.WRITE_CALENDAR),
+                            denied = emptySet(),
+                        ),
+                    ),
+                )
+                runCurrent()
+
+                assertFalse(viewModel.uiState.value.platformRequestPending)
+                assertNull(viewModel.uiState.value.notice)
+                assertTrue(fake.commands.isEmpty())
+                assertTrue(events.isEmpty())
+                collector.cancel()
+            }
+        } finally {
+            Dispatchers.setMain(Dispatchers.Unconfined)
+        }
+    }
 
     private fun snapshot(
         reminderMode: TodoReminderMode = TodoReminderMode.SMART,

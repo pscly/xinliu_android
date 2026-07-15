@@ -12,10 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -26,6 +29,10 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.domain.settings.CalendarPermissionState
 import cc.pscly.onememos.domain.settings.CalendarSummary
@@ -42,15 +49,18 @@ import cc.pscly.onememos.ui.feature.settings.common.SettingsPlatformResult
 import cc.pscly.onememos.ui.theme.OneMemosTheme
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -58,23 +68,24 @@ class ReminderCalendarScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private val writeTargets =
+        listOf(
+            "settings_reminder_mode_smart",
+            "settings_reminder_mode_exact",
+            "settings_reminder_calendar_enabled",
+            "settings_reminder_calendar_7",
+            "settings_reminder_calendar_9",
+            "settings_reminder_clear_calendar",
+            "settings_reminder_sync_reminders",
+            "settings_reminder_reschedule",
+        )
+
     @Test
     fun controls_areAccessible_andInvokeOnlyTypedUserIntents() {
         val intents = CopyOnWriteArrayList<ReminderCalendarUserIntent>()
         setContent(uiState(snapshot = snapshot())) { intents += it }
 
-        val targets =
-            listOf(
-                "settings_reminder_mode_smart",
-                "settings_reminder_mode_exact",
-                "settings_reminder_calendar_enabled",
-                "settings_reminder_calendar_7",
-                "settings_reminder_calendar_9",
-                "settings_reminder_clear_calendar",
-                "settings_reminder_sync_reminders",
-                "settings_reminder_reschedule",
-            )
-        targets.forEach { composeRule.onNodeWithTag(it).assertHeightIsAtLeast(48.dp) }
+        writeTargets.forEach { composeRule.onNodeWithTag(it).assertHeightIsAtLeast(48.dp) }
 
         composeRule.onNodeWithTag("settings_reminder_mode_exact").performScrollTo().performClick()
         composeRule.onNodeWithTag("settings_reminder_calendar_enabled").performScrollTo().performClick()
@@ -126,7 +137,7 @@ class ReminderCalendarScreenTest {
 
     @Test
     fun platformPermission_dispatchesOnce_andLauncherResultReturnsToViewModel() {
-        val fake = FakeCapability(snapshot(permission = CalendarPermissionState.UNKNOWN))
+        val fake = FakeCapability(snapshot())
         val request =
             SettingsPlatformAction.RequestPermissions(
                 setOf(SettingsPermission.READ_CALENDAR, SettingsPermission.WRITE_CALENDAR),
@@ -141,6 +152,7 @@ class ReminderCalendarScreenTest {
             }
         }
         val dispatches = AtomicInteger(0)
+        val callback = AtomicReference<((SettingsPlatformResult) -> Unit)?>(null)
         val dispatcher =
             object : SettingsPlatformActionDispatcher {
                 override fun dispatch(
@@ -149,25 +161,93 @@ class ReminderCalendarScreenTest {
                 ) {
                     dispatches.incrementAndGet()
                     assertEquals(request, action)
-                    onResult(
-                        SettingsPlatformResult.Permissions(
-                            granted = request.permissions,
-                            denied = emptySet(),
-                        ),
-                    )
+                    callback.set(onResult)
                 }
             }
+        val viewModel = ReminderCalendarViewModel(fake)
         composeRule.setContent {
             CompositionLocalProvider(LocalSettingsPlatformActionDispatcher provides dispatcher) {
-                OneMemosTheme { ReminderCalendarScreen(viewModel = ReminderCalendarViewModel(fake)) }
+                OneMemosTheme { ReminderCalendarScreen(viewModel = viewModel) }
             }
         }
 
         composeRule.onNodeWithTag("settings_reminder_calendar_enabled").performClick()
-        composeRule.waitUntil(2_000L) { fake.commands.size == 3 }
+        composeRule.waitUntil(2_000L) {
+            callback.get() != null && viewModel.uiState.value.platformRequestPending
+        }
+        assertEquals(
+            ReminderCalendarSettingsCommand.SetCalendarEnabled(false),
+            viewModel.uiState.value.pendingPlatformCommand,
+        )
+        assertEquals(1, dispatches.get())
+        assertEquals(listOf(ReminderCalendarSettingsCommand.SetCalendarEnabled(false)), fake.commands)
+        writeTargets.forEach {
+            composeRule.onNodeWithTag(it).performScrollTo().assertIsNotEnabled()
+        }
+
+        viewModel.onIntent(ReminderCalendarUserIntent.SetCalendarEnabled(false))
+        composeRule.waitForIdle()
+        assertEquals(listOf(ReminderCalendarSettingsCommand.SetCalendarEnabled(false)), fake.commands)
+        assertEquals(1, dispatches.get())
+
+        val result =
+            SettingsPlatformResult.Permissions(
+                granted = request.permissions,
+                denied = emptySet(),
+            )
+        val pendingCallback = requireNotNull(callback.get())
+        composeRule.runOnIdle {
+            pendingCallback(result)
+            pendingCallback(result)
+        }
+        composeRule.waitUntil(2_000L) {
+            fake.commands.size == 3 && !viewModel.uiState.value.platformRequestPending
+        }
         assertEquals(1, dispatches.get())
         assertTrue(fake.commands[1] is ReminderCalendarSettingsCommand.ApplyPermissionResult)
-        assertEquals(ReminderCalendarSettingsCommand.SetCalendarEnabled(true), fake.commands[2])
+        assertEquals(ReminderCalendarSettingsCommand.SetCalendarEnabled(false), fake.commands[2])
+        writeTargets.forEach {
+            composeRule.onNodeWithTag(it).performScrollTo().assertIsEnabled()
+        }
+    }
+
+    @Test
+    fun platformEvents_areCollectedOnlyWhileLifecycleIsStarted() {
+        val fake = FakeCapability(snapshot(permission = CalendarPermissionState.UNKNOWN))
+        val request =
+            SettingsPlatformAction.RequestPermissions(
+                setOf(SettingsPermission.READ_CALENDAR, SettingsPermission.WRITE_CALENDAR),
+            )
+        fake.responder = { ReminderCalendarSettingsResult.Platform(request) }
+        val dispatches = AtomicInteger(0)
+        val lifecycleOwner = MutableLifecycleOwner()
+        lifecycleOwner.moveTo(Lifecycle.State.CREATED)
+        val viewModel = ReminderCalendarViewModel(fake)
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalLifecycleOwner provides lifecycleOwner,
+                LocalSettingsPlatformActionDispatcher provides
+                    object : SettingsPlatformActionDispatcher {
+                        override fun dispatch(
+                            action: SettingsPlatformAction,
+                            onResult: (SettingsPlatformResult) -> Unit,
+                        ) {
+                            dispatches.incrementAndGet()
+                        }
+                    },
+            ) {
+                OneMemosTheme { ReminderCalendarScreen(viewModel = viewModel) }
+            }
+        }
+        composeRule.waitForIdle()
+
+        viewModel.onIntent(ReminderCalendarUserIntent.SetCalendarEnabled(true))
+        composeRule.waitUntil(2_000L) { viewModel.uiState.value.platformRequestPending }
+        assertEquals(0, dispatches.get())
+
+        composeRule.runOnIdle { lifecycleOwner.moveTo(Lifecycle.State.STARTED) }
+        composeRule.waitForIdle()
+        assertEquals(0, dispatches.get())
     }
 
     @Test
@@ -195,6 +275,8 @@ class ReminderCalendarScreenTest {
     }
 
     @Test
+    @Config(qualifiers = "w840dp-h960dp-mdpi")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun largeFont_threePlannedWidths_remainSingleColumnAtMost720() {
         var size by mutableStateOf(DpSize(360.dp, 800.dp))
         composeRule.setContent {
@@ -219,7 +301,43 @@ class ReminderCalendarScreenTest {
             val smartTop = composeRule.onNodeWithTag("settings_reminder_mode_smart").fetchSemanticsNode().boundsInRoot.top
             val exactTop = composeRule.onNodeWithTag("settings_reminder_mode_exact").fetchSemanticsNode().boundsInRoot.top
             assertTrue("窗口 ${next.width} 应保持提醒模式单列", smartTop < exactTop)
+            for (text in keyTexts) {
+                assertTextHasNoVisualOverflow(text, next.width)
+            }
         }
+    }
+
+    private val keyTexts =
+        listOf(
+            "提醒与日历",
+            "尽量按设定时间提醒，需系统允许精确闹钟",
+            "将待办日期同步到选定的可写日历",
+            "按当前设置重新安排全部待办提醒",
+        )
+
+    private fun assertTextHasNoVisualOverflow(
+        text: String,
+        windowWidth: androidx.compose.ui.unit.Dp,
+    ) {
+        val node = composeRule.onNodeWithText(text, useUnmergedTree = true).performScrollTo()
+        val semanticsNode = node.fetchSemanticsNode()
+        val results = mutableListOf<TextLayoutResult>()
+        val action = semanticsNode.config.getOrNull(SemanticsActions.GetTextLayoutResult)
+        assertNotNull("文本应公开布局结果：$text", action)
+        assertTrue("文本布局动作应成功：$text", requireNotNull(action).action?.invoke(results) == true)
+        assertTrue("文本布局结果不能为空：$text", results.isNotEmpty())
+        val contentBounds = composeRule.onNodeWithTag("settings_reminder_content").fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "窗口 $windowWidth 下文本不得发生视觉溢出：$text；布局=${results.joinToString { result ->
+                "size=${result.size}, lines=${result.lineCount}, width=${result.didOverflowWidth}, height=${result.didOverflowHeight}"
+            }}；节点=${semanticsNode.boundsInRoot}；内容区=$contentBounds",
+            results.none(TextLayoutResult::hasVisualOverflow),
+        )
+        assertTrue(
+            "窗口 $windowWidth 下文本边界不得越出内容区：$text",
+            semanticsNode.boundsInRoot.left >= contentBounds.left &&
+                semanticsNode.boundsInRoot.right <= contentBounds.right,
+        )
     }
 
     private fun setContent(
@@ -263,6 +381,15 @@ class ReminderCalendarScreenTest {
         override suspend fun execute(command: ReminderCalendarSettingsCommand): ReminderCalendarSettingsResult {
             commands += command
             return responder(command)
+        }
+    }
+
+    private class MutableLifecycleOwner : LifecycleOwner {
+        private val registry = LifecycleRegistry(this)
+        override val lifecycle: Lifecycle = registry
+
+        fun moveTo(state: Lifecycle.State) {
+            registry.currentState = state
         }
     }
 }
