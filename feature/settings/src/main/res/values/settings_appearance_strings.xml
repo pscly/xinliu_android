@@ -24,9 +24,8 @@
     <string name="settings_appearance_overlay_semantics">悬浮记录，%1$s，点击切换并在需要时授权</string>
 
     <string name="settings_appearance_duration_title">盖章反馈时长</string>
-    <string name="settings_appearance_duration_200">200 毫秒</string>
-    <string name="settings_appearance_duration_600">600 毫秒</string>
-    <string name="settings_appearance_duration_2000">2000 毫秒</string>
+    <string name="settings_appearance_duration_value">%1$d 毫秒</string>
+    <string name="settings_appearance_duration_semantics">盖章反馈时长，当前 %1$d 毫秒，可在 200 到 2000 毫秒之间调整</string>
 
     <string name="settings_appearance_reduced_motion_on">减少动态效果已开启</string>
     <string name="settings_appearance_reduced_motion_off">标准动态效果已开启</string>

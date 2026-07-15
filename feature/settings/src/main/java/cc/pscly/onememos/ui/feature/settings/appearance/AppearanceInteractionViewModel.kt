@@ -30,9 +30,14 @@ data class AppearanceInteractionUiState(
     val loading: Boolean = true,
     val snapshot: AppearanceInteractionSettingsSnapshot? = null,
     val persistentError: SettingsCapabilityError? = null,
+    val submittingCommand: AppearanceInteractionSettingsCommand? = null,
+    val overlayPermissionPending: Boolean = false,
 ) {
     fun isCommandInFlight(command: AppearanceInteractionSettingsCommand): Boolean =
-        snapshot?.commandInFlight == command
+        submittingCommand == command || snapshot?.commandInFlight == command
+
+    val controlsEnabled: Boolean
+        get() = submittingCommand == null && snapshot?.commandInFlight == null && !overlayPermissionPending
 }
 
 sealed interface AppearanceInteractionUserIntent {
@@ -59,12 +64,15 @@ class AppearanceInteractionViewModel @Inject constructor(
 
     private var overlayCommandGeneration = 0L
     private var overlayPermissionGeneration: Long? = null
+    private var activeCommand: PendingCommand? = null
+    private val pendingCommands = ArrayDeque<PendingCommand>()
 
     init {
         capability
             .observe()
             .onEach { snapshot ->
                 _uiState.update { it.copy(loading = false, snapshot = snapshot) }
+                startNextCommand()
             }
             .launchIn(viewModelScope)
     }
@@ -72,13 +80,15 @@ class AppearanceInteractionViewModel @Inject constructor(
     fun onIntent(intent: AppearanceInteractionUserIntent) {
         when (intent) {
             is AppearanceInteractionUserIntent.SetThemePalette ->
-                execute(AppearanceInteractionSettingsCommand.SetThemePalette(intent.palette))
+                submit(AppearanceInteractionSettingsCommand.SetThemePalette(intent.palette))
             is AppearanceInteractionUserIntent.SetThemeMode ->
-                execute(AppearanceInteractionSettingsCommand.SetThemeMode(intent.mode))
+                submit(AppearanceInteractionSettingsCommand.SetThemeMode(intent.mode))
             is AppearanceInteractionUserIntent.SetQuickCaptureOverlayEnabled -> {
+                if (intent.enabled && _uiState.value.overlayPermissionPending) return
                 val generation = ++overlayCommandGeneration
                 overlayPermissionGeneration = null
-                execute(
+                _uiState.update { it.copy(overlayPermissionPending = false) }
+                submit(
                     AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled(
                         intent.enabled,
                     ),
@@ -86,39 +96,72 @@ class AppearanceInteractionViewModel @Inject constructor(
                 )
             }
             is AppearanceInteractionUserIntent.SetSealStampDurationMs ->
-                execute(AppearanceInteractionSettingsCommand.SetSealStampDurationMs(intent.value))
+                submit(AppearanceInteractionSettingsCommand.SetSealStampDurationMs(intent.value))
             is AppearanceInteractionUserIntent.ApplyPlatformResult ->
                 applyPlatformResult(intent.result)
         }
     }
 
-    private fun execute(
+    private fun submit(
         command: AppearanceInteractionSettingsCommand,
         overlayGeneration: Long? = null,
     ) {
         if (_uiState.value.isCommandInFlight(command)) return
+        if (pendingCommands.any { it.command == command }) return
+        pendingCommands.addLast(PendingCommand(command, overlayGeneration))
+        startNextCommand()
+    }
+
+    private fun startNextCommand() {
+        if (activeCommand != null) return
+        if (_uiState.value.snapshot?.commandInFlight != null) return
+        val pending = pendingCommands.removeFirstOrNull() ?: return
+        if (
+            pending.overlayGeneration != null &&
+            pending.overlayGeneration != overlayCommandGeneration
+        ) {
+            startNextCommand()
+            return
+        }
+        activeCommand = pending
+        _uiState.update { it.copy(submittingCommand = pending.command) }
         viewModelScope.launch {
-            val result = capability.execute(command)
-            if (overlayGeneration != null && overlayGeneration != overlayCommandGeneration) return@launch
-            when (result) {
-                AppearanceInteractionSettingsResult.Success -> {
-                    _uiState.update { it.copy(persistentError = null) }
-                    _events.emit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_SUCCEEDED))
+            val result = capability.execute(pending.command)
+            val isCurrent =
+                pending.overlayGeneration == null ||
+                    pending.overlayGeneration == overlayCommandGeneration
+            activeCommand = null
+            _uiState.update { it.copy(submittingCommand = null) }
+            if (isCurrent) {
+                handleResult(pending, result)
+            }
+            startNextCommand()
+        }
+    }
+
+    private suspend fun handleResult(
+        pending: PendingCommand,
+        result: AppearanceInteractionSettingsResult,
+    ) {
+        when (result) {
+            AppearanceInteractionSettingsResult.Success -> {
+                _uiState.update { it.copy(persistentError = null) }
+                _events.emit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_SUCCEEDED))
+            }
+            AppearanceInteractionSettingsResult.IgnoredDuplicate -> Unit
+            is AppearanceInteractionSettingsResult.Platform -> {
+                if (
+                    pending.command == AppearanceInteractionSettingsCommand
+                        .SetQuickCaptureOverlayEnabled(true) &&
+                    result.action is SettingsPlatformAction.OpenOverlayPermissionSettings
+                ) {
+                    overlayPermissionGeneration = pending.overlayGeneration
+                    _uiState.update { it.copy(overlayPermissionPending = true) }
                 }
-                AppearanceInteractionSettingsResult.IgnoredDuplicate -> Unit
-                is AppearanceInteractionSettingsResult.Platform -> {
-                    if (
-                        command == AppearanceInteractionSettingsCommand
-                            .SetQuickCaptureOverlayEnabled(true) &&
-                        result.action is SettingsPlatformAction.OpenOverlayPermissionSettings
-                    ) {
-                        overlayPermissionGeneration = overlayGeneration
-                    }
-                    _events.emit(SettingsUiEvent.Platform(result.action))
-                }
-                is AppearanceInteractionSettingsResult.Failure -> {
-                    publishError(result.error, SettingsMessage.COMMAND_FAILED)
-                }
+                _events.emit(SettingsUiEvent.Platform(result.action))
+            }
+            is AppearanceInteractionSettingsResult.Failure -> {
+                publishError(result.error, SettingsMessage.COMMAND_FAILED)
             }
         }
     }
@@ -128,8 +171,9 @@ class AppearanceInteractionViewModel @Inject constructor(
             is SettingsPlatformResult.OverlayPermissionChanged -> {
                 val generation = overlayPermissionGeneration ?: return
                 overlayPermissionGeneration = null
+                _uiState.update { it.copy(overlayPermissionPending = false) }
                 if (result.granted) {
-                    execute(
+                    submit(
                         AppearanceInteractionSettingsCommand
                             .SetQuickCaptureOverlayEnabled(true),
                         overlayGeneration = generation,
@@ -148,6 +192,7 @@ class AppearanceInteractionViewModel @Inject constructor(
             is SettingsPlatformResult.Failed -> {
                 val generation = overlayPermissionGeneration ?: return
                 overlayPermissionGeneration = null
+                _uiState.update { it.copy(overlayPermissionPending = false) }
                 viewModelScope.launch {
                     if (generation == overlayCommandGeneration) {
                         publishError(result.error, SettingsMessage.COMMAND_FAILED)
@@ -167,4 +212,9 @@ class AppearanceInteractionViewModel @Inject constructor(
         _uiState.update { it.copy(persistentError = error) }
         _events.emit(SettingsUiEvent.Toast(message))
     }
+
+    private data class PendingCommand(
+        val command: AppearanceInteractionSettingsCommand,
+        val overlayGeneration: Long?,
+    )
 }
