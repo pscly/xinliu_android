@@ -29,6 +29,12 @@ include(":core:sync")
 include(":core:designsystem")
 include(":core:navigation")
 include(":core:performance")
+include(":core:settings")
+include(":core:update")
+include(":core:calendar")
+include(":core:quicktiles")
+include(":core:externalactions")
+include(":core:diagnostics")
 
 // feature
 include(":feature:home")

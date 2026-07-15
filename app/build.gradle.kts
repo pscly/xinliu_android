@@ -109,6 +109,12 @@ dependencies {
     implementation(project(":core:sync"))
     implementation(project(":core:navigation"))
     implementation(project(":core:designsystem"))
+    implementation(project(":core:settings"))
+    implementation(project(":core:update"))
+    implementation(project(":core:calendar"))
+    implementation(project(":core:quicktiles"))
+    implementation(project(":core:externalactions"))
+    implementation(project(":core:diagnostics"))
 
     implementation(project(":feature:home"))
     implementation(project(":feature:collections"))
