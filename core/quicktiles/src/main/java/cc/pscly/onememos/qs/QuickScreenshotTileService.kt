@@ -5,10 +5,16 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import cc.pscly.onememos.R
-import cc.pscly.onememos.screenshot.ScreenshotQuickCaptureActivity
+import cc.pscly.onememos.core.quicktiles.R
+import cc.pscly.onememos.quicktiles.ScreenshotEntryPort
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class QuickScreenshotTileService : TileService() {
+    @Inject
+    lateinit var screenshotEntryPort: ScreenshotEntryPort
+
     override fun onStartListening() {
         super.onStartListening()
         qsTile?.apply {
@@ -22,7 +28,7 @@ class QuickScreenshotTileService : TileService() {
     override fun onClick() {
         super.onClick()
         val intent =
-            Intent(this, ScreenshotQuickCaptureActivity::class.java)
+            screenshotEntryPort.activityIntent(this)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
         val pendingIntent =

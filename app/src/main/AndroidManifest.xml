@@ -117,28 +117,6 @@
         <service
             android:name=".overlay.QuickCaptureOverlayService"
             android:exported="false" />
-
-        <service
-            android:name=".qs.QuickCaptureTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_qs_quick_capture"
-            android:label="@string/qs_quick_capture"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-
-        <service
-            android:name=".qs.QuickScreenshotTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_qs_quick_screenshot"
-            android:label="@string/qs_quick_screenshot"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
     </application>
 
 </manifest>

@@ -400,8 +400,11 @@ fun OneMemosApp(
                         }
                         sbm.requestAddTileService(
                             ComponentName(act, QuickCaptureTileService::class.java),
-                            context.getString(R.string.qs_quick_capture),
-                            AndroidIcon.createWithResource(act, R.drawable.ic_qs_quick_capture),
+                            context.getString(cc.pscly.onememos.core.quicktiles.R.string.qs_quick_capture),
+                            AndroidIcon.createWithResource(
+                                act,
+                                cc.pscly.onememos.core.quicktiles.R.drawable.ic_qs_quick_capture,
+                            ),
                             act.mainExecutor,
                         ) { result ->
                             // 不强依赖具体常量值：不同 ROM 可能返回额外状态码；数值足够用户判断。
@@ -432,8 +435,11 @@ fun OneMemosApp(
                         }
                         sbm.requestAddTileService(
                             ComponentName(act, QuickScreenshotTileService::class.java),
-                            context.getString(R.string.qs_quick_screenshot),
-                            AndroidIcon.createWithResource(act, R.drawable.ic_qs_quick_screenshot),
+                            context.getString(cc.pscly.onememos.core.quicktiles.R.string.qs_quick_screenshot),
+                            AndroidIcon.createWithResource(
+                                act,
+                                cc.pscly.onememos.core.quicktiles.R.drawable.ic_qs_quick_screenshot,
+                            ),
                             act.mainExecutor,
                         ) { result ->
                             Toast.makeText(context, "系统返回：$result", Toast.LENGTH_SHORT).show()

@@ -7,11 +7,12 @@ import android.net.Uri
 import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import cc.pscly.onememos.R
+import cc.pscly.onememos.core.quicktiles.R
 import cc.pscly.onememos.domain.repository.SettingsRepository
-import cc.pscly.onememos.overlay.QuickCaptureOverlayEntryActivity
-import cc.pscly.onememos.ui.feature.quickcapture.QuickCaptureActivity
+import cc.pscly.onememos.quicktiles.OverlayPermissionGateway
+import cc.pscly.onememos.quicktiles.QuickCaptureTargetPort
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,12 +20,17 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class QuickCaptureTileService : TileService() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var quickCaptureTargetPort: QuickCaptureTargetPort
+
+    @Inject
+    lateinit var overlayPermissionGateway: OverlayPermissionGateway
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -40,8 +46,6 @@ class QuickCaptureTileService : TileService() {
     @SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
-
-        // 锁屏时会先提示解锁；解锁后自动打开极速记录（或悬浮记录）
         unlockAndRun {
             scope.launch {
                 val overlayEnabled =
@@ -51,15 +55,15 @@ class QuickCaptureTileService : TileService() {
 
                 val intent =
                     when {
-                        overlayEnabled && Settings.canDrawOverlays(this@QuickCaptureTileService) -> {
-                            Intent(this@QuickCaptureTileService, QuickCaptureOverlayEntryActivity::class.java)
+                        overlayEnabled && overlayPermissionGateway.isGranted() -> {
+                            quickCaptureTargetPort.overlayIntent(this@QuickCaptureTileService)
                         }
                         overlayEnabled -> {
-                            val uri = Uri.parse("package:${packageName}")
+                            val uri = Uri.parse("package:${overlayPermissionGateway.packageName}")
                             Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, uri)
                         }
                         else -> {
-                            Intent(this@QuickCaptureTileService, QuickCaptureActivity::class.java)
+                            quickCaptureTargetPort.activityIntent(this@QuickCaptureTileService)
                         }
                     }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
