@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_record_title">记录与编辑</string>
+    <string name="settings_record_back">返回</string>
+    <string name="settings_record_loading">正在读取设置</string>
+
+    <string name="settings_record_visibility_title">默认可见性</string>
+    <string name="settings_record_visibility_description">新建记录时使用的默认可见范围</string>
+    <string name="settings_record_visibility_private">私有，仅自己可见</string>
+    <string name="settings_record_visibility_protected">受保护，登录用户可见</string>
+    <string name="settings_record_visibility_public">公开，所有人可见</string>
+
+    <string name="settings_record_regex_title">正则搜索</string>
+    <string name="settings_record_regex_description">在搜索中启用正则表达式匹配</string>
+    <string name="settings_record_tag_counts_title">显示标签数量</string>
+    <string name="settings_record_tag_counts_description">在标签筛选中显示每个标签的记录数</string>
+
+    <string name="settings_record_quick_insert_title">一键插入时间</string>
+    <string name="settings_record_quick_insert_description">在编辑器中提供快速插入当前时间的入口</string>
+    <string name="settings_record_format_title">插入格式</string>
+    <string name="settings_record_format_full">完整日期时间，yyyy-MM-dd HH:mm:ss</string>
+    <string name="settings_record_format_time">仅时间，HH:mm:ss</string>
+
+    <string name="settings_record_command_succeeded">设置已保存</string>
+    <string name="settings_record_command_failed">设置保存失败</string>
+    <string name="settings_record_error_authentication">登录已失效，请重新登录</string>
+    <string name="settings_record_error_network">网络不可用，请检查连接</string>
+    <string name="settings_record_error_permission">缺少所需权限</string>
+    <string name="settings_record_error_platform">系统能力不可用</string>
+    <string name="settings_record_error_input">设置值无效</string>
+    <string name="settings_record_error_running">操作正在进行中</string>
+    <string name="settings_record_error_storage">设置保存失败，请稍后重试</string>
+    <string name="settings_record_error_unknown">设置暂时无法保存，请稍后重试</string>
+</resources>
