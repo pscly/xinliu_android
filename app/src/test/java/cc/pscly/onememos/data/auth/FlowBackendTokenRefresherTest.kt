@@ -202,6 +202,7 @@ class FlowBackendTokenRefresherTest {
         override suspend fun setFullSyncRunning(runId: String) = Unit
         override suspend fun setFullSyncProgress(runId: String, stage: FullSyncStage, pagesFetched: Int, itemsFetched: Int) = Unit
         override suspend fun setFullSyncSuccess(runId: String, stage: FullSyncStage, pagesFetched: Int, itemsFetched: Int) = Unit
+        override suspend fun acknowledgeFullSyncCompletion(runId: String) = Unit
         override suspend fun setFullSyncFailed(runId: String, stage: FullSyncStage, pagesFetched: Int, itemsFetched: Int, error: String) = Unit
     }
 

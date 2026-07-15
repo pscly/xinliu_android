@@ -8,6 +8,8 @@ import cc.pscly.onememos.domain.sync.TodoSyncScheduler
 import cc.pscly.onememos.worker.WorkManagerTodoReminderScheduler
 import cc.pscly.onememos.worker.WorkManagerTodoReminderTestScheduler
 import cc.pscly.onememos.worker.WorkManagerTodoSyncScheduler
+import cc.pscly.onememos.worker.AndroidSyncWorkManager
+import cc.pscly.onememos.worker.SyncWorkManager
 import cc.pscly.onememos.worker.WorkManagerSyncScheduler
 import cc.pscly.onememos.worker.WorkManagerSyncStatusMonitor
 import dagger.Binds
@@ -20,6 +22,9 @@ import dagger.hilt.components.SingletonComponent
 abstract class WorkerModule {
     @Binds
     abstract fun bindSyncScheduler(impl: WorkManagerSyncScheduler): SyncScheduler
+
+    @Binds
+    abstract fun bindSyncWorkManager(impl: AndroidSyncWorkManager): SyncWorkManager
 
     @Binds
     abstract fun bindSyncStatusMonitor(impl: WorkManagerSyncStatusMonitor): SyncStatusMonitor

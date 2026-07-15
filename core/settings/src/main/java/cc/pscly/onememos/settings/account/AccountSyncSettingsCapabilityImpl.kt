@@ -14,6 +14,7 @@ import cc.pscly.onememos.domain.settings.AccountSyncSettingsResult
 import cc.pscly.onememos.domain.settings.AccountSyncSettingsSnapshot
 import cc.pscly.onememos.domain.settings.FullResyncProgress
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
+import cc.pscly.onememos.domain.sync.FullResyncScheduleResult
 import cc.pscly.onememos.domain.sync.SyncScheduler
 import cc.pscly.onememos.domain.sync.SyncStatusMonitor
 import cc.pscly.onememos.domain.sync.TodoReminderScheduler
@@ -21,6 +22,7 @@ import cc.pscly.onememos.settings.SettingsCapabilityErrorMapper
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -71,7 +73,14 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
                     AccountSyncSettingsResult.Success
                 }
                 AccountSyncSettingsCommand.FullResync -> {
-                    syncScheduler.requestFullResync()
+                    when (val result = syncScheduler.requestFullResync()) {
+                        is FullResyncScheduleResult.Accepted -> AccountSyncSettingsResult.Success
+                        FullResyncScheduleResult.Duplicate -> AccountSyncSettingsResult.IgnoredDuplicate
+                        FullResyncScheduleResult.Busy -> AccountSyncSettingsResult.Failure(SettingsCapabilityError.AlreadyRunning)
+                    }
+                }
+                is AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion -> {
+                    settingsRepository.acknowledgeFullSyncCompletion(command.completionId)
                     AccountSyncSettingsResult.Success
                 }
                 AccountSyncSettingsCommand.Logout -> {
@@ -84,6 +93,8 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
                 }
                 is AccountSyncSettingsCommand.ChangePassword -> changePassword(command)
             }
+        } catch (t: CancellationException) {
+            throw t
         } catch (t: Throwable) {
             AccountSyncSettingsResult.Failure(SettingsCapabilityErrorMapper.map(t))
         } finally {
@@ -128,7 +139,9 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
                             newPassword2 = new2,
                         ),
                 )
-            } catch (t: Throwable) {
+        } catch (t: CancellationException) {
+            throw t
+        } catch (t: Throwable) {
                 return AccountSyncSettingsResult.Failure(SettingsCapabilityErrorMapper.map(t))
             }
 
@@ -179,11 +192,15 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
                 null
             }
         val fullResyncCompletedAt =
-            if (full.status == FullSyncStatus.SUCCESS && full.lastSuccessAt > 0L) {
+            if (full.status == FullSyncStatus.SUCCESS && full.lastSuccessAt > 0L &&
+                full.runId.isNotBlank() && full.acknowledgedSuccessRunId != full.runId
+            ) {
                 full.lastSuccessAt
             } else {
                 null
             }
+        val fullResyncCompletionId =
+            if (fullResyncCompletedAt != null) full.runId else null
         val syncError =
             if (global.hasError && !global.authInvalid) {
                 if (!global.networkOnline) {
@@ -209,6 +226,7 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
                     ),
                 fullResyncError = fullResyncError,
                 fullResyncCompletedAt = fullResyncCompletedAt,
+                fullResyncCompletionId = fullResyncCompletionId,
                 syncing = global.isSyncing,
                 queued = global.isEnqueued,
                 syncError = syncError,
@@ -236,6 +254,7 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
         when (this) {
             AccountSyncSettingsCommand.SyncNow -> "SyncNow"
             AccountSyncSettingsCommand.FullResync -> "FullResync"
+            is AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion -> "AcknowledgeFullResync"
             AccountSyncSettingsCommand.Logout -> "Logout"
             is AccountSyncSettingsCommand.ChangePassword -> "ChangePassword"
         }

@@ -930,6 +930,7 @@ class MemosSyncWorker @AssistedInject constructor(
     companion object {
         const val UNIQUE_WORK_NAME = "one_memos_sync"
         const val TAG = "one_memos_sync"
+        const val FULL_RESYNC_TAG = "one_memos_sync_full_resync"
 
         private const val UNIQUE_FOLLOWUP_WORK_NAME = "one_memos_sync_followup"
 

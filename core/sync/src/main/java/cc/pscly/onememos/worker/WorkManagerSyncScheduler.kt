@@ -1,24 +1,27 @@
 package cc.pscly.onememos.worker
 
-import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import androidx.work.workDataOf
+import cc.pscly.onememos.domain.sync.FullResyncScheduleResult
 import cc.pscly.onememos.domain.sync.SyncScheduler
-import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.sync.Mutex
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class WorkManagerSyncScheduler @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val workManager: SyncWorkManager,
 ) : SyncScheduler {
+    private val arbitration = Mutex()
+
     override fun requestSync() {
         val constraints =
             Constraints.Builder()
@@ -28,45 +31,62 @@ class WorkManagerSyncScheduler @Inject constructor(
         val request =
             OneTimeWorkRequestBuilder<MemosSyncWorker>()
                 .setConstraints(constraints)
-                // Android 14 更容易冻结后台进程：能拿到 quota 时尽快执行；拿不到则自动降级为普通任务
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .addTag(MemosSyncWorker.TAG)
                 .build()
 
-        WorkManager.getInstance(context).enqueueUniqueWork(
+        workManager.enqueueUniqueWork(
             MemosSyncWorker.UNIQUE_WORK_NAME,
-            androidx.work.ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.KEEP,
             request,
         )
 
-        // 只要用户触发过同步，就启用周期刷新（主要用于“拉取最新服务端记录”）。
         ensurePeriodicSync()
     }
 
-    override fun requestFullResync() {
-        val constraints =
-            Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
+    override suspend fun requestFullResync(): FullResyncScheduleResult {
+        val requestId = UUID.randomUUID().toString()
 
-        val request =
-            OneTimeWorkRequestBuilder<MemosSyncWorker>()
-                .setConstraints(constraints)
-                // REPLACE 会取消同名任务；worker 侧需协作式取消（目前已在循环内检查 cancellation）。
-                .setInputData(workDataOf(MemosSyncWorker.KEY_FORCE_FULL_SYNC to true))
-                // Android 14 更容易冻结后台进程：能拿到 quota 时尽快执行；拿不到则自动降级为普通任务
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                .addTag(MemosSyncWorker.TAG)
-                .build()
+        arbitration.lock()
+        try {
+            val unfinished = workManager.unfinishedWork(MemosSyncWorker.UNIQUE_WORK_NAME)
+            if (unfinished.any { it.tags.contains(MemosSyncWorker.FULL_RESYNC_TAG) }) {
+                return FullResyncScheduleResult.Duplicate
+            }
+            if (unfinished.isNotEmpty()) {
+                return FullResyncScheduleResult.Busy
+            }
 
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            MemosSyncWorker.UNIQUE_WORK_NAME,
-            androidx.work.ExistingWorkPolicy.REPLACE,
-            request,
-        )
+            val constraints =
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
 
-        // 手动触发“重新同步所有笔记”也视为一次同步意图，确保周期刷新已启用。
-        ensurePeriodicSync()
+            val request =
+                OneTimeWorkRequestBuilder<MemosSyncWorker>()
+                    .setConstraints(constraints)
+                    .setInputData(workDataOf(MemosSyncWorker.KEY_FORCE_FULL_SYNC to true))
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .addTag(MemosSyncWorker.TAG)
+                    .addTag(MemosSyncWorker.FULL_RESYNC_TAG)
+                    .build()
+
+            val operation = workManager.enqueueUniqueWork(
+                MemosSyncWorker.UNIQUE_WORK_NAME,
+                ExistingWorkPolicy.KEEP,
+                request,
+            )
+
+            operation.commit()
+
+            val confirmed = workManager.containsWork(request.id)
+            if (!confirmed) return FullResyncScheduleResult.Duplicate
+
+            ensurePeriodicSync()
+            return FullResyncScheduleResult.Accepted(requestId)
+        } finally {
+            arbitration.unlock()
+        }
     }
 
     private fun ensurePeriodicSync() {
@@ -81,14 +101,12 @@ class WorkManagerSyncScheduler @Inject constructor(
                 TimeUnit.HOURS,
             )
                 .setConstraints(constraints)
-                // 周期同步只做“轻量刷新/上传 pending”，不应触发 full sync。
                 .setInputData(workDataOf(MemosSyncWorker.KEY_IS_PERIODIC to true))
                 .addTag(PERIODIC_TAG)
                 .build()
 
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        workManager.enqueueUniquePeriodicWork(
             UNIQUE_PERIODIC_WORK_NAME,
-            // 使用 UPDATE，确保升级后能把 inputData（KEY_IS_PERIODIC）同步到已存在的周期任务。
             ExistingPeriodicWorkPolicy.UPDATE,
             request,
         )

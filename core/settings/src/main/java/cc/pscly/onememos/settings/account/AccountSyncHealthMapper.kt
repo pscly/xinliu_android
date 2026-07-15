@@ -15,6 +15,7 @@ data class AccountSyncHealthInput(
     val fullResyncProgress: FullResyncProgress,
     val fullResyncError: SettingsCapabilityError?,
     val fullResyncCompletedAt: Long?,
+    val fullResyncCompletionId: String? = null,
     val syncing: Boolean,
     val queued: Boolean,
     val syncError: SettingsCapabilityError?,
@@ -34,7 +35,10 @@ object AccountSyncHealthMapper {
             input.authenticationExpired -> AccountSyncHealth.AuthenticationExpired
             input.fullResyncRunning -> AccountSyncHealth.FullResyncRunning(input.fullResyncProgress)
             input.fullResyncError != null -> AccountSyncHealth.FullResyncFailed(input.fullResyncError)
-            input.fullResyncCompletedAt != null -> AccountSyncHealth.FullResyncCompleted(input.fullResyncCompletedAt)
+            input.fullResyncCompletedAt != null -> AccountSyncHealth.FullResyncCompleted(
+                completionId = input.fullResyncCompletionId.orEmpty(),
+                completedAtEpochMs = input.fullResyncCompletedAt,
+            )
             input.syncing -> AccountSyncHealth.Syncing
             input.queued -> AccountSyncHealth.Queued
             input.syncError != null -> AccountSyncHealth.Failed(input.syncError)

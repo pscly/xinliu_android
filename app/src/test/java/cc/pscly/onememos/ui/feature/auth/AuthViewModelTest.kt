@@ -175,6 +175,10 @@ class AuthViewModelTest {
         override fun requestSync() {
             requestCount += 1
         }
+
+        override suspend fun requestFullResync(): cc.pscly.onememos.domain.sync.FullResyncScheduleResult {
+            return cc.pscly.onememos.domain.sync.FullResyncScheduleResult.Accepted("fake-run")
+        }
     }
 
     private class FakeFlowBackendApi(
@@ -249,6 +253,7 @@ class AuthViewModelTest {
         override suspend fun setFullSyncRunning(runId: String) = Unit
         override suspend fun setFullSyncProgress(runId: String, stage: FullSyncStage, pagesFetched: Int, itemsFetched: Int) = Unit
         override suspend fun setFullSyncSuccess(runId: String, stage: FullSyncStage, pagesFetched: Int, itemsFetched: Int) = Unit
+        override suspend fun acknowledgeFullSyncCompletion(runId: String) = Unit
         override suspend fun setFullSyncFailed(runId: String, stage: FullSyncStage, pagesFetched: Int, itemsFetched: Int, error: String) = Unit
     }
 

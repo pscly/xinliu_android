@@ -17,6 +17,52 @@ import org.robolectric.annotation.Config
 @Config(application = Application::class)
 class SettingsRepositoryImplFullSyncRunIdTest {
     @Test
+    fun acknowledgement_matchesOnlyCurrentSuccessfulRun_andSurvivesRepositoryRecreation() =
+        runBlocking {
+            val context: Context = ApplicationProvider.getApplicationContext()
+            val tokenStorage = FakeTokenStorage()
+            val repo = SettingsRepositoryImpl(context = context, encryptedTokenStorage = tokenStorage)
+
+            repo.setServerUrl("https://fullsync-acknowledgement.example")
+            repo.setCurrentUserCreator("users/acknowledgement")
+            repo.setFullSyncRunning("run-1")
+            repo.setFullSyncSuccess(
+                runId = "run-1",
+                stage = FullSyncStage.NORMAL,
+                pagesFetched = 1,
+                itemsFetched = 2,
+            )
+
+            repo.acknowledgeFullSyncCompletion("stale-run")
+            assertEquals("", repo.settings.first().fullSync.acknowledgedSuccessRunId)
+
+            repo.acknowledgeFullSyncCompletion("run-1")
+            val acknowledged = repo.settings.first().fullSync
+            assertEquals(FullSyncStatus.SUCCESS, acknowledged.status)
+            assertEquals("run-1", acknowledged.runId)
+            assertEquals("run-1", acknowledged.acknowledgedSuccessRunId)
+
+            val recreated = SettingsRepositoryImpl(context = context, encryptedTokenStorage = tokenStorage)
+            val restored = recreated.settings.first().fullSync
+            assertEquals(FullSyncStatus.SUCCESS, restored.status)
+            assertEquals("run-1", restored.acknowledgedSuccessRunId)
+
+            recreated.setFullSyncRunning("run-2")
+            recreated.setFullSyncSuccess(
+                runId = "run-2",
+                stage = FullSyncStage.ARCHIVED,
+                pagesFetched = 3,
+                itemsFetched = 4,
+            )
+            recreated.acknowledgeFullSyncCompletion("run-1")
+
+            val newer = recreated.settings.first().fullSync
+            assertEquals(FullSyncStatus.SUCCESS, newer.status)
+            assertEquals("run-2", newer.runId)
+            assertEquals("run-1", newer.acknowledgedSuccessRunId)
+        }
+
+    @Test
     fun runIdGuard_preventsOldRunFromOverwritingNewerRun() =
         runBlocking {
             val context: Context = ApplicationProvider.getApplicationContext()

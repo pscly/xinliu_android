@@ -28,7 +28,10 @@ sealed interface AccountSyncHealth {
 
     data class FullResyncFailed(val error: SettingsCapabilityError) : AccountSyncHealth
 
-    data class FullResyncCompleted(val completedAtEpochMs: Long) : AccountSyncHealth
+    data class FullResyncCompleted(
+        val completionId: String,
+        val completedAtEpochMs: Long,
+    ) : AccountSyncHealth
 }
 
 data class FullResyncProgress(
@@ -56,6 +59,10 @@ sealed interface AccountSyncSettingsCommand {
     ) : AccountSyncSettingsCommand
 
     data object FullResync : AccountSyncSettingsCommand
+
+    data class AcknowledgeFullResyncCompletion(
+        val completionId: String,
+    ) : AccountSyncSettingsCommand
 }
 
 sealed interface AccountSyncSettingsResult {

@@ -34,6 +34,7 @@ enum class FullSyncStage {
 data class FullSyncState(
     val status: FullSyncStatus = FullSyncStatus.IDLE,
     val runId: String = "",
+    val acknowledgedSuccessRunId: String = "",
     val lastSuccessAt: Long = 0L,
     val lastError: String = "",
     val stage: FullSyncStage = FullSyncStage.NORMAL,

@@ -18,6 +18,29 @@ import org.robolectric.annotation.Config
 @Config(application = Application::class)
 class SettingsRepositoryImplFullSyncKeyIsolationTest {
     @Test
+    fun acknowledgement_isIsolatedBySyncKey_andRestoredWhenSwitchingBack() =
+        runBlocking {
+            val context: Context = ApplicationProvider.getApplicationContext()
+            val repo = SettingsRepositoryImpl(context = context, encryptedTokenStorage = FakeTokenStorage())
+
+            repo.setServerUrl("https://fullsync-ack-isolation.example")
+            repo.setCurrentUserCreator("users/ack-a")
+            repo.setFullSyncSuccess("run-a", FullSyncStage.NORMAL, 1, 2)
+            repo.acknowledgeFullSyncCompletion("run-a")
+
+            repo.setCurrentUserCreator("users/ack-b")
+            repo.setFullSyncSuccess("run-b", FullSyncStage.NORMAL, 3, 4)
+            val b = repo.settings.first().fullSync
+            assertEquals("", b.acknowledgedSuccessRunId)
+
+            repo.setCurrentUserCreator("users/ack-a")
+            val restoredA = repo.settings.first().fullSync
+            assertEquals(FullSyncStatus.SUCCESS, restoredA.status)
+            assertEquals("run-a", restoredA.runId)
+            assertEquals("run-a", restoredA.acknowledgedSuccessRunId)
+        }
+
+    @Test
     fun switchingCreator_doesNotLeakFullSyncState_andRestoresWhenSwitchingBack() =
         runBlocking {
             val context: Context = ApplicationProvider.getApplicationContext()

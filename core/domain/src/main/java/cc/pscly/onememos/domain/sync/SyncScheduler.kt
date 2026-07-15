@@ -8,12 +8,12 @@ interface SyncScheduler {
     fun requestSync()
 
     /**
-     * 用于用户手动“重新同步所有笔记”。
-     * 通常会以 REPLACE 方式覆盖已有任务，并携带 forceFull 标记以触发 full sync。
+     * 请求一次全量重同步。
      *
-     * 注意：默认实现会回退到 [requestSync]，具体 full sync 行为由实现类覆盖。
+     * 返回 [FullResyncScheduleResult]：
+     * - [FullResyncScheduleResult.Accepted]：请求已交接给 WorkManager，且按 requestId 核验成功。
+     * - [FullResyncScheduleResult.Duplicate]：已有未结束的全量同步任务。
+     * - [FullResyncScheduleResult.Busy]：已有普通同步任务进行中，无法立即起全量。
      */
-    fun requestFullResync() {
-        requestSync()
-    }
+    suspend fun requestFullResync(): FullResyncScheduleResult
 }

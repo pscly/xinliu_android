@@ -120,6 +120,8 @@ interface SettingsRepository {
         itemsFetched: Int,
     )
 
+    suspend fun acknowledgeFullSyncCompletion(runId: String)
+
     suspend fun setFullSyncFailed(
         runId: String,
         stage: FullSyncStage,

@@ -66,7 +66,10 @@ class AccountSyncViewModelTest {
                             ),
                         ),
                         AccountSyncHealth.FullResyncFailed(SettingsCapabilityError.StorageFailure),
-                        AccountSyncHealth.FullResyncCompleted(completedAtEpochMs = 200L),
+                        AccountSyncHealth.FullResyncCompleted(
+                            completionId = "run-200",
+                            completedAtEpochMs = 200L,
+                        ),
                     )
 
                 healthVariants.forEachIndexed { index, health ->

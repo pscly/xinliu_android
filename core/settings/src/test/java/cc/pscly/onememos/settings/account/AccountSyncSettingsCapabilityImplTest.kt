@@ -26,9 +26,12 @@ import cc.pscly.onememos.domain.settings.AccountSyncSettingsResult
 import cc.pscly.onememos.domain.settings.FullResyncProgress
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.domain.sync.SyncScheduler
+import cc.pscly.onememos.domain.sync.FullResyncScheduleResult
 import cc.pscly.onememos.domain.sync.SyncStatusMonitor
 import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -60,6 +63,7 @@ class AccountSyncSettingsCapabilityImplTest {
             fullResyncRunning: Boolean = false,
             fullResyncError: SettingsCapabilityError? = null,
             fullResyncCompletedAt: Long? = null,
+            fullResyncCompletionId: String? = null,
             syncing: Boolean = false,
             queued: Boolean = false,
             syncError: SettingsCapabilityError? = null,
@@ -72,6 +76,7 @@ class AccountSyncSettingsCapabilityImplTest {
             fullResyncProgress = progress,
             fullResyncError = fullResyncError,
             fullResyncCompletedAt = fullResyncCompletedAt,
+            fullResyncCompletionId = fullResyncCompletionId,
             syncing = syncing,
             queued = queued,
             syncError = syncError,
@@ -113,8 +118,17 @@ class AccountSyncSettingsCapabilityImplTest {
             ),
         )
         assertEquals(
-            AccountSyncHealth.FullResyncCompleted(999L),
-            AccountSyncHealthMapper.map(base(fullResyncCompletedAt = 999L, syncing = true)),
+            AccountSyncHealth.FullResyncCompleted(
+                completionId = "run-999",
+                completedAtEpochMs = 999L,
+            ),
+            AccountSyncHealthMapper.map(
+                base(
+                    fullResyncCompletedAt = 999L,
+                    fullResyncCompletionId = "run-999",
+                    syncing = true,
+                ),
+            ),
         )
         assertEquals(
             AccountSyncHealth.Syncing,
@@ -229,12 +243,79 @@ class AccountSyncSettingsCapabilityImplTest {
                     fullSync =
                         FullSyncState(
                             status = FullSyncStatus.SUCCESS,
+                            runId = "run-1234",
                             lastSuccessAt = 1234L,
                         ),
                 )
             assertEquals(
-                AccountSyncHealth.FullResyncCompleted(1234L),
+                AccountSyncHealth.FullResyncCompleted(
+                    completionId = "run-1234",
+                    completedAtEpochMs = 1234L,
+                ),
                 cap.observe().first().health,
+            )
+        }
+
+    @Test
+    fun acknowledgement_yieldsToLatestStableHealth_andNewRunBecomesCompletedAgain() =
+        runBlocking {
+            val harness = Harness()
+            harness.settings.value =
+                signedInSettings(
+                    FullSyncState(
+                        status = FullSyncStatus.SUCCESS,
+                        runId = "run-1",
+                        lastSuccessAt = 1234L,
+                    ),
+                )
+            harness.global.value = GlobalSyncState(lastSuccessAt = 99L)
+
+            assertEquals(
+                AccountSyncHealth.FullResyncCompleted("run-1", 1234L),
+                harness.capability.observe().first().health,
+            )
+            assertEquals(
+                AccountSyncSettingsResult.Success,
+                harness.capability.execute(
+                    AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion("run-1"),
+                ),
+            )
+            assertEquals(AccountSyncHealth.Healthy(99L), harness.capability.observe().first().health)
+
+            harness.global.value = GlobalSyncState(workState = SyncWorkState.RUNNING, lastSuccessAt = 99L)
+            assertEquals(AccountSyncHealth.Syncing, harness.capability.observe().first().health)
+
+            harness.global.value = GlobalSyncState(workState = SyncWorkState.ENQUEUED, lastSuccessAt = 99L)
+            assertEquals(AccountSyncHealth.Queued, harness.capability.observe().first().health)
+
+            harness.global.value =
+                GlobalSyncState(
+                    lastSuccessAt = 99L,
+                    lastError = "offline",
+                    lastErrorHttpCode = 500,
+                    networkOnline = false,
+                )
+            assertEquals(
+                AccountSyncHealth.Failed(SettingsCapabilityError.NetworkUnavailable),
+                harness.capability.observe().first().health,
+            )
+
+            harness.global.value = GlobalSyncState(lastSuccessAt = 99L)
+            harness.settings.value =
+                signedInSettings(
+                    FullSyncState(
+                        status = FullSyncStatus.SUCCESS,
+                        runId = "run-2",
+                        acknowledgedSuccessRunId = "run-1",
+                        lastSuccessAt = 2345L,
+                    ),
+                )
+            harness.capability.execute(
+                AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion("run-1"),
+            )
+            assertEquals(
+                AccountSyncHealth.FullResyncCompleted("run-2", 2345L),
+                harness.capability.observe().first().health,
             )
         }
 
@@ -262,7 +343,8 @@ class AccountSyncSettingsCapabilityImplTest {
     @Test
     fun concurrentFullResync_secondIsIgnoredDuplicate() =
         runBlocking {
-            val harness = Harness(holdMs = 250L)
+            val handoff = CompletableDeferred<Unit>()
+            val harness = Harness(fullResyncHandoff = handoff)
             val first =
                 async(Dispatchers.IO) {
                     harness.capability.execute(AccountSyncSettingsCommand.FullResync)
@@ -275,8 +357,48 @@ class AccountSyncSettingsCapabilityImplTest {
                     harness.capability.execute(AccountSyncSettingsCommand.FullResync)
                 }
             assertEquals(AccountSyncSettingsResult.IgnoredDuplicate, second)
+            assertEquals(
+                AccountSyncSettingsCommand.FullResync,
+                harness.capability.observe().first().commandInFlight,
+            )
+            handoff.complete(Unit)
             assertEquals(AccountSyncSettingsResult.Success, first.await())
             assertEquals(1, harness.syncScheduler.fullResyncCalls.get())
+        }
+
+    @Test
+    fun schedulerDuplicateBusyAndFailure_preserveTypedCapabilityResults() =
+        runBlocking {
+            val duplicate = Harness(fullResyncResult = FullResyncScheduleResult.Duplicate)
+            assertEquals(
+                AccountSyncSettingsResult.IgnoredDuplicate,
+                duplicate.capability.execute(AccountSyncSettingsCommand.FullResync),
+            )
+
+            val busy = Harness(fullResyncResult = FullResyncScheduleResult.Busy)
+            assertEquals(
+                AccountSyncSettingsResult.Failure(SettingsCapabilityError.AlreadyRunning),
+                busy.capability.execute(AccountSyncSettingsCommand.FullResync),
+            )
+
+            val failed = Harness(fullResyncFailure = IllegalStateException("WorkManager enqueue failed"))
+            assertEquals(
+                AccountSyncSettingsResult.Failure(SettingsCapabilityError.PlatformUnavailable),
+                failed.capability.execute(AccountSyncSettingsCommand.FullResync),
+            )
+        }
+
+    @Test
+    fun schedulerCancellation_isPropagated() =
+        runBlocking {
+            val harness = Harness(fullResyncFailure = CancellationException("cancelled"))
+            var cancellation: CancellationException? = null
+            try {
+                harness.capability.execute(AccountSyncSettingsCommand.FullResync)
+            } catch (caught: CancellationException) {
+                cancellation = caught
+            }
+            assertEquals("cancelled", cancellation?.message)
         }
 
     @Test
@@ -302,11 +424,20 @@ class AccountSyncSettingsCapabilityImplTest {
 
     private class Harness(
         holdMs: Long = 0L,
+        fullResyncHandoff: CompletableDeferred<Unit>? = null,
+        fullResyncResult: FullResyncScheduleResult = FullResyncScheduleResult.Accepted("request-1"),
+        fullResyncFailure: Throwable? = null,
     ) {
         val settings = MutableStateFlow(AppSettings())
         val global = MutableStateFlow(GlobalSyncState())
         val settingsRepo = FakeSettingsRepository(settings)
-        val syncScheduler = FakeSyncScheduler(holdMs)
+        val syncScheduler =
+            FakeSyncScheduler(
+                holdMs = holdMs,
+                fullResyncHandoff = fullResyncHandoff,
+                fullResyncResult = fullResyncResult,
+                fullResyncFailure = fullResyncFailure,
+            )
         val reminderScheduler = FakeReminderScheduler()
         val credentialStorage =
             FlowBackendCredentialStorage(RuntimeEnvironment.getApplication())
@@ -430,10 +561,22 @@ class AccountSyncSettingsCapabilityImplTest {
             itemsFetched: Int,
             error: String,
         ) = Unit
+
+        override suspend fun acknowledgeFullSyncCompletion(runId: String) {
+            val fullSync = flow.value.fullSync
+            if (fullSync.status != FullSyncStatus.SUCCESS || fullSync.runId != runId.trim()) return
+            flow.value =
+                flow.value.copy(
+                    fullSync = fullSync.copy(acknowledgedSuccessRunId = runId.trim()),
+                )
+        }
     }
 
     private class FakeSyncScheduler(
         private val holdMs: Long,
+        private val fullResyncHandoff: CompletableDeferred<Unit>?,
+        private val fullResyncResult: FullResyncScheduleResult,
+        private val fullResyncFailure: Throwable?,
     ) : SyncScheduler {
         val syncCalls = AtomicInteger(0)
         val fullResyncCalls = AtomicInteger(0)
@@ -445,13 +588,20 @@ class AccountSyncSettingsCapabilityImplTest {
             }
         }
 
-        override fun requestFullResync() {
+        override suspend fun requestFullResync(): FullResyncScheduleResult {
             fullResyncCalls.incrementAndGet()
-            if (holdMs > 0L) {
-                Thread.sleep(holdMs)
-            }
+            fullResyncHandoff?.await()
+            fullResyncFailure?.let { throw it }
+            return fullResyncResult
         }
     }
+
+    private fun signedInSettings(fullSync: FullSyncState): AppSettings =
+        AppSettings(
+            serverUrl = "https://x",
+            token = "t",
+            fullSync = fullSync,
+        )
 
     private class FakeReminderScheduler : TodoReminderScheduler {
         val calls = AtomicInteger(0)

@@ -94,7 +94,10 @@ class AccountSyncScreenTest {
                     advancedVisible = true,
                 ),
                 MatrixCase(
-                    AccountSyncHealth.FullResyncCompleted(completedAtEpochMs = 200L),
+                    AccountSyncHealth.FullResyncCompleted(
+                        completionId = "run-200",
+                        completedAtEpochMs = 200L,
+                    ),
                     primaryText = null,
                     enabled = false,
                     advancedVisible = true,
@@ -317,7 +320,12 @@ class AccountSyncScreenTest {
         composeRule.onNodeWithTag("settings_account_full_resync_action").assertIsNotEnabled()
         assertEquals(0, composeRule.onAllNodesWithText("取消").fetchSemanticsNodes().size)
 
-        snapshot = snapshot(AccountSyncHealth.FullResyncCompleted(completedAtEpochMs = 200L))
+        snapshot = snapshot(
+            AccountSyncHealth.FullResyncCompleted(
+                completionId = "run-200",
+                completedAtEpochMs = 200L,
+            ),
+        )
         composeRule.waitForIdle()
         composeRule.onNodeWithText("全量重同步已完成").assertIsDisplayed()
         composeRule.onNodeWithTag("settings_account_full_resync_action").assertIsNotEnabled()

@@ -266,6 +266,7 @@ class ReminderCalendarSettingsCapabilityImplTest {
             pagesFetched: Int,
             itemsFetched: Int,
         ) = Unit
+        override suspend fun acknowledgeFullSyncCompletion(runId: String) = Unit
         override suspend fun setFullSyncFailed(
             runId: String,
             stage: FullSyncStage,

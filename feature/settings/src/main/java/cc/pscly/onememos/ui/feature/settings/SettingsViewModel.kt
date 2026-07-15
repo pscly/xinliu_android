@@ -376,7 +376,7 @@ class SettingsViewModel @Inject constructor(
      * 说明：该请求会以 REPLACE 覆盖当前正在执行/排队的同名同步任务，并强制触发 full sync。
      */
     fun requestFullResync() {
-        syncScheduler.requestFullResync()
+        viewModelScope.launch { syncScheduler.requestFullResync() }
     }
 
     fun updateThemePalette(palette: ThemePalette) {

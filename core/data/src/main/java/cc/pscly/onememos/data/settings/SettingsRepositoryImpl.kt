@@ -134,6 +134,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     private data class FullSyncPreferenceKeys(
         val status: Preferences.Key<String>,
         val runId: Preferences.Key<String>,
+        val acknowledgedSuccessRunId: Preferences.Key<String>,
         val lastSuccessAt: Preferences.Key<Long>,
         val lastError: Preferences.Key<String>,
         val stage: Preferences.Key<String>,
@@ -143,6 +144,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         fun hasAny(prefs: Preferences): Boolean {
             return prefs.contains(status) ||
                 prefs.contains(runId) ||
+                prefs.contains(acknowledgedSuccessRunId) ||
                 prefs.contains(lastSuccessAt) ||
                 prefs.contains(lastError) ||
                 prefs.contains(stage) ||
@@ -163,6 +165,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         return FullSyncPreferenceKeys(
             status = stringPreferencesKey("full_sync_status_$h"),
             runId = stringPreferencesKey("full_sync_run_id_$h"),
+            acknowledgedSuccessRunId = stringPreferencesKey("full_sync_acknowledged_success_run_id_$h"),
             lastSuccessAt = longPreferencesKey("full_sync_last_success_at_$h"),
             lastError = stringPreferencesKey("full_sync_last_error_$h"),
             stage = stringPreferencesKey("full_sync_stage_$h"),
@@ -236,6 +239,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     FullSyncState(
                         status = parseFullSyncStatus(prefs[slotKeys.status]),
                         runId = prefs[slotKeys.runId].orEmpty(),
+                        acknowledgedSuccessRunId = prefs[slotKeys.acknowledgedSuccessRunId].orEmpty(),
                         lastSuccessAt = prefs[slotKeys.lastSuccessAt] ?: 0L,
                         lastError = prefs[slotKeys.lastError].orEmpty(),
                         stage = parseFullSyncStage(prefs[slotKeys.stage]),
@@ -574,6 +578,19 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
             prefs[keys.itemsFetched] = itemsFetched.coerceAtLeast(0)
             prefs[keys.lastSuccessAt] = now
             prefs[keys.lastError] = ""
+        }
+    }
+
+    override suspend fun acknowledgeFullSyncCompletion(runId: String) {
+        val runIdNorm = runId.trim()
+        if (runIdNorm.isBlank()) return
+        val syncKey = computeFullSyncKey()
+        val keys = fullSyncPreferenceKeys(syncKey)
+
+        context.settingsDataStore.edit { prefs ->
+            if (prefs[keys.status] != FullSyncStatus.SUCCESS.name) return@edit
+            if (prefs[keys.runId].orEmpty() != runIdNorm) return@edit
+            prefs[keys.acknowledgedSuccessRunId] = runIdNorm
         }
     }
 
