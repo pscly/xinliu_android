@@ -1,33 +1,21 @@
 package cc.pscly.onememos.domain.repository
 
-import androidx.paging.PagingData
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoAttachmentDraft
 import kotlinx.coroutines.flow.Flow
 
 interface MemoRepository {
-    sealed interface BrowseScope {
-        data object All : BrowseScope
-
-        /**
-         * 登录态下但 creator 未解析时的保守模式：只显示本地未上传记录，避免误展示工作区/公开内容。
-         */
-        data object LocalOnly : BrowseScope
-
-        data class Creator(val creator: String) : BrowseScope
-    }
-
     fun observeMemos(): Flow<List<Memo>>
 
     fun observeArchivedMemos(): Flow<List<Memo>>
 
     /**
-     * 用于“标签联想/统计”等需求：需要看到全部记录（包含已归档）。
+     * 用于"标签联想/统计"等需求：需要看到全部记录（包含已归档）。
      */
     fun observeAllMemos(): Flow<List<Memo>>
 
     /**
-     * 用于“标签联想/统计/启动推断 creator”等轻量场景：只看最近一部分记录，避免全量订阅导致启动卡顿。
+     * 用于"标签联想/统计/启动推断 creator"等轻量场景：只看最近一部分记录，避免全量订阅导致启动卡顿。
      */
     fun observeRecentMemos(limit: Int): Flow<List<Memo>>
 
@@ -39,14 +27,7 @@ interface MemoRepository {
     fun observeMemosByCreatedAtRange(startInclusive: Long, endExclusive: Long): Flow<List<Memo>>
 
     /**
-     * 首页/归档页使用 Paging 3 按需加载，避免一次性把大量 memos 加载进内存。
-     */
-    fun pagingMemos(scope: BrowseScope): Flow<PagingData<Memo>>
-
-    fun pagingArchivedMemos(scope: BrowseScope): Flow<PagingData<Memo>>
-
-    /**
-     * 用于“极速记录-续写”：按更新时间倒序，列出最近编辑的（非归档）记录。
+     * 用于"极速记录-续写"：按更新时间倒序，列出最近编辑的（非归档）记录。
      */
     suspend fun listRecentEditedActiveMemos(limit: Int): List<Memo>
 
@@ -70,7 +51,7 @@ interface MemoRepository {
     )
 
     /**
-     * 用于“编辑历史记录”的完整更新：允许同时更新内容与附件（增删/排序）。
+     * 用于"编辑历史记录"的完整更新：允许同时更新内容与附件（增删/排序）。
      */
     suspend fun updateMemoDraft(
         uuid: String,

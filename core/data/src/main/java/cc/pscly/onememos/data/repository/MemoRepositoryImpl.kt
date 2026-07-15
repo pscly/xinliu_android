@@ -1,9 +1,5 @@
 package cc.pscly.onememos.data.repository
 
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.PagingData
-import androidx.paging.map
 import cc.pscly.onememos.core.database.dao.MemoDao
 import cc.pscly.onememos.core.database.entity.MemoAttachmentEntity
 import cc.pscly.onememos.core.database.entity.MemoEntity
@@ -62,44 +58,6 @@ class MemoRepositoryImpl @Inject constructor(
     ): Flow<List<Memo>> =
         memoDao.observeMemosByCreatedAtRange(startInclusive, endExclusive)
             .map { list -> list.map { it.toDomain() } }
-
-    override fun pagingMemos(scope: MemoRepository.BrowseScope): Flow<PagingData<Memo>> =
-        Pager(
-            config =
-                PagingConfig(
-                    pageSize = 50,
-                    prefetchDistance = 20,
-                    enablePlaceholders = false,
-                ),
-            pagingSourceFactory = {
-                when (scope) {
-                    MemoRepository.BrowseScope.All -> memoDao.pagingActiveAll()
-                    MemoRepository.BrowseScope.LocalOnly -> memoDao.pagingActiveLocalOnly()
-                    is MemoRepository.BrowseScope.Creator -> memoDao.pagingActiveForCreator(scope.creator)
-                }
-            },
-        )
-            .flow
-            .map { pagingData -> pagingData.map { it.toDomain() } }
-
-    override fun pagingArchivedMemos(scope: MemoRepository.BrowseScope): Flow<PagingData<Memo>> =
-        Pager(
-            config =
-                PagingConfig(
-                    pageSize = 50,
-                    prefetchDistance = 20,
-                    enablePlaceholders = false,
-                ),
-            pagingSourceFactory = {
-                when (scope) {
-                    MemoRepository.BrowseScope.All -> memoDao.pagingArchivedAll()
-                    MemoRepository.BrowseScope.LocalOnly -> memoDao.pagingArchivedLocalOnly()
-                    is MemoRepository.BrowseScope.Creator -> memoDao.pagingArchivedForCreator(scope.creator)
-                }
-            },
-        )
-            .flow
-            .map { pagingData -> pagingData.map { it.toDomain() } }
 
     override suspend fun listRecentEditedActiveMemos(limit: Int): List<Memo> =
         memoDao.listRecentEditedActiveMemos(limit).map { it.toDomain() }

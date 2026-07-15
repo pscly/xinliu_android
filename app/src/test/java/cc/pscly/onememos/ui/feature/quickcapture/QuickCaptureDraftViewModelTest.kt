@@ -3,7 +3,6 @@ package cc.pscly.onememos.ui.feature.quickcapture
 import android.app.Application
 import android.content.Context
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.paging.PagingData
 import androidx.test.core.app.ApplicationProvider
 import cc.pscly.onememos.domain.model.AppSettings
 import cc.pscly.onememos.domain.model.Memo
@@ -258,9 +257,7 @@ class QuickCaptureDraftViewModelTest {
         override fun observeAllMemos(): Flow<List<Memo>> = flowOf(emptyList())
         override fun observeRecentMemos(limit: Int): Flow<List<Memo>> = flowOf(emptyList())
         override fun observeMemosByCreatedAtRange(startInclusive: Long, endExclusive: Long): Flow<List<Memo>> = flowOf(emptyList())
-        override fun pagingMemos(scope: MemoRepository.BrowseScope): Flow<PagingData<Memo>> = flowOf(PagingData.empty())
-        override fun pagingArchivedMemos(scope: MemoRepository.BrowseScope): Flow<PagingData<Memo>> = flowOf(PagingData.empty())
-        override suspend fun listRecentEditedActiveMemos(limit: Int): List<Memo> = emptyList()
+override suspend fun listRecentEditedActiveMemos(limit: Int): List<Memo> = emptyList()
         override suspend fun getMemo(uuid: String): Memo? = null
         override suspend fun archiveMemo(uuid: String) = Unit
         override suspend fun unarchiveMemo(uuid: String) = Unit

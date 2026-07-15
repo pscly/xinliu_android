@@ -1,6 +1,5 @@
 package cc.pscly.onememos.ui.feature.collections
 
-import androidx.paging.PagingData
 import cc.pscly.onememos.domain.model.AppSettings
 import cc.pscly.onememos.domain.model.CollectionItem
 import cc.pscly.onememos.domain.model.CollectionItemType
@@ -137,10 +136,6 @@ class CollectionsViewModelNoteRefCacheTest {
         override fun observeRecentMemos(limit: Int): Flow<List<Memo>> = emptyFlow()
 
         override fun observeMemosByCreatedAtRange(startInclusive: Long, endExclusive: Long): Flow<List<Memo>> = emptyFlow()
-
-        override fun pagingMemos(scope: MemoRepository.BrowseScope): Flow<PagingData<Memo>> = emptyFlow()
-
-        override fun pagingArchivedMemos(scope: MemoRepository.BrowseScope): Flow<PagingData<Memo>> = emptyFlow()
 
         override suspend fun listRecentEditedActiveMemos(limit: Int): List<Memo> = emptyList()
 

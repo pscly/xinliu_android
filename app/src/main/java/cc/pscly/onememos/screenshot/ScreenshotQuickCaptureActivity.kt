@@ -104,7 +104,7 @@ class ScreenshotQuickCaptureActivity : ComponentActivity() {
 
         val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         val display =
-            projection.createVirtualDisplay(
+            projection?.createVirtualDisplay(
                 "one_memos_screenshot",
                 width,
                 height,
@@ -125,9 +125,9 @@ class ScreenshotQuickCaptureActivity : ComponentActivity() {
                 runCatching { image.close() }
             }
         } finally {
-            runCatching { display.release() }
+            runCatching { display?.release() }
             runCatching { reader.close() }
-            runCatching { projection.stop() }
+            runCatching { projection?.stop() }
         }
     }
 

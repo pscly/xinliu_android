@@ -1,28 +1,25 @@
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.kotlin.jvm)
 }
 
-android {
-    namespace = "cc.pscly.onememos.core.domain"
-    compileSdk = libs.versions.compileSdk.get().toInt()
+kotlin {
+    jvmToolchain(21)
+}
 
-    defaultConfig {
-        minSdk = libs.versions.minSdk.get().toInt()
-    }
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
 }
 
 dependencies {
     api(project(":core:model"))
-    api(libs.androidx.paging.runtime.ktx)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
     // 循环任务（RRULE）解析：用于计算下一次 occurrence（recurrence_id_local）。
     implementation(libs.dmfs.lib.recur)

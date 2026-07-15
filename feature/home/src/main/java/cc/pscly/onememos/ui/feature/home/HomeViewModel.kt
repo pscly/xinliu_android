@@ -14,6 +14,7 @@ import cc.pscly.onememos.domain.model.GlobalSyncState
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoVisibility
+import cc.pscly.onememos.domain.repository.MemoBrowseScope
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
@@ -65,6 +66,7 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val memoRepository: MemoRepository,
+    private val homeMemoPagingSource: HomeMemoPagingSource,
     private val settingsRepository: SettingsRepository,
     private val filterStore: MemoFilterStore,
     private val syncScheduler: SyncScheduler,
@@ -77,7 +79,7 @@ class HomeViewModel @Inject constructor(
     // - 仅 benchmark/release 生效（debug 不启用，避免影响日常开发体验）
     private val stickyRichPreviewIds = StickyRichPreviewPolicy(initialLimit = 0)
     private var stickyRichPreviewLimit: Int = 0
-    private var stickyRichPreviewBrowseScope: MemoRepository.BrowseScope? = null
+    private var stickyRichPreviewBrowseScope: MemoBrowseScope? = null
 
     // 主页列表滚动位置：用于从详情页返回时恢复到进入前的位置，避免每次回到顶部。
     // 这里不用 SavedStateHandle，是因为 HOME/ARCHIVED 各自是独立 back stack entry（hiltViewModel），且需求主要是“返回”场景。
@@ -90,7 +92,7 @@ class HomeViewModel @Inject constructor(
     private val _events = MutableSharedFlow<HomeEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<HomeEvent> = _events.asSharedFlow()
 
-    private val browseScopeFlow: Flow<MemoRepository.BrowseScope> =
+    private val browseScopeFlow: Flow<MemoBrowseScope> =
         settingsRepository.settings
             .map { settings ->
                 val showPublicWorkspace = settings.dev2Unlocked && settings.dev2ShowPublicWorkspaceMemos
@@ -104,12 +106,12 @@ class HomeViewModel @Inject constructor(
 
     private val baseActivePaging: Flow<PagingData<Memo>> =
         browseScopeFlow
-            .flatMapLatest { scope -> memoRepository.pagingMemos(scope) }
+            .flatMapLatest { scope -> homeMemoPagingSource.active(scope) }
             .cachedIn(viewModelScope)
 
     private val baseArchivedPaging: Flow<PagingData<Memo>> =
         browseScopeFlow
-            .flatMapLatest { scope -> memoRepository.pagingArchivedMemos(scope) }
+            .flatMapLatest { scope -> homeMemoPagingSource.archived(scope) }
             .cachedIn(viewModelScope)
 
     val activePaging: Flow<PagingData<Memo>> =
@@ -362,11 +364,11 @@ class HomeViewModel @Inject constructor(
 private fun computeBrowseScope(
     showPublicWorkspace: Boolean,
     creator: String,
-): MemoRepository.BrowseScope =
+): MemoBrowseScope =
     when {
-        showPublicWorkspace -> MemoRepository.BrowseScope.All
-        creator.isNotBlank() -> MemoRepository.BrowseScope.Creator(creator)
-        else -> MemoRepository.BrowseScope.LocalOnly
+        showPublicWorkspace -> MemoBrowseScope.All
+        creator.isNotBlank() -> MemoBrowseScope.Creator(creator)
+        else -> MemoBrowseScope.LocalOnly
     }
 
 private fun computeSearchError(
