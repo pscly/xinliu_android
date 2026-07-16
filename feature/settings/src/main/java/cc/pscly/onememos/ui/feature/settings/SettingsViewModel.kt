@@ -373,10 +373,13 @@ class SettingsViewModel @Inject constructor(
     /**
      * 请求一次“重新同步所有笔记”（全量重同步）。
      *
-     * 说明：该请求会以 REPLACE 覆盖当前正在执行/排队的同名同步任务，并强制触发 full sync。
+     * 说明：该请求使用 KEEP 仲裁，不会覆盖正在执行或排队的同步任务；等待调度完成后，
+     * 通过 [onFeedback] 返回 Accepted、Duplicate、Busy 或 Failure 的类型化反馈。
      */
-    fun requestFullResync() {
-        viewModelScope.launch { syncScheduler.requestFullResync() }
+    fun requestFullResync(onFeedback: (FullResyncFeedback) -> Unit) {
+        viewModelScope.launch {
+            onFeedback(requestFullResyncFeedback(syncScheduler::requestFullResync))
+        }
     }
 
     fun updateThemePalette(palette: ThemePalette) {

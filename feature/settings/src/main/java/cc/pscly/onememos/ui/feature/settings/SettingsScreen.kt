@@ -1355,8 +1355,13 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         showFullResyncConfirm = false
-                        viewModel.requestFullResync()
-                        Toast.makeText(context, "已开始后台重同步", Toast.LENGTH_SHORT).show()
+                        viewModel.requestFullResync { feedback ->
+                            Toast.makeText(
+                                context,
+                                fullResyncToastMessage(feedback),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
                     },
                 ) {
                     Text("确定")
