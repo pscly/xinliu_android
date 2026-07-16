@@ -9,11 +9,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 生成 Baseline Profile：让 Release 安装后能直接受益于 AOT 优化（启动/滚动更稳）。
+ * 生成 Baseline Profile：启动、主页滚动、编辑返回，以及设置往返路径。
  *
- * 说明：
- * - 该测试依赖 instrumentation，需要真机或模拟器（建议真机，结果更稳定）。
- * - 生成的 profile 会由 Gradle 插件复制到 app 中并入库。
+ * 依赖 instrumentation（真机或模拟器）。选择器使用稳定中文文案/contentDescription，
+ * 不依赖旧 Navigation route。
  */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
@@ -38,6 +37,22 @@ class BaselineProfileGenerator {
             device.click(cx, (device.displayHeight * 0.32).toInt())
             device.wait(Until.hasObject(By.desc("返回")), 1_500)
             device.pressBack()
+
+            // Settings 往返：打开抽屉 → 设置 → 账号与同步 → 返回设置 → 返回主页
+            val menu = device.wait(Until.findObject(By.desc("菜单")), 3_000)
+            if (menu != null) {
+                menu.click()
+            } else {
+                device.click((device.displayWidth * 0.08).toInt(), (device.displayHeight * 0.08).toInt())
+            }
+            device.wait(Until.hasObject(By.text("设置")), 3_000)
+            device.findObject(By.text("设置"))?.click()
+            device.wait(Until.hasObject(By.text("账号与同步")), 5_000)
+            device.findObject(By.text("账号与同步"))?.click()
+            device.wait(Until.hasObject(By.text("账号与同步")), 3_000)
+            device.pressBack()
+            device.wait(Until.hasObject(By.text("设置")), 3_000)
+            device.pressBack()
+            device.wait(Until.hasObject(By.desc("同步")), 5_000)
         }
 }
-
