@@ -304,7 +304,10 @@ private fun OfflinePrefetchCard(
                     onAction(StorageOfflineUiAction.SetImagePrefetchEnabled(it))
                 },
                 enabled = enabled,
-                modifier = Modifier.testTag("settings_storage_prefetch_switch"),
+                modifier =
+                    Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("settings_storage_prefetch_switch"),
             )
         }
         Spacer(modifier = Modifier.height(8.dp))

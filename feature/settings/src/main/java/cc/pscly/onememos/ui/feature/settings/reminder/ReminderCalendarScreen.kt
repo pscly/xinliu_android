@@ -259,12 +259,17 @@ private fun PermissionStatus(permission: CalendarPermissionState) {
             CalendarPermissionState.DENIED -> R.string.settings_reminder_permission_denied_status
             CalendarPermissionState.UNKNOWN -> R.string.settings_reminder_permission_unknown_status
         }
+    val statusText = stringResource(text)
     Text(
-        text = stringResource(text),
+        text = statusText,
         style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.testTag("settings_reminder_permission_status").semantics {
-            liveRegion = LiveRegionMode.Polite
-        },
+        modifier =
+            Modifier
+                .testTag("settings_reminder_permission_status")
+                .semantics {
+                    liveRegion = LiveRegionMode.Polite
+                    stateDescription = statusText
+                },
     )
 }
 

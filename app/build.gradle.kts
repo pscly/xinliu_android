@@ -184,6 +184,12 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui)
+    androidTestImplementation(libs.androidx.compose.ui.graphics)
+    androidTestImplementation(libs.androidx.compose.material3)
+    androidTestImplementation(libs.androidx.activity.compose)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 tasks.withType<Test>().configureEach {
