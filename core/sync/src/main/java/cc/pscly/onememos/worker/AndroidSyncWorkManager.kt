@@ -19,12 +19,19 @@ class AndroidSyncWorkManager @Inject constructor(
 ) : SyncWorkManager {
     private val workManager: WorkManager get() = WorkManager.getInstance(context)
 
-    override suspend fun unfinishedWork(uniqueWorkName: String): List<SyncWorkInfo> {
-        val workInfos = workManager.getWorkInfosForUniqueWork(uniqueWorkName).await()
-        return workInfos
-            .filter { !it.state.isFinished }
-            .map { info -> SyncWorkInfo(id = info.id, tags = info.tags) }
-    }
+    override suspend fun uniqueWorkSnapshot(
+        uniqueWorkName: String,
+    ): Map<UUID, SyncWorkInfo> =
+        workManager
+            .getWorkInfosForUniqueWork(uniqueWorkName)
+            .await()
+            .associate { info ->
+                info.id to SyncWorkInfo(
+                    id = info.id,
+                    tags = info.tags,
+                    isFinished = info.state.isFinished,
+                )
+            }
 
     override fun enqueueUniqueWork(
         uniqueWorkName: String,
@@ -33,15 +40,6 @@ class AndroidSyncWorkManager @Inject constructor(
     ): SyncEnqueueOperation {
         val operation = workManager.enqueueUniqueWork(uniqueWorkName, policy, request)
         return SyncEnqueueOperation { operation.await() }
-    }
-
-    override suspend fun containsWork(id: UUID): Boolean {
-        return try {
-            val info = workManager.getWorkInfoById(id).await()
-            info != null && !info.state.isFinished
-        } catch (_: Exception) {
-            false
-        }
     }
 
     override fun enqueueUniquePeriodicWork(

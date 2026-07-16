@@ -5,4 +5,5 @@ import java.util.UUID
 data class SyncWorkInfo(
     val id: UUID,
     val tags: Set<String>,
+    val isFinished: Boolean = false,
 )

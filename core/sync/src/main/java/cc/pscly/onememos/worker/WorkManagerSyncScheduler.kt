@@ -11,7 +11,6 @@ import androidx.work.workDataOf
 import cc.pscly.onememos.domain.sync.FullResyncScheduleResult
 import cc.pscly.onememos.domain.sync.SyncScheduler
 import kotlinx.coroutines.sync.Mutex
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,16 +44,16 @@ class WorkManagerSyncScheduler @Inject constructor(
     }
 
     override suspend fun requestFullResync(): FullResyncScheduleResult {
-        val requestId = UUID.randomUUID().toString()
-
         arbitration.lock()
         try {
-            val unfinished = workManager.unfinishedWork(MemosSyncWorker.UNIQUE_WORK_NAME)
-            if (unfinished.any { it.tags.contains(MemosSyncWorker.FULL_RESYNC_TAG) }) {
-                return FullResyncScheduleResult.Duplicate
-            }
-            if (unfinished.isNotEmpty()) {
-                return FullResyncScheduleResult.Busy
+            val before = workManager.uniqueWorkSnapshot(MemosSyncWorker.UNIQUE_WORK_NAME)
+
+            val unfinishedBefore = before.values.filterNot { it.isFinished }
+            when {
+                unfinishedBefore.any { MemosSyncWorker.FULL_RESYNC_TAG in it.tags } ->
+                    return FullResyncScheduleResult.Duplicate
+                unfinishedBefore.isNotEmpty() ->
+                    return FullResyncScheduleResult.Busy
             }
 
             val constraints =
@@ -71,19 +70,32 @@ class WorkManagerSyncScheduler @Inject constructor(
                     .addTag(MemosSyncWorker.FULL_RESYNC_TAG)
                     .build()
 
-            val operation = workManager.enqueueUniqueWork(
+            workManager.enqueueUniqueWork(
                 MemosSyncWorker.UNIQUE_WORK_NAME,
                 ExistingWorkPolicy.KEEP,
                 request,
-            )
+            ).commit()
 
-            operation.commit()
+            val after = workManager.uniqueWorkSnapshot(MemosSyncWorker.UNIQUE_WORK_NAME)
 
-            val confirmed = workManager.containsWork(request.id)
-            if (!confirmed) return FullResyncScheduleResult.Duplicate
+            if (request.id in after) {
+                ensurePeriodicSync()
+                return FullResyncScheduleResult.Accepted(request.id.toString())
+            }
 
-            ensurePeriodicSync()
-            return FullResyncScheduleResult.Accepted(requestId)
+            val racedIds = after.keys - before.keys
+            check(racedIds.isNotEmpty()) {
+                "requestFullResync: KEEP discarded ${request.id}, but no competing unique work was observable in after snapshot"
+            }
+
+            val raced = racedIds.map { after.getValue(it) }
+            val racedKinds = raced.map { MemosSyncWorker.FULL_RESYNC_TAG in it.tags }.toSet()
+
+            return when (racedKinds) {
+                setOf(true) -> FullResyncScheduleResult.Duplicate
+                setOf(false) -> FullResyncScheduleResult.Busy
+                else -> error("requestFullResync: ambiguous mixed full/normal KEEP contenders for ${request.id}")
+            }
         } finally {
             arbitration.unlock()
         }

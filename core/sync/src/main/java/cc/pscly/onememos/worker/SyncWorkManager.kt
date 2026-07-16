@@ -7,15 +7,15 @@ import androidx.work.PeriodicWorkRequest
 import java.util.UUID
 
 interface SyncWorkManager {
-    suspend fun unfinishedWork(uniqueWorkName: String): List<SyncWorkInfo>
+    suspend fun uniqueWorkSnapshot(
+        uniqueWorkName: String,
+    ): Map<UUID, SyncWorkInfo>
 
     fun enqueueUniqueWork(
         uniqueWorkName: String,
         policy: ExistingWorkPolicy,
         request: OneTimeWorkRequest,
     ): SyncEnqueueOperation
-
-    suspend fun containsWork(id: UUID): Boolean
 
     fun enqueueUniquePeriodicWork(
         uniqueWorkName: String,
