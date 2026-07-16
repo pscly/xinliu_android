@@ -11,8 +11,6 @@ sealed interface ExternalNavigationInput {
     data object OpenTodoRoot : ExternalNavigationInput
 
     data class LegacyEditorExtra(val uuid: String) : ExternalNavigationInput
-
-    data class LegacyRouteExtra(val value: String) : ExternalNavigationInput
 }
 
 enum class ExternalNavigationDuplicatePolicy {

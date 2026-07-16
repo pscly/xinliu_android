@@ -46,20 +46,13 @@ class ExternalNavigationMapperTest {
     }
 
     @Test
-    fun openTodoRoot_andLegacyTodoRoute_resetTodoStack() {
+    fun openTodoRoot_resetsTodoStack() {
         val open = mapper.map(ExternalNavigationInput.OpenTodoRoot)
-        val legacy = mapper.map(ExternalNavigationInput.LegacyRouteExtra("todo"))
         assertAcceptedReset(open, TopLevelSection.TODO)
-        assertAcceptedReset(legacy, TopLevelSection.TODO)
     }
 
     @Test
-    fun unknownRoute_andEmptyEditor_rejected() {
-        val unknown = mapper.map(ExternalNavigationInput.LegacyRouteExtra("settings"))
-        assertEquals(
-            ExternalNavigationRejection.UNKNOWN_VALUE,
-            (unknown as ExternalNavigationResult.Rejected).reason,
-        )
+    fun emptyEditor_rejected() {
         val emptyEditor = mapper.map(ExternalNavigationInput.SharedMemo("  "))
         assertEquals(
             ExternalNavigationRejection.INVALID_ARGUMENT,
@@ -71,7 +64,9 @@ class ExternalNavigationMapperTest {
     fun applyToStateMachine_rejectedKeepsStacks_todoTopDuplicateIsIdempotent() {
         val machine = NavigationStateMachine()
         val before = machine.state.value
-        machine.applyExternal(mapper.map(ExternalNavigationInput.LegacyRouteExtra("nope")))
+        machine.applyExternal(
+            mapper.map(ExternalNavigationInput.TodoNotification(itemId = " ", expectedOwnerKey = "o")),
+        )
         assertEquals(before, machine.state.value)
 
         val todoPush =

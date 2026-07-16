@@ -2,7 +2,6 @@ package cc.pscly.onememos.ui.feature.auth
 
 import android.app.Application
 import android.content.Context
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import cc.pscly.onememos.core.network.ChangePasswordRequest
 import cc.pscly.onememos.core.network.FlowAuthRequest
@@ -87,8 +86,7 @@ class AuthViewModelTest {
                     currentUserResolver = MemosCurrentUserResolver(memosApi),
                     settingsRepository = settingsRepository,
                     syncScheduler = syncScheduler,
-                    flowBackendCredentialStorage = FlowBackendCredentialStorage(context),
-                    savedStateHandle = SavedStateHandle(),
+                    flowBackendCredentialStorage = FlowBackendCredentialStorage(context)
                 )
 
             viewModel.updateCustomServerUrl("https://memos.example")
@@ -130,8 +128,7 @@ class AuthViewModelTest {
                     currentUserResolver = MemosCurrentUserResolver(memosApi),
                     settingsRepository = settingsRepository,
                     syncScheduler = syncScheduler,
-                    flowBackendCredentialStorage = credentialStorage,
-                    savedStateHandle = SavedStateHandle(),
+                    flowBackendCredentialStorage = credentialStorage
                 )
 
             viewModel.updateUsername("alice")

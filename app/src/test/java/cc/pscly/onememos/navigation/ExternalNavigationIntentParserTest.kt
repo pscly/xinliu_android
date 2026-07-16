@@ -82,25 +82,9 @@ class ExternalNavigationIntentParserTest {
     }
 
     @Test
-    fun legacyStartRouteTodo_mapsToLegacyRouteExtra() {
-        val intent = Intent().putExtra(MainActivity.EXTRA_START_ROUTE, "todo")
-        assertEquals(
-            ExternalNavigationInput.LegacyRouteExtra("todo"),
-            ExternalNavigationIntentParser.parse(intent),
-        )
-    }
-
-    @Test
-    fun unknownRoute_stillParsedAsLegacyRouteExtra() {
-        val intent = Intent().putExtra(MainActivity.EXTRA_START_ROUTE, "settings")
-        val parsed = ExternalNavigationIntentParser.parse(intent)
-        assertEquals(ExternalNavigationInput.LegacyRouteExtra("settings"), parsed)
-        val mapped = ExternalNavigationMapper().map(parsed!!)
-        assertTrue(mapped is ExternalNavigationResult.Rejected)
-        assertEquals(
-            ExternalNavigationRejection.UNKNOWN_VALUE,
-            (mapped as ExternalNavigationResult.Rejected).reason,
-        )
+    fun unknownStartRouteExtra_isIgnored() {
+        val intent = Intent().putExtra("cc.pscly.onememos.extra.START_ROUTE", "todo")
+        assertNull(ExternalNavigationIntentParser.parse(intent))
     }
 
     @Test
@@ -110,11 +94,8 @@ class ExternalNavigationIntentParserTest {
     }
 
     @Test
-    fun editorExtraTakesPriorityOverStartRoute() {
-        val intent =
-            Intent()
-                .putExtra(MainActivity.EXTRA_START_EDITOR_UUID, "uuid-1")
-                .putExtra(MainActivity.EXTRA_START_ROUTE, "todo")
+    fun editorExtra_mapsWithoutLegacyStartRoute() {
+        val intent = Intent().putExtra(MainActivity.EXTRA_START_EDITOR_UUID, "uuid-1")
         assertEquals(
             ExternalNavigationInput.LegacyEditorExtra("uuid-1"),
             ExternalNavigationIntentParser.parse(intent),

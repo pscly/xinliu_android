@@ -41,11 +41,6 @@ tasks.withType<Test>().configureEach {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:navigation"))
-    implementation(project(":core:data"))
-    implementation(project(":core:network"))
-    implementation(project(":core:sync"))
-    implementation(project(":core:calendar"))
-    implementation(project(":core:diagnostics"))
     implementation(project(":core:designsystem"))
 
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -64,10 +59,6 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
-
-    implementation(libs.androidx.work.runtime.ktx)
-
-    implementation(libs.retrofit)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

@@ -91,9 +91,41 @@ fun OneMemosApp(
         ) { grantMap ->
             platformDispatcher.onPermissionResult(grantMap)
         }
-    LaunchedEffect(platformDispatcher, permissionLauncher) {
+    val overlayPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+        ) {
+            platformDispatcher.onOverlayPermissionResult()
+        }
+    val unknownSourcesLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+        ) {
+            updateDispatcher.onUnknownSourcesReturned()
+        }
+    val installerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+        ) {
+            updateDispatcher.onInstallerReturned()
+        }
+    DisposableEffect(
+        platformDispatcher,
+        updateDispatcher,
+        permissionLauncher,
+        overlayPermissionLauncher,
+        unknownSourcesLauncher,
+        installerLauncher,
+    ) {
         platformDispatcher.bindPermissionLauncher { permissions ->
             permissionLauncher.launch(permissions)
+        }
+        platformDispatcher.bindOverlayPermissionLauncher(overlayPermissionLauncher::launch)
+        updateDispatcher.bindUnknownSourcesLauncher(unknownSourcesLauncher::launch)
+        updateDispatcher.bindInstallerLauncher(installerLauncher::launch)
+        onDispose {
+            platformDispatcher.clearActivityLaunchers()
+            updateDispatcher.clearActivityLaunchers()
         }
     }
     DisposableEffect(lifecycleOwner, platformDispatcher) {

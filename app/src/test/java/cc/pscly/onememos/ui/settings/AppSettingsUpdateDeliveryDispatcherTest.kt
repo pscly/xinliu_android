@@ -29,10 +29,12 @@ class AppSettingsUpdateDeliveryDispatcherTest {
         val forwarded = mutableListOf<UpdateDeliveryAction>()
         var result: UpdateDeliveryResult? = null
         val dispatcher =
-            AppSettingsUpdateDeliveryDispatcher { actual, onResult ->
-                forwarded += actual
-                onResult(expected)
-            }
+            AppSettingsUpdateDeliveryDispatcher(
+                deliver = { actual, onResult ->
+                    forwarded += actual
+                    onResult(expected)
+                },
+            )
 
         dispatcher.dispatch(action) { result = it }
 
@@ -46,10 +48,12 @@ class AppSettingsUpdateDeliveryDispatcherTest {
         val forwarded = mutableListOf<UpdateDeliveryAction>()
         var result: UpdateDeliveryResult? = null
         val dispatcher =
-            AppSettingsUpdateDeliveryDispatcher { actual, onResult ->
-                forwarded += actual
-                onResult(UpdateDeliveryResult.InstallerReturned)
-            }
+            AppSettingsUpdateDeliveryDispatcher(
+                deliver = { actual, onResult ->
+                    forwarded += actual
+                    onResult(UpdateDeliveryResult.InstallerReturned)
+                },
+            )
 
         dispatcher.dispatch(action) { result = it }
 

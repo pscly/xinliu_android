@@ -89,6 +89,5 @@ class MainActivity : ComponentActivity() {
         private const val STATE_INITIAL_INTENT_CONSUMED = "one_memos_initial_intent_consumed"
 
         const val EXTRA_START_EDITOR_UUID = "cc.pscly.onememos.extra.START_EDITOR_UUID"
-        const val EXTRA_START_ROUTE = "cc.pscly.onememos.extra.START_ROUTE"
     }
 }

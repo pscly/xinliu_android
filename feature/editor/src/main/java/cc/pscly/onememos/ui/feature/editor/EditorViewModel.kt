@@ -97,7 +97,7 @@ class EditorViewModel @Inject constructor(
 ) : ViewModel() {
     private val uuidArg: String? =
         savedStateHandle.get<String>("uuid")?.let { raw ->
-            // 与 Routes.editor() 的 Uri.encode 对应：这里解码回原始 uuid（可能包含 "/"）。
+            // uuid 可能经 Uri.encode 进入深层链接；这里解码回原始 uuid（可能包含 "/"）。
             runCatching { Uri.decode(raw) }.getOrDefault(raw)
         }
 

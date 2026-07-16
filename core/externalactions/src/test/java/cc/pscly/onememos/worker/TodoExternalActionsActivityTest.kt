@@ -46,6 +46,6 @@ class TodoExternalActionsActivityTest {
     fun extras_andFallbackRouteConstantsStayStable() {
         assertEquals("cc.pscly.onememos.extra.TODO_TITLE", TodoExternalActionsActivity.EXTRA_TODO_TITLE)
         assertEquals("cc.pscly.onememos.extra.TODO_DUE_AT_LOCAL", TodoExternalActionsActivity.EXTRA_DUE_AT_LOCAL)
-        assertEquals("cc.pscly.onememos.extra.START_ROUTE", "cc.pscly.onememos.extra.START_ROUTE")
+        assertEquals("cc.pscly.onememos.action.OPEN_TODO", "cc.pscly.onememos.action.OPEN_TODO")
     }
 }

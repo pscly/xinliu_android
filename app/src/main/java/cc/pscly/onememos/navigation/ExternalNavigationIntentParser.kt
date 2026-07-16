@@ -31,12 +31,6 @@ object ExternalNavigationIntentParser {
             }
         }
 
-        val startRoute = intent.getStringExtra(MainActivity.EXTRA_START_ROUTE)
-        if (startRoute != null) {
-            // 迁移期兼容：START_ROUTE=todo；其他值交给 mapper 拒绝。
-            return ExternalNavigationInput.LegacyRouteExtra(value = startRoute)
-        }
-
         return null
     }
 }

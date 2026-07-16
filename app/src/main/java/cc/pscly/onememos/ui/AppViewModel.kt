@@ -7,7 +7,6 @@ import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.update.UpdateDeliveryAction
 import cc.pscly.onememos.ui.settings.AppSettingsUpdateDeliveryDispatcher
 import cc.pscly.onememos.ui.theme.OneMemosThemeConfig
-import cc.pscly.onememos.ui.feature.settings.common.SettingsUpdateDeliveryDispatcher
 import cc.pscly.onememos.update.AppUpdateDeliveryLauncher
 import cc.pscly.onememos.update.AppUpdateManager
 import cc.pscly.onememos.update.AppUpdateUiState
@@ -60,7 +59,7 @@ class AppViewModel @Inject constructor(
 
     fun settingsUpdateDeliveryDispatcher(
         activityProvider: () -> Activity?,
-    ): SettingsUpdateDeliveryDispatcher =
+    ): AppSettingsUpdateDeliveryDispatcher =
         AppSettingsUpdateDeliveryDispatcher(
             launcher = updateDeliveryLauncher,
             activityProvider = activityProvider,

@@ -29,9 +29,19 @@ class AppSettingsPlatformActionDispatcher(
     private var pendingRequestedPermissions: Set<SettingsPermission> = emptySet()
     private var pendingOverlayResult: ((SettingsPlatformResult) -> Unit)? = null
     private var permissionLauncherOverride: ((Array<String>) -> Unit)? = null
+    private var overlayLauncherOverride: ((Intent) -> Unit)? = null
 
     fun bindPermissionLauncher(launcher: (Array<String>) -> Unit) {
         permissionLauncherOverride = launcher
+    }
+
+    fun bindOverlayPermissionLauncher(launcher: (Intent) -> Unit) {
+        overlayLauncherOverride = launcher
+    }
+
+    fun clearActivityLaunchers() {
+        permissionLauncherOverride = null
+        overlayLauncherOverride = null
     }
 
     fun onPermissionsResult(grantMap: Map<String, Boolean>) {
@@ -84,7 +94,10 @@ class AppSettingsPlatformActionDispatcher(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:${action.packageName}"),
                     )
-                runCatching { openOverlayPermissionSettings(intent) }
+                runCatching {
+                    val launcher = overlayLauncherOverride ?: openOverlayPermissionSettings
+                    launcher(intent)
+                }
                     .onFailure {
                         pendingOverlayResult = null
                         onResult(SettingsPlatformResult.Failed(SettingsCapabilityError.PlatformUnavailable))

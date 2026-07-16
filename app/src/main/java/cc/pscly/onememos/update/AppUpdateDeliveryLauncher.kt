@@ -18,12 +18,45 @@ import javax.inject.Singleton
  * 本类不保存下载、校验或安装状态。
  */
 @Singleton
-class AppUpdateDeliveryLauncher @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val manager: AppUpdateManager,
+class AppUpdateDeliveryLauncher private constructor(
+    private val context: Context,
+    private val requestDeliveryAction: () -> UpdateDeliveryAction?,
+    private val consumeDeliveryResult: (UpdateDeliveryResult) -> UpdateDeliveryAction?,
+    private val canRequestPackageInstalls: (Activity?) -> Boolean,
 ) {
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+        manager: AppUpdateManager,
+    ) : this(
+        context = context,
+        requestDeliveryAction = manager::requestDelivery,
+        consumeDeliveryResult = manager::onDeliveryResult,
+        canRequestPackageInstalls = { activity ->
+            (activity?.packageManager ?: context.packageManager).canRequestPackageInstalls()
+        },
+    )
+
+    internal constructor(
+        context: Context,
+        requestDeliveryAction: () -> UpdateDeliveryAction?,
+        consumeDeliveryResult: (UpdateDeliveryResult) -> UpdateDeliveryAction?,
+        canRequestPackageInstalls: () -> Boolean,
+    ) : this(
+        context = context,
+        requestDeliveryAction = requestDeliveryAction,
+        consumeDeliveryResult = consumeDeliveryResult,
+        canRequestPackageInstalls = { _: Activity? -> canRequestPackageInstalls() },
+    )
+
+    private var pendingExternalAction: PendingExternalAction? = null
+    private var pendingResultCallback: ((UpdateDeliveryResult) -> Unit)? = null
+    private var unknownSourcesLauncher: ((Intent) -> Unit)? = null
+    private var installerLauncher: ((Intent) -> Unit)? = null
+
     fun requestInstall(activity: Activity?) {
-        execute(manager.requestDelivery(), activity)
+        pendingResultCallback = null
+        execute(requestDeliveryAction(), activity)
     }
 
     fun dispatch(
@@ -31,20 +64,41 @@ class AppUpdateDeliveryLauncher @Inject constructor(
         activity: Activity?,
         onResult: (UpdateDeliveryResult) -> Unit = {},
     ) {
+        pendingResultCallback = onResult
         execute(action, activity)
     }
 
+    fun bindUnknownSourcesLauncher(launcher: (Intent) -> Unit) {
+        unknownSourcesLauncher = launcher
+    }
+
+    fun bindInstallerLauncher(launcher: (Intent) -> Unit) {
+        installerLauncher = launcher
+    }
+
+    fun clearActivityLaunchers() {
+        unknownSourcesLauncher = null
+        installerLauncher = null
+    }
+
     fun onHostResumed(activity: Activity?) {
-        val packageManager = activity?.packageManager ?: context.packageManager
-        val granted = packageManager.canRequestPackageInstalls()
-        execute(
-            manager.onDeliveryResult(UpdateDeliveryResult.UnknownSourcesPermissionChanged(granted)),
-            activity,
+        onUnknownSourcesReturned(activity)
+    }
+
+    fun onUnknownSourcesReturned(activity: Activity?) {
+        if (pendingExternalAction != PendingExternalAction.UNKNOWN_SOURCES) return
+        complete(
+            result =
+                UpdateDeliveryResult.UnknownSourcesPermissionChanged(
+                    granted = canRequestPackageInstalls(activity),
+                ),
+            activity = activity,
         )
     }
 
-    fun onInstallerReturned() {
-        manager.onDeliveryResult(UpdateDeliveryResult.InstallerReturned)
+    fun onInstallerReturned(activity: Activity? = null) {
+        if (pendingExternalAction != PendingExternalAction.INSTALLER) return
+        complete(UpdateDeliveryResult.InstallerReturned, activity)
     }
 
     private fun execute(
@@ -58,17 +112,24 @@ class AppUpdateDeliveryLauncher @Inject constructor(
                         Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:${action.packageName}"),
                     ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                start(intent, activity)
+                start(
+                    intent = intent,
+                    activity = activity,
+                    externalAction = PendingExternalAction.UNKNOWN_SOURCES,
+                    activityLauncher = unknownSourcesLauncher,
+                )
             }
             is UpdateDeliveryAction.InstallApk -> {
                 val intent =
                     Intent(Intent.ACTION_VIEW)
                         .setDataAndType(Uri.parse(action.uri), action.mimeType)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                val started = start(intent, activity)
-                if (started) {
-                    manager.onDeliveryResult(UpdateDeliveryResult.InstallerReturned)
-                }
+                start(
+                    intent = intent,
+                    activity = activity,
+                    externalAction = PendingExternalAction.INSTALLER,
+                    activityLauncher = installerLauncher,
+                )
             }
             null -> Unit
         }
@@ -77,20 +138,48 @@ class AppUpdateDeliveryLauncher @Inject constructor(
     private fun start(
         intent: Intent,
         activity: Activity?,
-    ): Boolean {
-        return try {
-            if (activity != null) {
+        externalAction: PendingExternalAction,
+        activityLauncher: ((Intent) -> Unit)?,
+    ) {
+        pendingExternalAction = externalAction
+        try {
+            if (activityLauncher != null) {
+                activityLauncher(intent)
+            } else if (activity != null) {
                 activity.startActivity(intent)
             } else {
                 context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            true
         } catch (_: ActivityNotFoundException) {
-            manager.onDeliveryResult(UpdateDeliveryResult.Failed(UpdateDeliveryFailure.ACTIVITY_NOT_FOUND))
-            false
+            complete(
+                UpdateDeliveryResult.Failed(UpdateDeliveryFailure.ACTIVITY_NOT_FOUND),
+                activity,
+            )
         } catch (_: Exception) {
-            manager.onDeliveryResult(UpdateDeliveryResult.Failed(UpdateDeliveryFailure.PLATFORM_FAILURE))
-            false
+            complete(
+                UpdateDeliveryResult.Failed(UpdateDeliveryFailure.PLATFORM_FAILURE),
+                activity,
+            )
         }
+    }
+
+    private fun complete(
+        result: UpdateDeliveryResult,
+        activity: Activity?,
+    ) {
+        pendingExternalAction = null
+        val callback = pendingResultCallback
+        val nextAction = consumeDeliveryResult(result)
+        callback?.invoke(result)
+        if (nextAction == null) {
+            pendingResultCallback = null
+        } else {
+            execute(nextAction, activity)
+        }
+    }
+
+    private enum class PendingExternalAction {
+        UNKNOWN_SOURCES,
+        INSTALLER,
     }
 }

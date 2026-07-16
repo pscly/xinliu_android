@@ -1,6 +1,5 @@
 package cc.pscly.onememos.ui.feature.auth
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.core.network.FlowBackendApi
@@ -12,7 +11,6 @@ import cc.pscly.onememos.data.auth.FlowBackendCredentialStorage
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
-import cc.pscly.onememos.ui.Routes
 import cc.pscly.onememos.navigation.AuthKey
 import cc.pscly.onememos.navigation.AuthMode
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -63,10 +61,7 @@ class AuthViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val syncScheduler: SyncScheduler,
     private val flowBackendCredentialStorage: FlowBackendCredentialStorage,
-    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val startMode: String? = savedStateHandle.get<String>(Routes.ARG_AUTH_MODE)
-
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
@@ -75,16 +70,18 @@ class AuthViewModel @Inject constructor(
 
     private var initialized = false
     private var boundKey: AuthKey? = null
+    private var pendingKey: AuthKey? = null
 
     fun bind(key: AuthKey) {
         if (boundKey == key) return
         boundKey = key
-        // 幂等：若 init 已完成则按 key 调整 tab；否则写入 startMode 语义
         val wantCustom = key.mode == AuthMode.CUSTOM_TOKEN
         if (initialized) {
             _uiState.update {
                 it.copy(tab = if (wantCustom) AuthTab.CUSTOM else AuthTab.BACKEND, error = null)
             }
+        } else {
+            pendingKey = key
         }
     }
 
@@ -94,11 +91,12 @@ class AuthViewModel @Inject constructor(
             if (initialized) return@launch
             initialized = true
             val tab =
-                if (startMode.equals("custom", ignoreCase = true)) {
+                if (pendingKey?.mode == AuthMode.CUSTOM_TOKEN) {
                     AuthTab.CUSTOM
                 } else {
                     AuthTab.BACKEND
                 }
+            pendingKey = null
             _uiState.update {
                 it.copy(
                     tab = tab,

@@ -114,7 +114,7 @@ class AppNavigationProcessRestorationTest {
         val before = controller.snapshot()
         val result =
             controller.applyPendingExternal(
-                ExternalNavigationInput.LegacyRouteExtra("nope"),
+                ExternalNavigationInput.TodoNotification(itemId = " ", expectedOwnerKey = "o"),
                 forceNewDelivery = true,
             )
         assertTrue(result is ExternalNavigationResult.Rejected)

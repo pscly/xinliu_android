@@ -163,9 +163,6 @@ class TodoReminderNotifyWorker @AssistedInject constructor(
         const val TAG = "todo_reminder_notify"
         const val CHANNEL_ID = "todo_reminders"
 
-        @Deprecated("迁移期兼容常量；Task 12 后生产者改用 ACTION_OPEN_TODO")
-        const val EXTRA_START_ROUTE = "cc.pscly.onememos.extra.START_ROUTE"
-
         const val KEY_ITEM_ID = "itemId"
         const val KEY_OWNER_KEY = "ownerKey"
         const val KEY_DUE_AT_LOCAL = "dueAtLocal"

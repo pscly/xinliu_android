@@ -11,15 +11,6 @@ class ExternalNavigationMapper {
                     section = TopLevelSection.TODO,
                     mutation = ExternalStackMutation.ResetToRoot,
                 )
-            is ExternalNavigationInput.LegacyRouteExtra ->
-                if (input.value == "todo") {
-                    ExternalNavigationResult.Accepted(
-                        section = TopLevelSection.TODO,
-                        mutation = ExternalStackMutation.ResetToRoot,
-                    )
-                } else {
-                    ExternalNavigationResult.Rejected(ExternalNavigationRejection.UNKNOWN_VALUE)
-                }
         }
 
     private fun String.editorResult(): ExternalNavigationResult {
