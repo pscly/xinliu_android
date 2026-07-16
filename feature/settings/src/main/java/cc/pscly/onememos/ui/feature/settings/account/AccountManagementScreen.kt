@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.settings.AccountSyncHealth
 import cc.pscly.onememos.domain.settings.AccountSyncSettingsCommand
 import cc.pscly.onememos.domain.settings.AccountSyncSettingsSnapshot
+import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
@@ -79,6 +80,9 @@ fun AccountManagementScreen(
             showLogoutConfirmation = false
             viewModel.confirmLogout()
         },
+        passwordError = uiState.passwordError,
+        logoutError = uiState.logoutError,
+        passwordSuccessGeneration = uiState.passwordSuccessGeneration,
     )
 }
 
@@ -92,10 +96,14 @@ fun AccountManagementContent(
     showLogoutConfirmation: Boolean = false,
     onRequestLogout: () -> Unit = {},
     onDismissLogout: () -> Unit = {},
+    passwordError: SettingsCapabilityError? = null,
+    logoutError: SettingsCapabilityError? = null,
+    passwordSuccessGeneration: Int = 0,
 ) {
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var repeatedPassword by remember { mutableStateOf("") }
+    val currentPasswordFocusRequester = remember { FocusRequester() }
     val logoutFocusRequester = remember { FocusRequester() }
     var restoreLogoutFocus by remember { mutableStateOf(false) }
     var localLogoutConfirmation by remember { mutableStateOf(false) }
@@ -104,6 +112,18 @@ fun AccountManagementContent(
         if (!logoutConfirmationVisible && restoreLogoutFocus) {
             logoutFocusRequester.requestFocus()
             restoreLogoutFocus = false
+        }
+    }
+    LaunchedEffect(passwordError) {
+        if (passwordError != null) {
+            currentPasswordFocusRequester.requestFocus()
+        }
+    }
+    LaunchedEffect(passwordSuccessGeneration) {
+        if (passwordSuccessGeneration > 0) {
+            currentPassword = ""
+            newPassword = ""
+            repeatedPassword = ""
         }
     }
 
@@ -155,7 +175,10 @@ fun AccountManagementContent(
                     onValueChange = { currentPassword = it },
                     label = stringResource(R.string.settings_account_password_current),
                     enabled = canChangePassword,
-                    modifier = Modifier.testTag("settings_account_password_current"),
+                    modifier =
+                        Modifier
+                            .focusRequester(currentPasswordFocusRequester)
+                            .testTag("settings_account_password_current"),
                 )
                 PasswordField(
                     value = newPassword,
@@ -171,12 +194,17 @@ fun AccountManagementContent(
                     enabled = canChangePassword,
                     modifier = Modifier.testTag("settings_account_password_repeat"),
                 )
+                if (passwordError != null) {
+                    Text(
+                        text = errorText(passwordError),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag("settings_account_password_error"),
+                    )
+                }
                 Button(
                     onClick = {
                         onChangePassword(currentPassword, newPassword, repeatedPassword)
-                        currentPassword = ""
-                        newPassword = ""
-                        repeatedPassword = ""
                     },
                     enabled = passwordActionEnabled,
                     modifier =
@@ -210,6 +238,17 @@ fun AccountManagementContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
             )
+            if (logoutError != null) {
+                Text(
+                    text = errorText(logoutError),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier =
+                        Modifier
+                            .padding(top = 8.dp)
+                            .testTag("settings_account_logout_error"),
+                )
+            }
             OutlinedButton(
                 onClick = {
                     localLogoutConfirmation = true

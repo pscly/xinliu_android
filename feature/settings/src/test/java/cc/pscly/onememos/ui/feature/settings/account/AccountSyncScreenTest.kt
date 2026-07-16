@@ -252,6 +252,73 @@ class AccountSyncScreenTest {
     }
 
     @Test
+    fun advancedSync_fullResyncCompleted_showsAcknowledgeAndInvokesCallback() {
+        var acknowledgedId: String? = null
+        composeRule.setContent {
+            OneMemosTheme {
+                AdvancedSyncContent(
+                    snapshot =
+                        snapshot(
+                            AccountSyncHealth.FullResyncCompleted(
+                                completionId = "run-200",
+                                completedAtEpochMs = 200L,
+                            ),
+                        ),
+                    onBack = {},
+                    onConfirmFullResync = {},
+                    onAcknowledgeFullResyncCompletion = { acknowledgedId = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("全量重同步已完成").assertIsDisplayed()
+        val acknowledge = composeRule.onNodeWithTag("settings_account_full_resync_acknowledge")
+        acknowledge.performScrollTo().assertIsDisplayed().assertIsEnabled()
+        composeRule.onNodeWithText("知道了").assertIsDisplayed()
+        acknowledge.performClick()
+        composeRule.waitForIdle()
+        assertEquals("run-200", acknowledgedId)
+    }
+
+    @Test
+    fun passwordFailure_retainsInputsAndRequestsCurrentPasswordFocus_successClearsInputs() {
+        var passwordError by mutableStateOf<SettingsCapabilityError?>(null)
+        var passwordSuccessGeneration by mutableStateOf(0)
+        var submitted by mutableStateOf(0)
+        composeRule.setContent {
+            OneMemosTheme {
+                AccountManagementContent(
+                    snapshot = snapshot(AccountSyncHealth.Healthy(lastSuccessAtEpochMs = 100L)),
+                    onBack = {},
+                    onChangePassword = { _, _, _ -> submitted += 1 },
+                    onConfirmLogout = {},
+                    passwordError = passwordError,
+                    passwordSuccessGeneration = passwordSuccessGeneration,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("settings_account_password_current").performTextReplacement("old-pass")
+        composeRule.onNodeWithTag("settings_account_password_new").performTextReplacement("new-pass1")
+        composeRule.onNodeWithTag("settings_account_password_repeat").performTextReplacement("new-pass1")
+        composeRule.onNodeWithTag("settings_account_password_save").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, submitted)
+
+        passwordError = SettingsCapabilityError.InvalidInput
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("输入内容不符合要求。").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_account_password_current").assertIsFocused()
+        // 失败后三框保留原值：保存按钮仍可点（输入未清空）
+        composeRule.onNodeWithTag("settings_account_password_save").assertIsEnabled()
+
+        passwordError = null
+        passwordSuccessGeneration = 1
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_account_password_save").assertIsNotEnabled()
+    }
+
+    @Test
     fun fullResync_retryRequiresImpactConfirmation_andReturnsFocus() {
         var confirmed = 0
         composeRule.setContent {
@@ -328,7 +395,8 @@ class AccountSyncScreenTest {
         )
         composeRule.waitForIdle()
         composeRule.onNodeWithText("全量重同步已完成").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings_account_full_resync_action").assertIsNotEnabled()
+        composeRule.onNodeWithTag("settings_account_full_resync_acknowledge").assertIsEnabled()
+        composeRule.onNodeWithText("知道了").assertIsDisplayed()
 
         snapshot =
             snapshot(

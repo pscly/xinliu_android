@@ -6,6 +6,7 @@ import cc.pscly.onememos.domain.settings.AccountSyncSettingsCapability
 import cc.pscly.onememos.domain.settings.AccountSyncSettingsCommand
 import cc.pscly.onememos.domain.settings.AccountSyncSettingsResult
 import cc.pscly.onememos.domain.settings.AccountSyncSettingsSnapshot
+import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.navigation.AccountManagementSettingsKey
 import cc.pscly.onememos.navigation.AdvancedSyncSettingsKey
 import cc.pscly.onememos.navigation.AuthKey
@@ -15,30 +16,41 @@ import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * 账号同步 UI 状态。
+ * 命令错误按命令族分区：sync / password / logout / fullResync，互不覆盖。
+ */
 data class AccountSyncUiState(
     val snapshot: AccountSyncSettingsSnapshot? = null,
+    val syncError: SettingsCapabilityError? = null,
+    val passwordError: SettingsCapabilityError? = null,
+    val logoutError: SettingsCapabilityError? = null,
+    val fullResyncError: SettingsCapabilityError? = null,
+    /** 密码修改成功代数；界面据此清空输入，失败不递增。 */
+    val passwordSuccessGeneration: Int = 0,
 )
 
 @HiltViewModel
 class AccountSyncViewModel @Inject constructor(
     private val capability: AccountSyncSettingsCapability,
 ) : ViewModel() {
-    val uiState: StateFlow<AccountSyncUiState> =
-        capability
-            .observe()
-            .map { AccountSyncUiState(snapshot = it) }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000L),
-                initialValue = AccountSyncUiState(),
-            )
+    private val _uiState = MutableStateFlow(AccountSyncUiState())
+    val uiState: StateFlow<AccountSyncUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            capability.observe().collect { snapshot ->
+                _uiState.update { it.copy(snapshot = snapshot) }
+            }
+        }
+    }
 
     private val _events = MutableSharedFlow<SettingsUiEvent>(replay = 0, extraBufferCapacity = 1)
     val events = _events.asSharedFlow()
@@ -89,14 +101,55 @@ class AccountSyncViewModel @Inject constructor(
         execute(AccountSyncSettingsCommand.FullResync)
     }
 
+    fun acknowledgeFullResyncCompletion(completionId: String) {
+        execute(AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion(completionId = completionId))
+    }
+
     private fun execute(command: AccountSyncSettingsCommand) {
         viewModelScope.launch {
-            when (capability.execute(command)) {
-                AccountSyncSettingsResult.Success ->
+            when (val result = capability.execute(command)) {
+                AccountSyncSettingsResult.Success -> {
+                    onCommandSuccess(command)
                     _events.emit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_SUCCEEDED))
+                }
                 AccountSyncSettingsResult.IgnoredDuplicate -> Unit
-                is AccountSyncSettingsResult.Failure ->
+                is AccountSyncSettingsResult.Failure -> {
+                    onCommandFailure(command, result.error)
                     _events.emit(SettingsUiEvent.Toast(SettingsMessage.COMMAND_FAILED))
+                }
+            }
+        }
+    }
+
+    private fun onCommandSuccess(command: AccountSyncSettingsCommand) {
+        _uiState.update { current ->
+            when (command) {
+                AccountSyncSettingsCommand.SyncNow -> current.copy(syncError = null)
+                is AccountSyncSettingsCommand.ChangePassword ->
+                    current.copy(
+                        passwordError = null,
+                        passwordSuccessGeneration = current.passwordSuccessGeneration + 1,
+                    )
+                AccountSyncSettingsCommand.Logout -> current.copy(logoutError = null)
+                AccountSyncSettingsCommand.FullResync,
+                is AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion,
+                -> current.copy(fullResyncError = null)
+            }
+        }
+    }
+
+    private fun onCommandFailure(
+        command: AccountSyncSettingsCommand,
+        error: SettingsCapabilityError,
+    ) {
+        _uiState.update { current ->
+            when (command) {
+                AccountSyncSettingsCommand.SyncNow -> current.copy(syncError = error)
+                is AccountSyncSettingsCommand.ChangePassword -> current.copy(passwordError = error)
+                AccountSyncSettingsCommand.Logout -> current.copy(logoutError = error)
+                AccountSyncSettingsCommand.FullResync,
+                is AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion,
+                -> current.copy(fullResyncError = error)
             }
         }
     }

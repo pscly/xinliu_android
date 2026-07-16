@@ -92,5 +92,6 @@
     <string name="settings_account_full_resync_dialog_text">确认后会在后台重新获取全部远端内容，期间不能再次启动。</string>
     <string name="settings_account_full_resync_confirm_start">确认开始</string>
     <string name="settings_account_full_resync_confirm_retry">确认重试</string>
+    <string name="settings_account_full_resync_acknowledge">知道了</string>
     <string name="settings_account_cancel">取消</string>
 </resources>

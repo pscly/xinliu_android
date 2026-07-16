@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.settings.AccountSyncHealth
 import cc.pscly.onememos.domain.settings.AccountSyncSettingsCommand
 import cc.pscly.onememos.domain.settings.AccountSyncSettingsSnapshot
+import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
@@ -72,6 +73,8 @@ fun AdvancedSyncScreen(
             showConfirmation = false
             viewModel.confirmFullResync()
         },
+        onAcknowledgeFullResyncCompletion = viewModel::acknowledgeFullResyncCompletion,
+        commandError = uiState.fullResyncError,
     )
 }
 
@@ -84,7 +87,11 @@ fun AdvancedSyncContent(
     showConfirmation: Boolean = false,
     onRequestFullResync: () -> Unit = {},
     onDismissConfirmation: () -> Unit = {},
+    onAcknowledgeFullResyncCompletion: (String) -> Unit = {},
+    commandError: SettingsCapabilityError? = null,
 ) {
+    val completed =
+        snapshot.health as? AccountSyncHealth.FullResyncCompleted
     val action = fullResyncAction(snapshot)
     val actionLabel = stringResource(action.labelRes)
     val actionState = stringResource(action.stateRes)
@@ -125,22 +132,51 @@ fun AdvancedSyncContent(
                     },
                 modifier = Modifier.padding(top = 8.dp),
             )
-            OutlinedButton(
-                onClick = {
-                    localConfirmation = true
-                    onRequestFullResync()
-                },
-                enabled = action.enabled,
-                modifier =
-                    Modifier
-                        .padding(top = 10.dp)
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .focusRequester(focusRequester)
-                        .testTag("settings_account_full_resync_action")
-                        .semantics { stateDescription = actionState },
-            ) {
-                Text(text = actionLabel)
+            if (commandError != null) {
+                Text(
+                    text = errorText(commandError),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier =
+                        Modifier
+                            .padding(top = 8.dp)
+                            .testTag("settings_account_full_resync_error"),
+                )
+            }
+            if (completed != null) {
+                val acknowledgeLabel =
+                    stringResource(R.string.settings_account_full_resync_acknowledge)
+                OutlinedButton(
+                    onClick = { onAcknowledgeFullResyncCompletion(completed.completionId) },
+                    enabled = snapshot.commandInFlight == null,
+                    modifier =
+                        Modifier
+                            .padding(top = 10.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .testTag("settings_account_full_resync_acknowledge")
+                            .semantics { stateDescription = acknowledgeLabel },
+                ) {
+                    Text(text = acknowledgeLabel)
+                }
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        localConfirmation = true
+                        onRequestFullResync()
+                    },
+                    enabled = action.enabled,
+                    modifier =
+                        Modifier
+                            .padding(top = 10.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .focusRequester(focusRequester)
+                            .testTag("settings_account_full_resync_action")
+                            .semantics { stateDescription = actionState },
+                ) {
+                    Text(text = actionLabel)
+                }
             }
         }
     }

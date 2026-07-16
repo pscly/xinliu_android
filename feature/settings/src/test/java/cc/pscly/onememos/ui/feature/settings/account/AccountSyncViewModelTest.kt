@@ -144,6 +144,113 @@ class AccountSyncViewModelTest {
         }
 
     @Test
+    fun acknowledgeFullResyncCompletion_executesCapabilityWithCompletionId() =
+        runBlocking {
+            val fake = FakeAccountSyncCapability(MutableSharedFlow())
+            val viewModel = AccountSyncViewModel(fake)
+
+            viewModel.acknowledgeFullResyncCompletion("run-200")
+
+            await { fake.commands.size == 1 }
+            assertEquals(
+                listOf(
+                    AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion(
+                        completionId = "run-200",
+                    ),
+                ),
+                fake.commands,
+            )
+        }
+
+    @Test
+    fun passwordFailure_keepsPartitionedError_andSyncSuccessDoesNotClearIt() =
+        runBlocking {
+            val fake =
+                FakeAccountSyncCapability(
+                    snapshots = MutableSharedFlow(),
+                    resultProvider = { command ->
+                        when (command) {
+                            is AccountSyncSettingsCommand.ChangePassword ->
+                                AccountSyncSettingsResult.Failure(
+                                    SettingsCapabilityError.InvalidInput,
+                                )
+                            AccountSyncSettingsCommand.SyncNow ->
+                                AccountSyncSettingsResult.Success
+                            else -> AccountSyncSettingsResult.Success
+                        }
+                    },
+                )
+            val viewModel = AccountSyncViewModel(fake)
+            val collector = launch { viewModel.uiState.collect {} }
+            try {
+                viewModel.changePassword("current", "new-password", "new-password")
+                await {
+                    viewModel.uiState.value.passwordError == SettingsCapabilityError.InvalidInput
+                }
+                assertEquals(SettingsCapabilityError.InvalidInput, viewModel.uiState.value.passwordError)
+                assertEquals(null, viewModel.uiState.value.syncError)
+
+                viewModel.syncNow()
+                await { fake.commands.size == 2 }
+                delay(50L)
+                assertEquals(SettingsCapabilityError.InvalidInput, viewModel.uiState.value.passwordError)
+                assertEquals(null, viewModel.uiState.value.syncError)
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
+    fun fullResyncBusyOrFailure_mapsOnlyToFullResyncErrorSlot() =
+        runBlocking {
+            val fake =
+                FakeAccountSyncCapability(
+                    snapshots = MutableSharedFlow(),
+                    resultProvider = { command ->
+                        when (command) {
+                            is AccountSyncSettingsCommand.ChangePassword ->
+                                AccountSyncSettingsResult.Failure(
+                                    SettingsCapabilityError.NetworkUnavailable,
+                                )
+                            AccountSyncSettingsCommand.FullResync ->
+                                AccountSyncSettingsResult.Failure(
+                                    SettingsCapabilityError.AlreadyRunning,
+                                )
+                            else -> AccountSyncSettingsResult.Success
+                        }
+                    },
+                )
+            val viewModel = AccountSyncViewModel(fake)
+            val collector = launch { viewModel.uiState.collect {} }
+            try {
+                viewModel.changePassword("current", "new-password", "new-password")
+                await {
+                    viewModel.uiState.value.passwordError ==
+                        SettingsCapabilityError.NetworkUnavailable
+                }
+
+                viewModel.confirmFullResync()
+                await {
+                    viewModel.uiState.value.fullResyncError ==
+                        SettingsCapabilityError.AlreadyRunning
+                }
+
+                assertEquals(
+                    SettingsCapabilityError.NetworkUnavailable,
+                    viewModel.uiState.value.passwordError,
+                )
+                assertEquals(
+                    SettingsCapabilityError.AlreadyRunning,
+                    viewModel.uiState.value.fullResyncError,
+                )
+                assertEquals(null, viewModel.uiState.value.syncError)
+                assertEquals(null, viewModel.uiState.value.logoutError)
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
     fun events_haveReplayZero_andConsumedEventIsNotReplayed() =
         runBlocking {
             val viewModel = AccountSyncViewModel(FakeAccountSyncCapability(MutableSharedFlow()))
@@ -209,6 +316,9 @@ class AccountSyncViewModelTest {
 
     private class FakeAccountSyncCapability(
         private val snapshots: Flow<AccountSyncSettingsSnapshot>,
+        private val resultProvider: (AccountSyncSettingsCommand) -> AccountSyncSettingsResult = {
+            AccountSyncSettingsResult.Success
+        },
     ) : AccountSyncSettingsCapability {
         val commands = mutableListOf<AccountSyncSettingsCommand>()
 
@@ -216,7 +326,7 @@ class AccountSyncViewModelTest {
 
         override suspend fun execute(command: AccountSyncSettingsCommand): AccountSyncSettingsResult {
             commands += command
-            return AccountSyncSettingsResult.Success
+            return resultProvider(command)
         }
     }
 
