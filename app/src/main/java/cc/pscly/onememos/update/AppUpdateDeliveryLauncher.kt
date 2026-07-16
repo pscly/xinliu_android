@@ -169,13 +169,12 @@ class AppUpdateDeliveryLauncher private constructor(
     ) {
         pendingExternalAction = null
         val callback = pendingResultCallback
+        pendingResultCallback = null
         val nextAction = consumeDeliveryResult(result)
-        callback?.invoke(result)
-        if (nextAction == null) {
-            pendingResultCallback = null
-        } else {
+        if (nextAction != null) {
             execute(nextAction, activity)
         }
+        callback?.invoke(result)
     }
 
     private enum class PendingExternalAction {

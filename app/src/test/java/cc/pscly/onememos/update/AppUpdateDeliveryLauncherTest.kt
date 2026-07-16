@@ -36,6 +36,106 @@ class AppUpdateDeliveryLauncherTest {
     }
 
     @Test
+    fun permissionReturn_startsManagerFollowUpBeforeCallingOrigin() {
+        val events = mutableListOf<String>()
+        val install = UpdateDeliveryAction.InstallApk("content://updates/one-memos.apk")
+        var nextAction: UpdateDeliveryAction? = install
+        val launcher =
+            AppUpdateDeliveryLauncher(
+                context = RuntimeEnvironment.getApplication(),
+                requestDeliveryAction = { null },
+                consumeDeliveryResult = {
+                    events += "manager"
+                    nextAction.also { nextAction = null }
+                },
+                canRequestPackageInstalls = { true },
+            )
+        launcher.bindUnknownSourcesLauncher {}
+        launcher.bindInstallerLauncher { events += "follow-up" }
+        launcher.dispatch(
+            UpdateDeliveryAction.OpenUnknownSourcesSettings("cc.pscly.onememos"),
+            activity = null,
+            onResult = { events += "origin" },
+        )
+
+        launcher.onUnknownSourcesReturned(activity = null)
+
+        assertEquals(listOf("manager", "follow-up", "origin"), events)
+    }
+
+    @Test
+    fun permissionThenInstallerReturn_callsOriginOnlyForDispatchedAction() {
+        val install = UpdateDeliveryAction.InstallApk("content://updates/one-memos.apk")
+        val fixture = fixture(permissionGranted = true, followUp = install)
+        fixture.launcher.dispatch(
+            UpdateDeliveryAction.OpenUnknownSourcesSettings("cc.pscly.onememos"),
+            activity = null,
+            onResult = fixture.callbackResults::add,
+        )
+
+        fixture.launcher.onUnknownSourcesReturned(activity = null)
+        fixture.launcher.onInstallerReturned()
+
+        val permission = UpdateDeliveryResult.UnknownSourcesPermissionChanged(granted = true)
+        assertEquals(
+            listOf(permission, UpdateDeliveryResult.InstallerReturned),
+            fixture.managerResults,
+        )
+        assertEquals(listOf(permission), fixture.callbackResults)
+    }
+
+    @Test
+    fun permissionFollowUpFailure_callsOriginOnceAfterManagerHandlesFailure() {
+        val permission = UpdateDeliveryResult.UnknownSourcesPermissionChanged(granted = true)
+        val failure = UpdateDeliveryResult.Failed(UpdateDeliveryFailure.ACTIVITY_NOT_FOUND)
+        val managerResults = mutableListOf<UpdateDeliveryResult>()
+        val callbackResults = mutableListOf<UpdateDeliveryResult>()
+        val events = mutableListOf<String>()
+        val launcher =
+            AppUpdateDeliveryLauncher(
+                context = RuntimeEnvironment.getApplication(),
+                requestDeliveryAction = { null },
+                consumeDeliveryResult = { result ->
+                    managerResults += result
+                    events += "manager:$result"
+                    if (result == permission) {
+                        UpdateDeliveryAction.InstallApk("content://updates/one-memos.apk")
+                    } else {
+                        null
+                    }
+                },
+                canRequestPackageInstalls = { true },
+            )
+        launcher.bindUnknownSourcesLauncher {}
+        launcher.bindInstallerLauncher {
+            events += "follow-up"
+            throw ActivityNotFoundException("missing")
+        }
+        launcher.dispatch(
+            UpdateDeliveryAction.OpenUnknownSourcesSettings("cc.pscly.onememos"),
+            activity = null,
+            onResult = {
+                callbackResults += it
+                events += "origin:$it"
+            },
+        )
+
+        launcher.onUnknownSourcesReturned(activity = null)
+
+        assertEquals(listOf(permission, failure), managerResults)
+        assertEquals(listOf(permission), callbackResults)
+        assertEquals(
+            listOf(
+                "manager:$permission",
+                "follow-up",
+                "manager:$failure",
+                "origin:$permission",
+            ),
+            events,
+        )
+    }
+
+    @Test
     fun installDispatch_waitsForExternalReturnBeforeReportingResult() {
         val fixture = fixture()
         val install = UpdateDeliveryAction.InstallApk("content://updates/one-memos.apk")
