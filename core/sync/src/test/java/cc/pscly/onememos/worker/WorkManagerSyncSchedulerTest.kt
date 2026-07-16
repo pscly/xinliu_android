@@ -145,7 +145,7 @@ class WorkManagerSyncSchedulerTest {
      * 全量 KEEP 被丢弃后经 after.keys-before.keys → Busy（非 pre-commit Busy）。
      */
     @Test
-    fun dualSchedulerKeepRace_emptyBefore_normalContender_fullBusyViaKeysDiff() =
+    fun seededNormalContender_emptyBeforeFull_commitBusyViaKeysDiff() =
         runBlocking {
             val manager = FakeSyncWorkManager(handoff = CompletableDeferred())
             val scheduler = WorkManagerSyncScheduler(manager)
