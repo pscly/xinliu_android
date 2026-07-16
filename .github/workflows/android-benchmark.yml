@@ -7,25 +7,10 @@ on:
       - main
     tags:
       - 'v*'
-      - 'benchmark-*'
   workflow_dispatch:
-    inputs:
-      publish_release:
-        description: '是否同时发布 GitHub Release'
-        required: true
-        type: boolean
-        default: false
-      release_tag:
-        description: '可选：发布用 tag；留空则自动生成 benchmark-时间戳'
-        required: false
-        default: ''
-      release_title:
-        description: '可选：Release 标题；留空则自动生成'
-        required: false
-        default: ''
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: android-benchmark-${{ github.ref }}
@@ -67,18 +52,17 @@ jobs:
           STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
-          DISPATCH_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release || false }}
         run: |
           set -euo pipefail
 
           require_signing=false
-          if [[ "${GITHUB_REF:-}" == "refs/heads/main" || "${GITHUB_REF:-}" == refs/tags/* || "$DISPATCH_PUBLISH" == "true" ]]; then
+          if [[ "${GITHUB_REF:-}" == "refs/heads/main" || "${GITHUB_REF:-}" == refs/tags/v* ]]; then
             require_signing=true
           fi
 
           if [[ -z "$KEYSTORE_BASE64" || -z "$STORE_PASSWORD" || -z "$KEY_ALIAS" || -z "$KEY_PASSWORD" ]]; then
             if [[ "$require_signing" == "true" ]]; then
-              echo "错误：正式构建缺少固定 Android 发布签名 Secrets" >&2
+              echo "错误：main / 稳定 Tag 构建缺少固定 Android 发布签名 Secrets" >&2
               exit 1
             fi
             echo "PR 校验未注入发布签名，使用临时本地签名完成门禁。"
@@ -102,9 +86,6 @@ jobs:
       - name: 收集 benchmark APK 与版本元数据
         id: meta
         shell: bash
-        env:
-          INPUT_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
-          INPUT_RELEASE_TITLE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_title || '' }}
         run: |
           set -euo pipefail
 
@@ -123,32 +104,6 @@ jobs:
             exit 1
           fi
 
-          if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
-            release_tag="${GITHUB_REF_NAME}"
-          elif [[ -n "${INPUT_RELEASE_TAG:-}" ]]; then
-            release_tag="${INPUT_RELEASE_TAG}"
-          else
-            release_tag="benchmark-$(date '+%Y-%m-%dT%H-%M-%S')-run${GITHUB_RUN_NUMBER}"
-          fi
-
-          stable_release=false
-          if [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            stable_release=true
-            expected_tag="v${version_name}"
-            if [[ "$release_tag" != "$expected_tag" ]]; then
-              echo "错误：稳定版 Tag $release_tag 与 app 版本 $expected_tag 不一致" >&2
-              exit 1
-            fi
-          fi
-
-          if [[ -n "${INPUT_RELEASE_TITLE:-}" ]]; then
-            release_title="${INPUT_RELEASE_TITLE}"
-          elif [[ "$stable_release" == "true" ]]; then
-            release_title="1memos ${version_name}"
-          else
-            release_title="1memos benchmark ${version_name} (${release_tag})"
-          fi
-
           artifact_name="benchmark-apk-${version_name}-${version_code}-run${GITHUB_RUN_NUMBER}"
           sha_short="$(git rev-parse --short HEAD)"
 
@@ -157,11 +112,8 @@ jobs:
             echo "apk_name=$apk_name"
             echo "version_name=$version_name"
             echo "version_code=$version_code"
-            echo "release_tag=$release_tag"
-            echo "release_title=$release_title"
             echo "artifact_name=$artifact_name"
             echo "sha_short=$sha_short"
-            echo "stable_release=$stable_release"
           } >> "$GITHUB_OUTPUT"
 
       - name: 核验 Benchmark APK 签名与清单
@@ -211,85 +163,6 @@ jobs:
             echo "- Artifact：\`${{ steps.meta.outputs.artifact_name }}\`"
             echo "- 触发方式：\`${{ github.event_name }}\`"
             echo "- 固定签名证书 SHA-256：\`${EXPECTED_BENCHMARK_SIGNER_SHA256}\`"
-            echo "- 稳定版：push \`vMAJOR.MINOR.PATCH\` tag；benchmark tag 只发布预发布版本"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: 创建或更新 GitHub Release
-        id: release
-        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
-          RELEASE_TITLE: ${{ steps.meta.outputs.release_title }}
-          APK_PATH: ${{ steps.meta.outputs.apk_path }}
-          APK_NAME: ${{ steps.meta.outputs.apk_name }}
-          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
-          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
-          STABLE_RELEASE: ${{ steps.meta.outputs.stable_release }}
-        run: |
-          set -euo pipefail
-
-          previous_stable_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -Fxv "$RELEASE_TAG" | head -n 1 || true)"
-          if [[ -n "$previous_stable_tag" ]]; then
-            change_log="$(git log "${previous_stable_tag}..${GITHUB_SHA}" --pretty='- %s')"
-          else
-            change_log="- 首次稳定版发布"
-          fi
-
-          cat > release-notes.md <<EOF
-          ## 更新内容
-
-          ${change_log}
-
-          ## 构建信息
-
-          - 版本：${VERSION_NAME} (${VERSION_CODE})
-          - 构建时间：$(date '+%Y-%m-%d %H:%M:%S %Z')
-          - 提交：${GITHUB_SHA}
-          - 工作流：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-          - 说明：本 Release 由 GitHub Actions 使用固定签名构建，并上传经过包名、版本和签名校验的 Benchmark APK。
-          EOF
-
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            mapfile -t existing_apks < <(gh release view "$RELEASE_TAG" --json assets --jq '.assets[] | select(.name | endswith(".apk")) | .name')
-            if [[ ${#existing_apks[@]} -gt 0 ]]; then
-              for asset_name in "${existing_apks[@]}"; do
-                gh release delete-asset "$RELEASE_TAG" "$asset_name" --yes
-              done
-            fi
-            gh release upload "$RELEASE_TAG" "$APK_PATH#$APK_NAME"
-            if [[ "$STABLE_RELEASE" == "true" ]]; then
-              gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md --prerelease=false --latest
-            else
-              gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md --prerelease
-            fi
-          else
-            if [[ "$STABLE_RELEASE" == "true" ]]; then
-              gh release create "$RELEASE_TAG" "$APK_PATH#$APK_NAME" \
-                --title "$RELEASE_TITLE" \
-                --notes-file release-notes.md \
-                --target "$GITHUB_SHA" \
-                --latest
-            else
-              gh release create "$RELEASE_TAG" "$APK_PATH#$APK_NAME" \
-                --title "$RELEASE_TITLE" \
-                --notes-file release-notes.md \
-                --target "$GITHUB_SHA" \
-                --prerelease
-            fi
-          fi
-
-          release_url="$(gh release view "$RELEASE_TAG" --json url --jq '.url')"
-          echo "release_url=$release_url" >> "$GITHUB_OUTPUT"
-
-      - name: 追加 Release 摘要
-        if: steps.release.outputs.release_url != ''
-        run: |
-          {
-            echo
-            echo "## GitHub Release"
-            echo
-            echo "- Tag：\`${{ steps.meta.outputs.release_tag }}\`"
-            echo "- URL：${{ steps.release.outputs.release_url }}"
+            echo "- 稳定版：完整门禁后推送 main 与 \`vMAJOR.MINOR.PATCH\` Tag；仅在该 Tag run 与 Artifact 复核成功后创建正式 Release"
+            echo "- 本工作流只验证并上传 Artifact，不创建 Tag，也不创建/更新 GitHub Release"
           } >> "$GITHUB_STEP_SUMMARY"
