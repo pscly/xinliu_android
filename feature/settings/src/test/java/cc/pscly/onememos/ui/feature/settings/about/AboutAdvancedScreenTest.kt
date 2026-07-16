@@ -497,8 +497,15 @@ class AboutAdvancedScreenTest {
         assertFalse(body.contains("requestDelivery("))
         assertFalse(body.contains("exportDiagnostics("))
         assertFalse(body.contains("LaunchedEffect(Unit)"))
-        assertTrue(body.contains("repeatOnLifecycle"))
-        assertTrue(body.contains("Lifecycle.State.STARTED"))
+        assertFalse(body.contains("events.collect"))
+        val contributor =
+            File(
+                projectDir,
+                "feature/settings/src/main/java/cc/pscly/onememos/ui/feature/settings/SettingsEntryContributor.kt",
+            ).readText()
+        assertTrue(contributor.contains("repeatOnLifecycle(Lifecycle.State.STARTED)"))
+        assertTrue(contributor.contains("LocalSettingsPlatformActionDispatcher.current"))
+        assertTrue(contributor.contains("LocalSettingsUpdateDeliveryDispatcher.current"))
         assertFalse(body.contains("OpenUnknownSourcesSettings"))
         assertFalse(body.contains("InstallApk"))
         assertTrue(body.contains("settings_about_"))

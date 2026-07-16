@@ -4,7 +4,10 @@ import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.domain.update.UpdateDeliveryAction
+import cc.pscly.onememos.ui.settings.AppSettingsUpdateDeliveryDispatcher
 import cc.pscly.onememos.ui.theme.OneMemosThemeConfig
+import cc.pscly.onememos.ui.feature.settings.common.SettingsUpdateDeliveryDispatcher
 import cc.pscly.onememos.update.AppUpdateDeliveryLauncher
 import cc.pscly.onememos.update.AppUpdateManager
 import cc.pscly.onememos.update.AppUpdateUiState
@@ -54,4 +57,19 @@ class AppViewModel @Inject constructor(
     fun dismissUpdatePrompt() = appUpdateManager.dismissPrompt()
 
     fun onHostResumed(activity: Activity?) = updateDeliveryLauncher.onHostResumed(activity)
+
+    fun settingsUpdateDeliveryDispatcher(
+        activityProvider: () -> Activity?,
+    ): SettingsUpdateDeliveryDispatcher =
+        AppSettingsUpdateDeliveryDispatcher(
+            launcher = updateDeliveryLauncher,
+            activityProvider = activityProvider,
+        )
+
+    fun executeSettingsUpdateDelivery(
+        action: UpdateDeliveryAction,
+        activity: Activity?,
+    ) {
+        updateDeliveryLauncher.dispatch(action = action, activity = activity)
+    }
 }

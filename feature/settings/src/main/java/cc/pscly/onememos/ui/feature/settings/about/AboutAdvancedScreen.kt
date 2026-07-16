@@ -25,7 +25,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,10 +44,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import cc.pscly.onememos.domain.settings.DeveloperOptions
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.domain.settings.UpdateSettingsPhase
@@ -56,13 +52,11 @@ import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
-import cc.pscly.onememos.ui.feature.settings.common.SettingsMessage
-import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 
 /**
  * 关于与高级能力页：单列纸墨布局，最大内容宽 720dp。
  * 不在进入时检查更新/导出诊断/下载/安装；Quick Capture 只发平台动作。
- * 事件仅在 STARTED 生命周期收集；分区错误显示在发起操作的卡片旁。
+ * 分区错误显示在发起操作的卡片旁。
  */
 data class AboutAdvancedContentCallbacks(
     val onCheckForUpdates: () -> Unit,
@@ -86,33 +80,11 @@ internal const val DEVELOPER_UNLOCK_PASSWORD = "pscly"
 
 @Composable
 fun AboutAdvancedScreen(
+    confirmation: SettingsConfirmation?,
+    onDismissConfirmation: () -> Unit,
     viewModel: AboutAdvancedViewModel = hiltViewModel(),
-    onPlatformEvent: (SettingsUiEvent.Platform) -> Unit = {},
-    onUpdateDeliveryEvent: (SettingsUiEvent.UpdateDelivery) -> Unit = {},
-    onToast: (SettingsMessage) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showRebuildConfirm by remember { mutableStateOf(false) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    // Task30 集中化前：仅在 STARTED 生命周期收集一次性事件，离开后不重放
-    LaunchedEffect(viewModel, lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.events.collect { event ->
-                when (event) {
-                    is SettingsUiEvent.Platform -> onPlatformEvent(event)
-                    is SettingsUiEvent.UpdateDelivery -> onUpdateDeliveryEvent(event)
-                    is SettingsUiEvent.Toast -> onToast(event.message)
-                    is SettingsUiEvent.Confirm -> {
-                        if (event.request == SettingsConfirmation.REBUILD_DERIVED_FIELDS) {
-                            showRebuildConfirm = true
-                        }
-                    }
-                    is SettingsUiEvent.Navigate -> Unit
-                }
-            }
-        }
-    }
 
     AboutAdvancedContent(
         state = uiState,
@@ -129,14 +101,14 @@ fun AboutAdvancedScreen(
                 onOpenScreenshotCapture = viewModel::onOpenScreenshotCapture,
                 onRequestRebuildDerivedFields = viewModel::onRequestRebuildDerivedFields,
                 onConfirmRebuildDerivedFields = {
-                    showRebuildConfirm = false
+                    onDismissConfirmation()
                     viewModel.onConfirmRebuildDerivedFields()
                 },
-                onDismissRebuildConfirm = { showRebuildConfirm = false },
+                onDismissRebuildConfirm = onDismissConfirmation,
                 onSetAttachmentUploadLimitMb = viewModel::onSetAttachmentUploadLimitMb,
                 onSetDeveloperOptions = viewModel::onSetDeveloperOptions,
             ),
-        showRebuildConfirm = showRebuildConfirm,
+        showRebuildConfirm = confirmation == SettingsConfirmation.REBUILD_DERIVED_FIELDS,
     )
 }
 

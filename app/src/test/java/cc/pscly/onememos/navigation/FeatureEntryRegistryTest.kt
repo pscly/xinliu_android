@@ -5,6 +5,7 @@ import cc.pscly.onememos.ui.feature.collections.CollectionsEntryContributor
 import cc.pscly.onememos.ui.feature.editor.EditorEntryContributor
 import cc.pscly.onememos.ui.feature.home.HomeEntryContributor
 import cc.pscly.onememos.ui.feature.profile.ProfileEntryContributor
+import cc.pscly.onememos.ui.feature.settings.SettingsEntryContributor
 import cc.pscly.onememos.ui.feature.sharecard.ShareCardEntryContributor
 import cc.pscly.onememos.ui.feature.todo.TodoEntryContributor
 import cc.pscly.onememos.ui.feature.welcome.WelcomeEntryContributor
@@ -73,7 +74,7 @@ class FeatureEntryRegistryTest {
     }
 
     @Test
-    fun legacySettingsOwnsAllNineSettingsKeys() {
+    fun settingsFeatureOwnsAllNineSettingsKeys() {
         val settingsKeys =
             listOf(
                 SettingsHubKey,
@@ -87,10 +88,16 @@ class FeatureEntryRegistryTest {
                 AboutAdvancedSettingsKey,
             )
         settingsKeys.forEach { key ->
-            assertTrue(LegacySettingsEntryContributor.owns(key))
-            val nonLegacy = contributors.filter { it !== LegacySettingsEntryContributor && it.owns(key) }
-            assertTrue("settings key owned by non-legacy: $nonLegacy", nonLegacy.isEmpty())
+            assertTrue(SettingsEntryContributor.owns(key))
+            val owners = contributors.filter { it.owns(key) }
+            assertEquals("settings key $key owners=$owners", 1, owners.size)
+            assertEquals(SettingsEntryContributor, owners.single())
         }
+        val registrySource =
+            projectDir.resolve("app/src/main/java/cc/pscly/onememos/navigation/AppEntryContributors.kt")
+                .readText()
+        assertTrue(registrySource.contains("SettingsEntryContributor"))
+        assertFalse(registrySource.contains("LegacySettingsEntryContributor"))
     }
 
     @Test

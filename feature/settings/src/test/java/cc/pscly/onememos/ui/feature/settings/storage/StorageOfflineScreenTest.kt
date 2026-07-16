@@ -167,22 +167,18 @@ class StorageOfflineScreenTest {
     }
 
     @Test
-    fun confirmationEvents_areCollectedOnlyWhileLifecycleIsStarted() {
-        val lifecycleOwner = TestLifecycleOwner(Lifecycle.State.CREATED)
+    fun cleanupConfirmation_isShownFromEntryOwnedState() {
         val viewModel = StorageOfflineViewModel(FakeScreenCapability())
         composeRule.setContent {
-            CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) {
-                OneMemosTheme { StorageOfflineScreen(viewModel) }
+            OneMemosTheme {
+                StorageOfflineScreen(
+                    confirmation = SettingsConfirmation.CLEAR_ALL_CACHE,
+                    onDismissConfirmation = {},
+                    viewModel = viewModel,
+                )
             }
         }
         composeRule.waitForIdle()
-
-        composeRule.runOnIdle { viewModel.requestClearAllCache() }
-        composeRule.onAllNodesWithText("清理全部缓存？").assertCountEquals(0)
-
-        composeRule.runOnIdle { lifecycleOwner.currentState = Lifecycle.State.STARTED }
-        composeRule.waitForIdle()
-        composeRule.runOnIdle { viewModel.requestClearAllCache() }
         composeRule.onNodeWithText("清理全部缓存？").assertIsDisplayed()
     }
 

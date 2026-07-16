@@ -5,6 +5,7 @@ import cc.pscly.onememos.ui.feature.collections.CollectionsEntryContributor
 import cc.pscly.onememos.ui.feature.editor.EditorEntryContributor
 import cc.pscly.onememos.ui.feature.home.HomeEntryContributor
 import cc.pscly.onememos.ui.feature.profile.ProfileEntryContributor
+import cc.pscly.onememos.ui.feature.settings.SettingsEntryContributor
 import cc.pscly.onememos.ui.feature.sharecard.ShareCardEntryContributor
 import cc.pscly.onememos.ui.feature.todo.TodoEntryContributor
 import cc.pscly.onememos.ui.feature.welcome.WelcomeEntryContributor
@@ -23,7 +24,7 @@ val appEntryContributors: List<FeatureEntryContributor> =
         ShareCardEntryContributor,
         AuthEntryContributor,
         WelcomeEntryContributor,
-        LegacySettingsEntryContributor,
+        SettingsEntryContributor,
     )
 
 fun resolveEntryContributor(

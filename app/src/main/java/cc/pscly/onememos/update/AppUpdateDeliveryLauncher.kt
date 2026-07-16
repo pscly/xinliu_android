@@ -26,6 +26,14 @@ class AppUpdateDeliveryLauncher @Inject constructor(
         execute(manager.requestDelivery(), activity)
     }
 
+    fun dispatch(
+        action: UpdateDeliveryAction,
+        activity: Activity?,
+        onResult: (UpdateDeliveryResult) -> Unit = {},
+    ) {
+        execute(action, activity)
+    }
+
     fun onHostResumed(activity: Activity?) {
         val packageManager = activity?.packageManager ?: context.packageManager
         val granted = packageManager.canRequestPackageInstalls()

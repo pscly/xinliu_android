@@ -39,22 +39,15 @@ import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
-import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 
 @Composable
 fun AccountManagementScreen(
     onBack: () -> Unit,
+    confirmation: SettingsConfirmation?,
+    onDismissConfirmation: () -> Unit,
     viewModel: AccountSyncViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showLogoutConfirmation by remember { mutableStateOf(false) }
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            if (event == SettingsUiEvent.Confirm(SettingsConfirmation.LOGOUT)) {
-                showLogoutConfirmation = true
-            }
-        }
-    }
     val snapshot = uiState.snapshot
     if (snapshot == null) {
         AccountPaperPage {
@@ -71,13 +64,13 @@ fun AccountManagementScreen(
     }
     AccountManagementContent(
         snapshot = snapshot,
-        showLogoutConfirmation = showLogoutConfirmation,
+        showLogoutConfirmation = confirmation == SettingsConfirmation.LOGOUT,
         onBack = onBack,
         onChangePassword = viewModel::changePassword,
         onRequestLogout = viewModel::requestLogout,
-        onDismissLogout = { showLogoutConfirmation = false },
+        onDismissLogout = onDismissConfirmation,
         onConfirmLogout = {
-            showLogoutConfirmation = false
+            onDismissConfirmation()
             viewModel.confirmLogout()
         },
         passwordError = uiState.passwordError,
@@ -106,10 +99,8 @@ fun AccountManagementContent(
     val currentPasswordFocusRequester = remember { FocusRequester() }
     val logoutFocusRequester = remember { FocusRequester() }
     var restoreLogoutFocus by remember { mutableStateOf(false) }
-    var localLogoutConfirmation by remember { mutableStateOf(false) }
-    val logoutConfirmationVisible = showLogoutConfirmation || localLogoutConfirmation
-    LaunchedEffect(logoutConfirmationVisible, restoreLogoutFocus) {
-        if (!logoutConfirmationVisible && restoreLogoutFocus) {
+    LaunchedEffect(showLogoutConfirmation, restoreLogoutFocus) {
+        if (!showLogoutConfirmation && restoreLogoutFocus) {
             logoutFocusRequester.requestFocus()
             restoreLogoutFocus = false
         }
@@ -251,7 +242,6 @@ fun AccountManagementContent(
             }
             OutlinedButton(
                 onClick = {
-                    localLogoutConfirmation = true
                     onRequestLogout()
                 },
                 enabled = canLogout,
@@ -276,11 +266,10 @@ fun AccountManagementContent(
         }
     }
 
-    if (logoutConfirmationVisible) {
+    if (showLogoutConfirmation) {
         AlertDialog(
             onDismissRequest = {
                 restoreLogoutFocus = true
-                localLogoutConfirmation = false
                 onDismissLogout()
             },
             title = { Text(stringResource(R.string.settings_account_logout_dialog_title)) },
@@ -289,7 +278,6 @@ fun AccountManagementContent(
                 TextButton(
                     onClick = {
                         restoreLogoutFocus = true
-                        localLogoutConfirmation = false
                         onConfirmLogout()
                     },
                 ) {
@@ -300,7 +288,6 @@ fun AccountManagementContent(
                 TextButton(
                     onClick = {
                         restoreLogoutFocus = true
-                        localLogoutConfirmation = false
                         onDismissLogout()
                     },
                 ) {

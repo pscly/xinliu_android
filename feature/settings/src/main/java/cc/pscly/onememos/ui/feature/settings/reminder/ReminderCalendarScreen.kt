@@ -1,6 +1,5 @@
 package cc.pscly.onememos.ui.feature.settings.reminder
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,11 +19,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -36,10 +33,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.domain.settings.CalendarPermissionState
 import cc.pscly.onememos.domain.settings.CalendarSummary
@@ -47,45 +41,10 @@ import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
-import cc.pscly.onememos.ui.feature.settings.common.LocalSettingsPlatformActionDispatcher
-import cc.pscly.onememos.ui.feature.settings.common.SettingsMessage
-import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 
 @Composable
 fun ReminderCalendarScreen(viewModel: ReminderCalendarViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val dispatcher = LocalSettingsPlatformActionDispatcher.current
-    val context = LocalContext.current
-    val success = stringResource(R.string.settings_reminder_toast_success)
-    val failed = stringResource(R.string.settings_reminder_toast_failed)
-    val denied = stringResource(R.string.settings_reminder_toast_permission_denied)
-
-    LaunchedEffect(viewModel, lifecycleOwner, dispatcher) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.events.collect { event ->
-                when (event) {
-                    is SettingsUiEvent.Platform ->
-                        dispatcher.dispatch(event.action) { result ->
-                            viewModel.onIntent(ReminderCalendarUserIntent.ApplyPlatformResult(result))
-                        }
-                    is SettingsUiEvent.Toast -> {
-                        val message =
-                            when (event.message) {
-                                SettingsMessage.COMMAND_SUCCEEDED -> success
-                                SettingsMessage.COMMAND_FAILED -> failed
-                                SettingsMessage.PERMISSION_DENIED -> denied
-                            }
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                    }
-                    is SettingsUiEvent.Navigate,
-                    is SettingsUiEvent.Confirm,
-                    is SettingsUiEvent.UpdateDelivery,
-                    -> Unit
-                }
-            }
-        }
-    }
     ReminderCalendarContent(uiState = uiState, onIntent = viewModel::onIntent)
 }
 

@@ -33,22 +33,15 @@ import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
-import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 
 @Composable
 fun AdvancedSyncScreen(
     onBack: () -> Unit,
+    confirmation: SettingsConfirmation?,
+    onDismissConfirmation: () -> Unit,
     viewModel: AccountSyncViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showConfirmation by remember { mutableStateOf(false) }
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            if (event == SettingsUiEvent.Confirm(SettingsConfirmation.FULL_RESYNC)) {
-                showConfirmation = true
-            }
-        }
-    }
     val snapshot = uiState.snapshot
     if (snapshot == null) {
         AccountPaperPage {
@@ -65,12 +58,12 @@ fun AdvancedSyncScreen(
     }
     AdvancedSyncContent(
         snapshot = snapshot,
-        showConfirmation = showConfirmation,
+        showConfirmation = confirmation == SettingsConfirmation.FULL_RESYNC,
         onBack = onBack,
         onRequestFullResync = viewModel::requestFullResync,
-        onDismissConfirmation = { showConfirmation = false },
+        onDismissConfirmation = onDismissConfirmation,
         onConfirmFullResync = {
-            showConfirmation = false
+            onDismissConfirmation()
             viewModel.confirmFullResync()
         },
         onAcknowledgeFullResyncCompletion = viewModel::acknowledgeFullResyncCompletion,
@@ -97,10 +90,8 @@ fun AdvancedSyncContent(
     val actionState = stringResource(action.stateRes)
     val focusRequester = remember { FocusRequester() }
     var restoreFocus by remember { mutableStateOf(false) }
-    var localConfirmation by remember { mutableStateOf(false) }
-    val confirmationVisible = showConfirmation || localConfirmation
-    LaunchedEffect(confirmationVisible, restoreFocus) {
-        if (!confirmationVisible && restoreFocus) {
+    LaunchedEffect(showConfirmation, restoreFocus) {
+        if (!showConfirmation && restoreFocus) {
             focusRequester.requestFocus()
             restoreFocus = false
         }
@@ -162,7 +153,6 @@ fun AdvancedSyncContent(
             } else {
                 OutlinedButton(
                     onClick = {
-                        localConfirmation = true
                         onRequestFullResync()
                     },
                     enabled = action.enabled,
@@ -181,12 +171,11 @@ fun AdvancedSyncContent(
         }
     }
 
-    if (confirmationVisible) {
+    if (showConfirmation) {
         val isRetry = snapshot.health is AccountSyncHealth.FullResyncFailed
         AlertDialog(
             onDismissRequest = {
                 restoreFocus = true
-                localConfirmation = false
                 onDismissConfirmation()
             },
             title = {
@@ -205,7 +194,6 @@ fun AdvancedSyncContent(
                 TextButton(
                     onClick = {
                         restoreFocus = true
-                        localConfirmation = false
                         onConfirmFullResync()
                     },
                 ) {
@@ -224,7 +212,6 @@ fun AdvancedSyncContent(
                 TextButton(
                     onClick = {
                         restoreFocus = true
-                        localConfirmation = false
                         onDismissConfirmation()
                     },
                 ) {

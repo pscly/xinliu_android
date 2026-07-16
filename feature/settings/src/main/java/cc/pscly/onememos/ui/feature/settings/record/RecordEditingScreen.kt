@@ -1,6 +1,5 @@
 package cc.pscly.onememos.ui.feature.settings.record
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,11 +24,9 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -41,10 +38,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.settings.RecordEditingSettingsCommand
@@ -54,8 +48,6 @@ import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealIconButton
-import cc.pscly.onememos.ui.feature.settings.common.SettingsMessage
-import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 
 @Composable
 fun RecordEditingScreen(
@@ -63,27 +55,6 @@ fun RecordEditingScreen(
     viewModel: RecordEditingViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val successMessage = stringResource(R.string.settings_record_command_succeeded)
-    val failureMessage = stringResource(R.string.settings_record_command_failed)
-
-    LaunchedEffect(viewModel, lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.events.collect { event ->
-                if (event is SettingsUiEvent.Toast) {
-                    val message =
-                        when (event.message) {
-                            SettingsMessage.COMMAND_SUCCEEDED -> successMessage
-                            SettingsMessage.COMMAND_FAILED -> failureMessage
-                            SettingsMessage.PERMISSION_DENIED -> failureMessage
-                        }
-                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
     RecordEditingContent(
         uiState = uiState,
         onBack = onBack,

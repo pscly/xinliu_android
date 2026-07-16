@@ -321,12 +321,19 @@ class AccountSyncScreenTest {
     @Test
     fun fullResync_retryRequiresImpactConfirmation_andReturnsFocus() {
         var confirmed = 0
+        var showConfirmation by mutableStateOf(false)
         composeRule.setContent {
             OneMemosTheme {
                 AdvancedSyncContent(
                     snapshot = snapshot(AccountSyncHealth.FullResyncFailed(SettingsCapabilityError.StorageFailure)),
                     onBack = {},
-                    onConfirmFullResync = { confirmed += 1 },
+                    showConfirmation = showConfirmation,
+                    onRequestFullResync = { showConfirmation = true },
+                    onDismissConfirmation = { showConfirmation = false },
+                    onConfirmFullResync = {
+                        showConfirmation = false
+                        confirmed += 1
+                    },
                 )
             }
         }
@@ -344,13 +351,20 @@ class AccountSyncScreenTest {
     @Test
     fun logoutRequiresConfirmation_andReturnsFocusToTrigger() {
         var confirmed = 0
+        var showConfirmation by mutableStateOf(false)
         composeRule.setContent {
             OneMemosTheme {
                 AccountManagementContent(
                     snapshot = snapshot(AccountSyncHealth.Healthy(lastSuccessAtEpochMs = 100L)),
                     onBack = {},
                     onChangePassword = { _, _, _ -> },
-                    onConfirmLogout = { confirmed += 1 },
+                    showLogoutConfirmation = showConfirmation,
+                    onRequestLogout = { showConfirmation = true },
+                    onDismissLogout = { showConfirmation = false },
+                    onConfirmLogout = {
+                        showConfirmation = false
+                        confirmed += 1
+                    },
                 )
             }
         }

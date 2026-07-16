@@ -2,6 +2,8 @@ package cc.pscly.onememos.ui
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,9 +28,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,12 +45,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.R
 import cc.pscly.onememos.navigation.AppNavigationHost
-import cc.pscly.onememos.ui.feature.start.AppStartViewModel
 import cc.pscly.onememos.navigation.ExternalNavigationInput
 import cc.pscly.onememos.navigation.TopLevelSection
+import cc.pscly.onememos.ui.feature.settings.common.LocalSettingsPlatformActionDispatcher
+import cc.pscly.onememos.ui.feature.settings.common.LocalSettingsUpdateDeliveryDispatcher
+import cc.pscly.onememos.ui.feature.start.AppStartViewModel
+import cc.pscly.onememos.ui.settings.AppSettingsPlatformActionDispatcher
 import cc.pscly.onememos.update.AppUpdatePhase
 import cc.pscly.onememos.update.AppUpdateUiState
 import kotlinx.coroutines.launch
@@ -57,6 +70,42 @@ fun OneMemosApp(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val updateUiState by appViewModel.updateUiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activityProvider = rememberUpdatedState(context as? Activity)
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val platformDispatcher =
+        remember(context.applicationContext) {
+            AppSettingsPlatformActionDispatcher(
+                context = context.applicationContext,
+                activityProvider = { activityProvider.value },
+            )
+        }
+    val updateDispatcher =
+        remember(appViewModel) {
+            appViewModel.settingsUpdateDeliveryDispatcher { activityProvider.value }
+        }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions(),
+        ) { grantMap ->
+            platformDispatcher.onPermissionResult(grantMap)
+        }
+    LaunchedEffect(platformDispatcher, permissionLauncher) {
+        platformDispatcher.bindPermissionLauncher { permissions ->
+            permissionLauncher.launch(permissions)
+        }
+    }
+    DisposableEffect(lifecycleOwner, platformDispatcher) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    platformDispatcher.onHostResumed()
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val startViewModel: AppStartViewModel = hiltViewModel()
     val startUiState by startViewModel.uiState.collectAsStateWithLifecycle()
@@ -91,33 +140,37 @@ fun OneMemosApp(
         requestedSection = section.name
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = false,
-        drawerContent = {
-            ModalDrawerSheet {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.app_name),
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        IconButton(onClick = { scope.launch { drawerState.close() } }) {
-                            Icon(imageVector = Icons.Filled.Close, contentDescription = "关闭菜单")
+    CompositionLocalProvider(
+        LocalSettingsPlatformActionDispatcher provides platformDispatcher,
+        LocalSettingsUpdateDeliveryDispatcher provides updateDispatcher,
+    ) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = false,
+            drawerContent = {
+                ModalDrawerSheet {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.app_name),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(onClick = { scope.launch { drawerState.close() } }) {
+                                Icon(imageVector = Icons.Filled.Close, contentDescription = "关闭菜单")
+                            }
                         }
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    NavigationDrawerItem(
-                        label = { Text("随笔") },
-                        selected = current == TopLevelSection.HOME,
-                        onClick = { requestSection(TopLevelSection.HOME) },
-                        colors = NavigationDrawerItemDefaults.colors(),
-                    )
+                        NavigationDrawerItem(
+                            label = { Text("随笔") },
+                            selected = current == TopLevelSection.HOME,
+                            onClick = { requestSection(TopLevelSection.HOME) },
+                            colors = NavigationDrawerItemDefaults.colors(),
+                        )
                     NavigationDrawerItem(
                         label = { Text("锦囊") },
                         selected = current == TopLevelSection.COLLECTIONS,
@@ -153,53 +206,54 @@ fun OneMemosApp(
                         onClick = { requestSection(TopLevelSection.ARCHIVED) },
                         colors = NavigationDrawerItemDefaults.colors(),
                     )
-                    NavigationDrawerItem(
-                        label = { Text("设置") },
-                        selected = current == TopLevelSection.SETTINGS,
-                        onClick = { requestSection(TopLevelSection.SETTINGS) },
-                        colors = NavigationDrawerItemDefaults.colors(),
-                    )
-                }
-            }
-        },
-    ) {
-        AppNavigationHost(
-            pendingExternalInput = pendingExternalInput,
-            onExternalInputConsumed = onExternalInputConsumed,
-            showWelcome = startUiState.showWelcome,
-            onOpenDrawer = toggleDrawer,
-            requestedSection =
-                requestedSection?.let { name ->
-                    runCatching { TopLevelSection.valueOf(name) }.getOrNull()
-                },
-            onRequestedSectionHandled = { requestedSection = null },
-            onActiveSectionChanged = { activeSection = it.name },
-        )
-
-        if (showCollectionsDisabledDialog) {
-            AlertDialog(
-                onDismissRequest = { showCollectionsDisabledDialog = false },
-                title = { Text("锦囊不可用") },
-                text = { Text("锦囊目前仅支持 Flow Backend 登录模式（自定义服务器模式暂不支持）。") },
-                confirmButton = {
-                    TextButton(onClick = { showCollectionsDisabledDialog = false }) {
-                        Text("知道了")
+                        NavigationDrawerItem(
+                            label = { Text("设置") },
+                            selected = current == TopLevelSection.SETTINGS,
+                            onClick = { requestSection(TopLevelSection.SETTINGS) },
+                            colors = NavigationDrawerItemDefaults.colors(),
+                        )
                     }
+                }
+            },
+        ) {
+            AppNavigationHost(
+                pendingExternalInput = pendingExternalInput,
+                onExternalInputConsumed = onExternalInputConsumed,
+                showWelcome = startUiState.showWelcome,
+                onOpenDrawer = toggleDrawer,
+                requestedSection =
+                    requestedSection?.let { name ->
+                        runCatching { TopLevelSection.valueOf(name) }.getOrNull()
+                    },
+                onRequestedSectionHandled = { requestedSection = null },
+                onActiveSectionChanged = { activeSection = it.name },
+            )
+
+            if (showCollectionsDisabledDialog) {
+                AlertDialog(
+                    onDismissRequest = { showCollectionsDisabledDialog = false },
+                    title = { Text("锦囊不可用") },
+                    text = { Text("锦囊目前仅支持 Flow Backend 登录模式（自定义服务器模式暂不支持）。") },
+                    confirmButton = {
+                        TextButton(onClick = { showCollectionsDisabledDialog = false }) {
+                            Text("知道了")
+                        }
+                    },
+                )
+            }
+
+            val updateDialogContext = LocalContext.current
+            AppUpdateDialog(
+                state = updateUiState,
+                onDownload = appViewModel::startUpdateDownload,
+                onInstall = {
+                    appViewModel.installDownloadedUpdate(updateDialogContext as? Activity)
                 },
+                onLater = appViewModel::remindUpdateLater,
+                onIgnore = appViewModel::ignoreCurrentUpdate,
+                onDismiss = appViewModel::dismissUpdatePrompt,
             )
         }
-
-        val updateDialogContext = LocalContext.current
-        AppUpdateDialog(
-            state = updateUiState,
-            onDownload = appViewModel::startUpdateDownload,
-            onInstall = {
-                appViewModel.installDownloadedUpdate(updateDialogContext as? Activity)
-            },
-            onLater = appViewModel::remindUpdateLater,
-            onIgnore = appViewModel::ignoreCurrentUpdate,
-            onDismiss = appViewModel::dismissUpdatePrompt,
-        )
     }
 }
 

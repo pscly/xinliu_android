@@ -38,10 +38,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import cc.pscly.onememos.domain.model.CacheStats
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.domain.settings.StorageOfflineSettingsCommand
@@ -51,10 +48,8 @@ import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealIconButton
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
-import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 import cc.pscly.onememos.ui.util.ByteSizeFormatter
 import kotlin.math.roundToInt
-import kotlinx.coroutines.flow.collectLatest
 
 sealed interface StorageOfflineUiAction {
     data class SetImagePrefetchEnabled(val enabled: Boolean) : StorageOfflineUiAction
@@ -81,26 +76,18 @@ sealed interface StorageOfflineUiAction {
 }
 
 @Composable
-fun StorageOfflineScreen(viewModel: StorageOfflineViewModel = hiltViewModel()) {
+fun StorageOfflineScreen(
+    confirmation: SettingsConfirmation?,
+    onDismissConfirmation: () -> Unit,
+    viewModel: StorageOfflineViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var confirmation by remember { mutableStateOf<SettingsConfirmation?>(null) }
-
-    LaunchedEffect(viewModel, lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.events.collectLatest { event ->
-                if (event is SettingsUiEvent.Confirm) {
-                    confirmation = event.request
-                }
-            }
-        }
-    }
 
     StorageOfflineContent(
         uiState = uiState,
         confirmation = confirmation,
-        onAction = { action -> viewModel.dispatch(action) },
-        onDismissConfirmation = { confirmation = null },
+        onAction = viewModel::dispatch,
+        onDismissConfirmation = onDismissConfirmation,
     )
 }
 

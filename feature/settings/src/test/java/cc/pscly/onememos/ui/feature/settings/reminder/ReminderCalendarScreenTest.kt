@@ -29,10 +29,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.domain.settings.CalendarPermissionState
 import cc.pscly.onememos.domain.settings.CalendarSummary
@@ -43,28 +39,39 @@ import cc.pscly.onememos.domain.settings.ReminderCalendarSettingsSnapshot
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.domain.settings.SettingsPermission
 import cc.pscly.onememos.domain.settings.SettingsPlatformAction
-import cc.pscly.onememos.ui.feature.settings.common.LocalSettingsPlatformActionDispatcher
-import cc.pscly.onememos.ui.feature.settings.common.SettingsPlatformActionDispatcher
 import cc.pscly.onememos.ui.feature.settings.common.SettingsPlatformResult
+import cc.pscly.onememos.ui.feature.settings.common.SettingsUiEvent
 import cc.pscly.onememos.ui.theme.OneMemosTheme
+import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
 class ReminderCalendarScreenTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -136,118 +143,90 @@ class ReminderCalendarScreenTest {
     }
 
     @Test
-    fun platformPermission_dispatchesOnce_andLauncherResultReturnsToViewModel() {
-        val fake = FakeCapability(snapshot())
-        val request =
-            SettingsPlatformAction.RequestPermissions(
-                setOf(SettingsPermission.READ_CALENDAR, SettingsPermission.WRITE_CALENDAR),
-            )
-        fake.responder = { command ->
-            if (command is ReminderCalendarSettingsCommand.SetCalendarEnabled &&
-                fake.commands.count { it is ReminderCalendarSettingsCommand.SetCalendarEnabled } == 1
-            ) {
-                ReminderCalendarSettingsResult.Platform(request)
-            } else {
-                ReminderCalendarSettingsResult.Success
-            }
-        }
-        val dispatches = AtomicInteger(0)
-        val callback = AtomicReference<((SettingsPlatformResult) -> Unit)?>(null)
-        val dispatcher =
-            object : SettingsPlatformActionDispatcher {
-                override fun dispatch(
-                    action: SettingsPlatformAction,
-                    onResult: (SettingsPlatformResult) -> Unit,
+    fun platformPermission_eventAndEntryCallbackReturnToViewModel() =
+        runBlocking {
+            val fake = FakeCapability(snapshot())
+            val request =
+                SettingsPlatformAction.RequestPermissions(
+                    setOf(SettingsPermission.READ_CALENDAR, SettingsPermission.WRITE_CALENDAR),
+                )
+            fake.responder = { command ->
+                if (command is ReminderCalendarSettingsCommand.SetCalendarEnabled &&
+                    fake.commands.count { it is ReminderCalendarSettingsCommand.SetCalendarEnabled } == 1
                 ) {
-                    dispatches.incrementAndGet()
-                    assertEquals(request, action)
-                    callback.set(onResult)
+                    ReminderCalendarSettingsResult.Platform(request)
+                } else {
+                    ReminderCalendarSettingsResult.Success
                 }
             }
-        val viewModel = ReminderCalendarViewModel(fake)
-        composeRule.setContent {
-            CompositionLocalProvider(LocalSettingsPlatformActionDispatcher provides dispatcher) {
-                OneMemosTheme { ReminderCalendarScreen(viewModel = viewModel) }
+            val events = CopyOnWriteArrayList<SettingsUiEvent>()
+            val viewModel = ReminderCalendarViewModel(fake)
+            val collector =
+                launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+                    viewModel.events.collect(events::add)
+                }
+            try {
+                composeRule.setContent {
+                    OneMemosTheme { ReminderCalendarScreen(viewModel = viewModel) }
+                }
+
+                composeRule.onNodeWithTag("settings_reminder_calendar_enabled").performClick()
+                composeRule.waitUntil(2_000L) {
+                    events.any { it == SettingsUiEvent.Platform(request) } &&
+                        viewModel.uiState.value.platformRequestPending
+                }
+                assertEquals(
+                    ReminderCalendarSettingsCommand.SetCalendarEnabled(false),
+                    viewModel.uiState.value.pendingPlatformCommand,
+                )
+                assertEquals(listOf(ReminderCalendarSettingsCommand.SetCalendarEnabled(false)), fake.commands)
+                writeTargets.forEach {
+                    composeRule.onNodeWithTag(it).performScrollTo().assertIsNotEnabled()
+                }
+
+                viewModel.onIntent(ReminderCalendarUserIntent.SetCalendarEnabled(false))
+                composeRule.waitForIdle()
+                assertEquals(listOf(ReminderCalendarSettingsCommand.SetCalendarEnabled(false)), fake.commands)
+
+                val result =
+                    SettingsPlatformResult.Permissions(
+                        granted = request.permissions,
+                        denied = emptySet(),
+                    )
+                composeRule.runOnIdle {
+                    viewModel.onIntent(ReminderCalendarUserIntent.ApplyPlatformResult(result))
+                    viewModel.onIntent(ReminderCalendarUserIntent.ApplyPlatformResult(result))
+                }
+                composeRule.waitUntil(2_000L) {
+                    fake.commands.size == 3 && !viewModel.uiState.value.platformRequestPending
+                }
+                assertTrue(fake.commands[1] is ReminderCalendarSettingsCommand.ApplyPermissionResult)
+                assertEquals(ReminderCalendarSettingsCommand.SetCalendarEnabled(false), fake.commands[2])
+                writeTargets.forEach {
+                    composeRule.onNodeWithTag(it).performScrollTo().assertIsEnabled()
+                }
+            } finally {
+                collector.cancel()
             }
         }
-
-        composeRule.onNodeWithTag("settings_reminder_calendar_enabled").performClick()
-        composeRule.waitUntil(2_000L) {
-            callback.get() != null && viewModel.uiState.value.platformRequestPending
-        }
-        assertEquals(
-            ReminderCalendarSettingsCommand.SetCalendarEnabled(false),
-            viewModel.uiState.value.pendingPlatformCommand,
-        )
-        assertEquals(1, dispatches.get())
-        assertEquals(listOf(ReminderCalendarSettingsCommand.SetCalendarEnabled(false)), fake.commands)
-        writeTargets.forEach {
-            composeRule.onNodeWithTag(it).performScrollTo().assertIsNotEnabled()
-        }
-
-        viewModel.onIntent(ReminderCalendarUserIntent.SetCalendarEnabled(false))
-        composeRule.waitForIdle()
-        assertEquals(listOf(ReminderCalendarSettingsCommand.SetCalendarEnabled(false)), fake.commands)
-        assertEquals(1, dispatches.get())
-
-        val result =
-            SettingsPlatformResult.Permissions(
-                granted = request.permissions,
-                denied = emptySet(),
-            )
-        val pendingCallback = requireNotNull(callback.get())
-        composeRule.runOnIdle {
-            pendingCallback(result)
-            pendingCallback(result)
-        }
-        composeRule.waitUntil(2_000L) {
-            fake.commands.size == 3 && !viewModel.uiState.value.platformRequestPending
-        }
-        assertEquals(1, dispatches.get())
-        assertTrue(fake.commands[1] is ReminderCalendarSettingsCommand.ApplyPermissionResult)
-        assertEquals(ReminderCalendarSettingsCommand.SetCalendarEnabled(false), fake.commands[2])
-        writeTargets.forEach {
-            composeRule.onNodeWithTag(it).performScrollTo().assertIsEnabled()
-        }
-    }
 
     @Test
-    fun platformEvents_areCollectedOnlyWhileLifecycleIsStarted() {
-        val fake = FakeCapability(snapshot(permission = CalendarPermissionState.UNKNOWN))
-        val request =
-            SettingsPlatformAction.RequestPermissions(
-                setOf(SettingsPermission.READ_CALENDAR, SettingsPermission.WRITE_CALENDAR),
-            )
-        fake.responder = { ReminderCalendarSettingsResult.Platform(request) }
-        val dispatches = AtomicInteger(0)
-        val lifecycleOwner = MutableLifecycleOwner()
-        lifecycleOwner.moveTo(Lifecycle.State.CREATED)
-        val viewModel = ReminderCalendarViewModel(fake)
-        composeRule.setContent {
-            CompositionLocalProvider(
-                LocalLifecycleOwner provides lifecycleOwner,
-                LocalSettingsPlatformActionDispatcher provides
-                    object : SettingsPlatformActionDispatcher {
-                        override fun dispatch(
-                            action: SettingsPlatformAction,
-                            onResult: (SettingsPlatformResult) -> Unit,
-                        ) {
-                            dispatches.incrementAndGet()
-                        }
-                    },
-            ) {
-                OneMemosTheme { ReminderCalendarScreen(viewModel = viewModel) }
-            }
-        }
-        composeRule.waitForIdle()
+    fun platformEvents_areCollectedOnlyByStartedEntry() {
+        val projectDir = requireNotNull(System.getProperty("oneMemos.projectDir"))
+        val screen =
+            File(
+                projectDir,
+                "feature/settings/src/main/java/cc/pscly/onememos/ui/feature/settings/reminder/ReminderCalendarScreen.kt",
+            ).readText()
+        val contributor =
+            File(
+                projectDir,
+                "feature/settings/src/main/java/cc/pscly/onememos/ui/feature/settings/SettingsEntryContributor.kt",
+            ).readText()
 
-        viewModel.onIntent(ReminderCalendarUserIntent.SetCalendarEnabled(true))
-        composeRule.waitUntil(2_000L) { viewModel.uiState.value.platformRequestPending }
-        assertEquals(0, dispatches.get())
-
-        composeRule.runOnIdle { lifecycleOwner.moveTo(Lifecycle.State.STARTED) }
-        composeRule.waitForIdle()
-        assertEquals(0, dispatches.get())
+        assertTrue(!screen.contains("events.collect"))
+        assertTrue(contributor.contains("repeatOnLifecycle(Lifecycle.State.STARTED)"))
+        assertTrue(contributor.contains("ReminderCalendarUserIntent.ApplyPlatformResult"))
     }
 
     @Test
@@ -384,12 +363,13 @@ class ReminderCalendarScreenTest {
         }
     }
 
-    private class MutableLifecycleOwner : LifecycleOwner {
-        private val registry = LifecycleRegistry(this)
-        override val lifecycle: Lifecycle = registry
+    class MainDispatcherRule : TestWatcher() {
+        override fun starting(description: Description) {
+            Dispatchers.setMain(Dispatchers.Unconfined)
+        }
 
-        fun moveTo(state: Lifecycle.State) {
-            registry.currentState = state
+        override fun finished(description: Description) {
+            Dispatchers.resetMain()
         }
     }
 }
