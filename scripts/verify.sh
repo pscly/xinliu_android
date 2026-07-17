@@ -55,11 +55,18 @@ common_args=(
   --stacktrace
 )
 
+# GitHub Actions runner 内存有限：降低并行峰值，减少 D8 merge / 测试堆叠加。
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  common_args+=(--max-workers=2)
+fi
+
 # 1) 架构边界（快速失败，不启动完整 Gradle 测试）
 "${SCRIPT_DIR}/verify-architecture.sh"
 
 # 2) Debug 构建与单元测试
 ./gradlew :app:assembleDebug "${common_args[@]}" "$@"
+# 经验坑：assembleDebug 的 D8 之后 daemon 可能已接近堆上限；先停再跑测试。
+./gradlew --stop >/dev/null 2>&1 || true
 ./gradlew :app:testDebugUnitTest "${common_args[@]}" "$@"
 ./gradlew :feature:settings:testDebugUnitTest "${common_args[@]}" "$@"
 ./gradlew :core:settings:testDebugUnitTest "${common_args[@]}" "$@"
