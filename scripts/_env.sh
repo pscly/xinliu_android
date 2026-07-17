@@ -26,9 +26,11 @@ if [[ ! -x "$candidate_java_home/bin/java" ]]; then
   exit 1
 fi
 
-java_version_line="$("$candidate_java_home/bin/java" -version 2>&1 | head -n 1 || true)"
+# `JAVA_TOOL_OPTIONS` 会让 JVM 在版本行前额外输出提示；不能假定第一行就是版本。
+java_version_output="$("$candidate_java_home/bin/java" -version 2>&1 || true)"
+java_version_line="$(printf '%s\n' "$java_version_output" | grep -m 1 -E '(^|[[:space:]])(openjdk|java) version "[0-9]+' || true)"
 if ! printf '%s' "$java_version_line" | grep -q '"21\.'; then
-  echo "错误：检测到 JAVA_HOME=$candidate_java_home 不是 JDK21（$java_version_line）" >&2
+  echo "错误：检测到 JAVA_HOME=$candidate_java_home 不是 JDK21（${java_version_line:-$java_version_output}）" >&2
   echo "本项目只接受 JDK 21；请安装 OpenJDK 21 或设置正确的 JAVA_HOME。" >&2
   exit 1
 fi
