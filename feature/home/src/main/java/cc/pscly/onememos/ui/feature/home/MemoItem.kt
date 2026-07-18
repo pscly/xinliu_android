@@ -27,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -36,11 +37,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.domain.derived.MarkdownDeriver
 import cc.pscly.onememos.domain.model.Memo
-import cc.pscly.onememos.domain.model.MemoServerState
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.ui.component.InkCard
@@ -49,6 +50,7 @@ import cc.pscly.onememos.ui.component.TagChip
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.LocalReadingConfig
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import coil.compose.SubcomposeAsyncImage
@@ -92,13 +94,27 @@ internal fun MemoItem(
     // 卡片圆角统一走 InkShape 令牌（14dp），不再书写裸值。
     val cardShape = InkShape.Card
     MaterialTheme(colorScheme = cardScheme) {
+    val cardContentDescription =
+        remember(memo, selectionMode, selected) {
+            MemoItemTalkBack.contentDescription(
+                memo = memo,
+                selectionMode = selectionMode,
+                selected = selected,
+            )
+        }
+    val timeLabel = DateTimeFormatter.formatYmdHm(memo.createdAt)
+    val statusText =
+        MemoItemTalkBack.statusLabel(memo.serverState, memo.syncStatus)
+
     InkCard(
-        modifier = if (selected) Modifier.border(selectedBorder, cardShape) else Modifier,
+        modifier =
+            (if (selected) Modifier.border(selectedBorder, cardShape) else Modifier)
+                .testTag("home_memo_item_${memo.uuid}"),
         onClick = onOpenMemo,
         onLongClick = onLongShare,
+        contentDescription = cardContentDescription,
     ) {
         val tags =
-            // 避免把大字符串（content）作为 remember key，降低 equals 比较的潜在开销。
             remember(memo.tags, memo.uuid, memo.updatedAt) {
                 if (memo.tags.isNotEmpty()) memo.tags else TagExtractor.extractAll(memo.content)
             }
@@ -111,7 +127,7 @@ internal fun MemoItem(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = DateTimeFormatter.formatYmdHm(memo.createdAt),
+                text = timeLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -119,7 +135,7 @@ internal fun MemoItem(
             if (selectionMode) {
                 Icon(
                     imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                    contentDescription = if (selected) "已选" else "未选",
+                    contentDescription = null,
                     tint =
                         if (selected) {
                             MaterialTheme.colorScheme.primary
@@ -128,8 +144,11 @@ internal fun MemoItem(
                         },
                 )
             } else if (onMoreActions != null) {
-                // 更多操作常显但保持弱化：onSurfaceVariant 低透明度，不抢正文注意力。
-                IconButton(onClick = onMoreActions) {
+                // 更多操作常显但保持弱化；独立可聚焦，不并入卡片合并语义
+                IconButton(
+                    onClick = onMoreActions,
+                    modifier = Modifier.minimumInteractiveComponentSize(),
+                ) {
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
                         contentDescription = "更多操作",
@@ -209,7 +228,8 @@ internal fun MemoItem(
             }
 
         // 文本预览统一整行展示；图片区域独立于文本下方，按图片数量自适应排布。
-        // 正文行高对齐纸面节距（InkSpacing.LinePitch），保持 flomo 式呼吸感。
+        // 正文字号/行高跟随阅读模式（LocalReadingConfig），由外观设置页切换。
+        val readingConfig = LocalReadingConfig.current
         if (enableRichPreview) {
             val displayMarkdown =
                 remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
@@ -225,10 +245,7 @@ internal fun MemoItem(
         } else {
             Text(
                 text = plainPreview,
-                style =
-                    MaterialTheme.typography.bodyMedium.copy(
-                        lineHeight = InkSpacing.LinePitch,
-                    ),
+                style = readingConfig.applyTo(MaterialTheme.typography.bodyMedium),
                 maxLines = 6,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -265,25 +282,6 @@ internal fun MemoItem(
                 }
             }
         }
-
-        val statusText =
-            if (memo.serverState == MemoServerState.ARCHIVED) {
-                when (memo.syncStatus) {
-                    SyncStatus.LOCAL_ONLY -> "已归档（本地）"
-                    SyncStatus.DIRTY -> "归档中"
-                    SyncStatus.SYNCING -> "归档同步中"
-                    SyncStatus.SYNCED -> "已归档"
-                    SyncStatus.FAILED -> "归档失败"
-                }
-            } else {
-                when (memo.syncStatus) {
-                    SyncStatus.LOCAL_ONLY -> "仅本地"
-                    SyncStatus.DIRTY -> "待同步"
-                    SyncStatus.SYNCING -> "同步中"
-                    SyncStatus.SYNCED -> "已同步"
-                    SyncStatus.FAILED -> "失败"
-                }
-            }
 
         // 底部状态行：仅承载同步状态，弱化字号与颜色，退到卡片最底层。
         Row(

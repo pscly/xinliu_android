@@ -2,7 +2,6 @@ package cc.pscly.onememos.ui.component
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -25,6 +24,7 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import cc.pscly.onememos.domain.model.ThemeTexture
+import cc.pscly.onememos.ui.accessibility.PaperInkFocusIndicator
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
@@ -102,8 +102,11 @@ fun InkCard(
                     }
                 }
                 .then(
+                    // 清简质感：聚焦仅换主描边色（上方 borderColor），不再叠第二层焦点环
                     if (focused && clickable && texture != ThemeTexture.MINIMAL) {
-                        Modifier.border(BorderStroke(InkBorder.Hairline, MaterialTheme.colorScheme.primary), shape)
+                        with(PaperInkFocusIndicator) {
+                            Modifier.paperInkFocusBorder(focused = true, shape = shape)
+                        }
                     } else {
                         Modifier
                     },

@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -126,6 +127,57 @@ class SettingsPrimitivesAccessibilityTest {
         assertNotNull(ReducedMotion.Local)
     }
 
+    @Test
+    fun tagChip_clickable_hasMin48TouchTarget_andTagContentDescription() {
+        composeRule.setContent {
+            OneMemosTheme {
+                TagChip(
+                    tag = "工作",
+                    selected = true,
+                    onClick = {},
+                    modifier = Modifier.testTag("tag_chip"),
+                )
+            }
+        }
+        val node = composeRule.onNodeWithTag("tag_chip")
+        node.assertIsDisplayed()
+        node.assertHeightIsAtLeast(48.dp)
+        node.assertWidthIsAtLeast(48.dp)
+        val desc = node.contentDescription()
+        assertNotNull(desc)
+        assertTrue(desc!!.contains("工作"))
+        assertEquals("已选中", node.stateDescription())
+    }
+
+    @Test
+    fun sealStampOverlay_visible_hasContentDescriptionAndSurvivesLargeFont() {
+        composeRule.setContent {
+            CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides
+                    androidx.compose.ui.unit.Density(density = 1f, fontScale = 2f),
+            ) {
+                OneMemosTheme {
+                    Box(modifier = Modifier.testTag("stamp_host")) {
+                        SealStampOverlay(
+                            visible = true,
+                            text = "已存",
+                            modifier = Modifier.testTag("stamp_overlay"),
+                        )
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("已存").assertExists()
+        // 大字体下语义节点仍存在（不因裁切从语义树消失）
+        assertTrue(
+            composeRule
+                .onAllNodesWithContentDescription("已存")
+                .fetchSemanticsNodes()
+                .isNotEmpty(),
+        )
+    }
+
     private fun SemanticsNodeInteraction.contentDescription(): String? {
         val config = fetchSemanticsNode().config
         return config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
@@ -134,5 +186,10 @@ class SettingsPrimitivesAccessibilityTest {
     private fun SemanticsNodeInteraction.isDisabledSemantics(): Boolean {
         val config = fetchSemanticsNode().config
         return config.contains(SemanticsProperties.Disabled)
+    }
+
+    private fun SemanticsNodeInteraction.stateDescription(): String? {
+        val config = fetchSemanticsNode().config
+        return config.getOrNull(SemanticsProperties.StateDescription)
     }
 }

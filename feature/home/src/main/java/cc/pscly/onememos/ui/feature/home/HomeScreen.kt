@@ -84,6 +84,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
@@ -501,11 +505,23 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // 浏览→新建：FAB 组靠后朗读，回到顶部先于「记」
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier =
+                    Modifier
+                        .testTag("home_fab_group")
+                        .semantics {
+                            isTraversalGroup = true
+                            traversalIndex = 1f
+                        },
+            ) {
                 AnimatedVisibility(visible = showScrollToTop) {
                     SealIconButton(
                         icon = Icons.Filled.KeyboardArrowUp,
                         contentDescription = "回到顶部",
+                        modifier = Modifier.semantics { traversalIndex = 0f },
                         onClick = {
                             scope.launch {
                                 if (useGrid) {
@@ -519,6 +535,11 @@ fun HomeScreen(
                 }
                 SealButton(
                     text = "记",
+                    contentDescription = "新建随笔",
+                    modifier =
+                        Modifier
+                            .testTag("home_fab_create")
+                            .semantics { traversalIndex = 1f },
                     onClick = {
                         captureCurrentListPosition()
                         onCreateMemo()
@@ -739,7 +760,14 @@ fun HomeScreen(
                 // 令牌：列间距 InkSpacing.X12，项间距 InkSpacing.CardPadding。
                 LazyVerticalStaggeredGrid(
                     columns = StaggeredGridCells.Fixed(2),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .testTag("home_memo_list")
+                            .semantics {
+                                isTraversalGroup = true
+                                traversalIndex = 0f
+                            },
                     state = gridState,
                     contentPadding = PaddingValues(horizontal = horizontalPad, vertical = verticalPad),
                     horizontalArrangement = Arrangement.spacedBy(InkSpacing.X12),
@@ -802,7 +830,14 @@ fun HomeScreen(
                 }
             } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .testTag("home_memo_list")
+                        .semantics {
+                            isTraversalGroup = true
+                            traversalIndex = 0f
+                        },
                 state = listState,
                 contentPadding = PaddingValues(horizontal = horizontalPad, vertical = verticalPad),
                 verticalArrangement = Arrangement.spacedBy(itemGap),

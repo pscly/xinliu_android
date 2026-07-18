@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -29,11 +28,11 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
-import cc.pscly.onememos.ui.theme.InkBorder
+import cc.pscly.onememos.ui.accessibility.PaperInkFocusIndicator
+import cc.pscly.onememos.ui.accessibility.ReducedMotion
 import cc.pscly.onememos.ui.theme.InkMotion
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
-import cc.pscly.onememos.ui.accessibility.ReducedMotion
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 
 @Composable
@@ -98,10 +97,12 @@ fun SealIconButton(
                         },
                     )
                     .then(
-                        if (focused) {
-                            Modifier.border(InkBorder.Hairline, MaterialTheme.colorScheme.primary, shape)
-                        } else {
-                            Modifier
+                        with(PaperInkFocusIndicator) {
+                            Modifier.paperInkFocusBorder(
+                                focused = focused,
+                                shape = shape,
+                                emphasized = true,
+                            )
                         },
                     ),
             contentAlignment = Alignment.Center,

@@ -462,9 +462,141 @@ class SettingsAccessibilityMatrixTest {
         assertFalse(recordBack.contentDescription().isNullOrBlank())
     }
 
+    @Test
+    fun largeFont_allCapabilityPages_keepRootOrKeySemantics() {
+        var surface by mutableStateOf(LargeFontAllSurface.STORAGE)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                OneMemosTheme {
+                    when (surface) {
+                        LargeFontAllSurface.STORAGE ->
+                            StorageOfflineContent(
+                                uiState = readyStorageState(),
+                                confirmation = null,
+                                onAction = {},
+                                onDismissConfirmation = {},
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        LargeFontAllSurface.APPEARANCE ->
+                            AppearanceInteractionContent(
+                                uiState = readyAppearanceState(),
+                                onIntent = {},
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        LargeFontAllSurface.REMINDER ->
+                            ReminderCalendarContent(
+                                uiState =
+                                    ReminderCalendarUiState(
+                                        loading = false,
+                                        snapshot =
+                                            ReminderCalendarSettingsSnapshot(
+                                                reminderMode = TodoReminderMode.SMART,
+                                                calendarEnabled = false,
+                                                selectedCalendar = null,
+                                                syncCalendarReminders = false,
+                                                permission = CalendarPermissionState.UNKNOWN,
+                                                writableCalendars = emptyList(),
+                                            ),
+                                    ),
+                                onIntent = {},
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        LargeFontAllSurface.ABOUT ->
+                            AboutAdvancedContent(
+                                state =
+                                    AboutAdvancedUiState(
+                                        loading = false,
+                                        snapshot = aboutSnapshot(),
+                                    ),
+                                callbacks = noopAboutCallbacks(),
+                                showRebuildConfirm = false,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        LargeFontAllSurface.RECORD ->
+                            RecordEditingContent(
+                                uiState =
+                                    RecordEditingUiState(
+                                        loading = false,
+                                        snapshot =
+                                            RecordEditingSettingsSnapshot(
+                                                defaultVisibility = MemoVisibility.PRIVATE,
+                                                regexSearchEnabled = false,
+                                                showTagCounts = true,
+                                                quickInsertTimeEnabled = false,
+                                                quickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
+                                            ),
+                                    ),
+                                onBack = {},
+                                onSubmit = {},
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        fun assertTagExists(tag: String) {
+            assertTrue(
+                "大字体下 $tag 语义树仍存在",
+                composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty(),
+            )
+        }
+
+        assertTagExists("settings_storage_root")
+        surface = LargeFontAllSurface.APPEARANCE
+        composeRule.waitForIdle()
+        assertTagExists("settings_appearance_root")
+        surface = LargeFontAllSurface.REMINDER
+        composeRule.waitForIdle()
+        assertTrue(
+            composeRule.onAllNodesWithTag("settings_reminder_mode_smart").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("提醒", substring = true).fetchSemanticsNodes().isNotEmpty(),
+        )
+        surface = LargeFontAllSurface.ABOUT
+        composeRule.waitForIdle()
+        assertTrue(
+            composeRule.onAllNodesWithTag("settings_about_check_update").fetchSemanticsNodes().isNotEmpty(),
+        )
+        surface = LargeFontAllSurface.RECORD
+        composeRule.waitForIdle()
+        assertTrue(
+            composeRule.onAllNodesWithTag("settings_record_back").fetchSemanticsNodes().isNotEmpty(),
+        )
+    }
+
+    @Test
+    fun paperInkFocusTokens_andHubTouchTargetContract_remainGreen() {
+        // 矩阵门禁：纸墨焦点环令牌与 Hub 48dp 一并守护，防止 M3.2 回归
+        assertEquals(
+            cc.pscly.onememos.ui.theme.InkBorder.Hairline,
+            cc.pscly.onememos.ui.accessibility.PaperInkFocusIndicator.StrokeWidth,
+        )
+        assertEquals(
+            cc.pscly.onememos.ui.theme.InkBorder.Stamp,
+            cc.pscly.onememos.ui.accessibility.PaperInkFocusIndicator.EmphasizedStrokeWidth,
+        )
+        setHub(readyHubSnapshot())
+        hubRowTags.forEach { tag ->
+            val node = composeRule.onNodeWithTag(tag)
+            node.performScrollTo()
+            composeRule.waitForIdle()
+            node.assertHeightIsAtLeast(48.dp)
+            node.assertWidthIsAtLeast(48.dp)
+        }
+    }
+
     private enum class LargeFontSurface {
         HUB,
         ACCOUNT,
+    }
+
+    private enum class LargeFontAllSurface {
+        STORAGE,
+        APPEARANCE,
+        REMINDER,
+        ABOUT,
+        RECORD,
     }
 
     private enum class IconSurface {

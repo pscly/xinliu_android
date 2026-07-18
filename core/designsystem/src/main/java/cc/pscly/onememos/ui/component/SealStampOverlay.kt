@@ -7,8 +7,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -18,7 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import cc.pscly.onememos.ui.accessibility.ReducedMotion
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkMotion
@@ -108,10 +115,22 @@ fun SealStampOverlay(
 
     if (alpha <= InkMotion.StampHideAlphaThreshold) return
 
+    // 大字体档：印章最小边随 fontScale 扩张，避免文楷 headline 被固定 150dp 裁切
+    val fontScale = LocalDensity.current.fontScale
+    val stampMin =
+        if (fontScale > 1.15f) {
+            InkSpacing.StampSize * fontScale.coerceAtMost(2f)
+        } else {
+            InkSpacing.StampSize
+        }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = InkBorder.StampScrim * alpha)),
+            .background(Color.Black.copy(alpha = InkBorder.StampScrim * alpha))
+            .semantics {
+                contentDescription = text
+            },
         contentAlignment = Alignment.Center,
     ) {
         val sealColor = MaterialTheme.colorScheme.primary
@@ -119,7 +138,8 @@ fun SealStampOverlay(
 
         Surface(
             modifier = Modifier
-                .size(InkSpacing.StampSize)
+                .defaultMinSize(minWidth = stampMin, minHeight = stampMin)
+                .wrapContentSize(unbounded = true)
                 .graphicsLayer {
                     this.alpha = alpha
                     this.scaleX = scale
@@ -130,12 +150,20 @@ fun SealStampOverlay(
             border = BorderStroke(InkBorder.Stamp, sealColor.copy(alpha = InkBorder.StampOutline)),
             shape = shape,
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.padding(InkSpacing.X16),
+            ) {
                 Text(
                     text = text,
                     color = sealColor.copy(alpha = InkBorder.StampText),
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = true,
+                    modifier = Modifier.wrapContentSize(unbounded = true),
                 )
             }
         }
