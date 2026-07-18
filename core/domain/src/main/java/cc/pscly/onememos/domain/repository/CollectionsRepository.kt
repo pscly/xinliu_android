@@ -22,6 +22,9 @@ interface CollectionsRepository {
         displayName: String? = null,
     ): String
 
+    /** 把 memo 收藏到锦囊内置「收藏」文件夹（找不到则创建）。本地优先，不依赖网络。幂等。 */
+    suspend fun addMemoToFavorites(memoUuid: String): String
+
     suspend fun rename(
         id: String,
         name: String,

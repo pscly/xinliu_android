@@ -330,6 +330,49 @@ class CollectionsRepositoryImpl @Inject constructor(
         ids.forEach { delete(it) }
     }
 
+    override suspend fun addMemoToFavorites(memoUuid: String): String {
+        if (memoUuid.isBlank()) return ""
+
+        // 使用真实 ownerKey，未登录则用本地键
+        val ownerKey = currentOwnerKeyOrNull() ?: LOCAL_OWNER_KEY
+
+        // 查找或创建「收藏」文件夹（本地优先，不依赖网络）
+        val folderId = findOrCreateFavoritesFolder(ownerKey)
+        if (folderId.isBlank()) return ""
+
+        // 幂等：已存在则不重复添加
+        val existing =
+            collectionDao.listChildren(ownerKey = ownerKey, parentId = folderId)
+                .firstOrNull { it.refLocalUuid == memoUuid && it.deletedAt == null }
+        if (existing != null) return existing.id
+
+        val nowMs = System.currentTimeMillis()
+        val nowIso = Instant.now().toString()
+        val id = UUID.randomUUID().toString()
+        val sortOrder = nextSortOrder(ownerKey = ownerKey, parentId = folderId)
+
+        val entity =
+            CollectionItemEntity(
+                ownerKey = ownerKey,
+                id = id,
+                itemType = ITEM_TYPE_NOTE_REF,
+                parentId = folderId,
+                name = "",
+                color = null,
+                refType = REF_TYPE_MEMOS_MEMO,
+                refId = null,
+                sortOrder = sortOrder,
+                clientUpdatedAtMs = nowMs,
+                createdAt = nowIso,
+                updatedAt = nowIso,
+                deletedAt = null,
+                localOnly = true,
+                refLocalUuid = memoUuid,
+            )
+        collectionDao.upsert(entity)
+        return id
+    }
+
     override suspend fun backfillMemoRefId(
         memoUuid: String,
         memoServerId: String,
@@ -452,6 +495,43 @@ class CollectionsRepositoryImpl @Inject constructor(
         )
     }
 
+    private suspend fun findOrCreateFavoritesFolder(ownerKey: String): String {
+        val existing =
+            collectionDao.listAll(ownerKey = ownerKey)
+                .firstOrNull {
+                    it.itemType == ITEM_TYPE_FOLDER &&
+                        it.deletedAt == null &&
+                        it.name.trim() == FAVORITE_FOLDER_NAME
+                }
+                ?.id
+        if (existing != null) return existing
+
+        val nowMs = System.currentTimeMillis()
+        val nowIso = Instant.now().toString()
+        val id = UUID.randomUUID().toString()
+
+        val entity =
+            CollectionItemEntity(
+                ownerKey = ownerKey,
+                id = id,
+                itemType = ITEM_TYPE_FOLDER,
+                parentId = null,
+                name = FAVORITE_FOLDER_NAME,
+                color = null,
+                refType = null,
+                refId = null,
+                sortOrder = 0,
+                clientUpdatedAtMs = nowMs,
+                createdAt = nowIso,
+                updatedAt = nowIso,
+                deletedAt = null,
+                localOnly = true,
+                refLocalUuid = null,
+            )
+        collectionDao.upsert(entity)
+        return id
+    }
+
     private companion object {
         private const val RESOURCE_COLLECTION_ITEM = "collection_item"
 
@@ -463,5 +543,8 @@ class CollectionsRepositoryImpl @Inject constructor(
         private const val ITEM_TYPE_NOTE_REF = "note_ref"
 
         private const val REF_TYPE_MEMOS_MEMO = "memos_memo"
+
+        private const val LOCAL_OWNER_KEY = "local"
+        private const val FAVORITE_FOLDER_NAME = "收藏"
     }
 }

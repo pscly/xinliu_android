@@ -392,8 +392,8 @@ class HomeViewModel @Inject constructor(
                         _events.tryEmit(HomeEvent.SwipeActionMessage("已加入待办"))
                     }
                     SwipeAction.FAVORITE -> {
-                        favoriteMemo(memo)
-                        _events.tryEmit(HomeEvent.SwipeActionMessage("已收藏到「收藏」"))
+                        withContext(Dispatchers.IO) { collectionsRepository.addMemoToFavorites(memo.uuid) }
+                        _events.tryEmit(HomeEvent.SwipeActionMessage("已收藏"))
                     }
                     SwipeAction.PIN -> {
                         val target = !memo.pinned
