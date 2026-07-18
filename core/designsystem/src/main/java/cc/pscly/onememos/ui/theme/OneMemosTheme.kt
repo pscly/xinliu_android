@@ -41,7 +41,7 @@ fun OneMemosTheme(
     config: OneMemosThemeConfig = OneMemosThemeConfig(),
     content: @Composable () -> Unit,
 ) {
-    // 预览模式下尽量减少“动态依赖”，避免 Preview 偶发崩溃
+    // 预览模式下尽量减少动态依赖，避免 Preview 偶发崩溃
     val isPreview = LocalInspectionMode.current
     val systemDark = if (isPreview) false else isSystemInDarkTheme()
     val effectiveDark = when (config.themeMode) {
@@ -58,11 +58,15 @@ fun OneMemosTheme(
         oneMemosLightColorScheme(config.palette, context)
     }
 
-    // 质感轴下发：组件读取 LocalThemeTexture 按“文墨卷轴 / 清简”分支渲染
-    CompositionLocalProvider(LocalThemeTexture provides config.themeDescriptor.texture) {
+    // 质感轴下发：组件读取 LocalThemeTexture 按文墨卷轴/清简分支渲染
+    // 密度轴下发：组件读取 LocalThemeDensity 按标准/宽松/紧凑调整留白与间距
+    CompositionLocalProvider(
+        LocalThemeTexture provides config.themeDescriptor.texture,
+        LocalThemeDensity provides config.themeDescriptor.density,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
-                typography = oneMemosTypography(config.themeDescriptor.fontFamily),
+            typography = oneMemosTypography(config.themeDescriptor.fontFamily),
             content = content,
         )
     }

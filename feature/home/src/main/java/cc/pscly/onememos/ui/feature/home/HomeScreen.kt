@@ -101,11 +101,14 @@ import cc.pscly.onememos.ui.component.TagFilterBottomSheet
 import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.model.GlobalSyncState
+import cc.pscly.onememos.domain.model.ThemeDensity
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
+import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.LocalThemeDensity
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -641,11 +644,21 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            // 密度轴：按 LocalThemeDensity 调整列表留白与间距
+            val density = LocalThemeDensity.current
+            val (horizontalPad, verticalPad, itemGap) =
+                remember(density) {
+                    when (density) {
+                        ThemeDensity.COMPACT -> Triple(InkSpacing.X8, InkSpacing.X8, InkSpacing.X8)
+                        ThemeDensity.STANDARD -> Triple(InkSpacing.X16, InkSpacing.X12, InkSpacing.X12)
+                        ThemeDensity.RELAXED -> Triple(InkSpacing.X24, InkSpacing.X20, InkSpacing.X20)
+                    }
+                }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = verticalPad),
+                verticalArrangement = Arrangement.spacedBy(itemGap),
             ) {
                 val isEmpty = !isRefreshing && refreshError == null && !hasItems
 
@@ -691,24 +704,42 @@ fun HomeScreen(
                         }
                     }
                 } else {
+                    // 将 pagingItems 按日历日期分组，插入 DateHeader
+                    val groupedItems = buildGroupedItems(pagingItems)
+
                     items(
-                        count = pagingItems.itemCount,
-                        // pagingItems[index] 可能短暂为 null（加载中/刷新中）；避免直接 return 导致列表出现“空白卡顿”。
-                        key = { index -> pagingItems.peek(index)?.uuid ?: "loading_$index" },
-                        contentType = { index -> if (pagingItems.peek(index) == null) "loading" else "memo" },
-                    ) { index ->
-                        val memo = pagingItems[index]
-                        if (memo == null) {
-                            MemoItemLoadingPlaceholder()
-                        } else {
-                            val renderRichPreview = enableRichPreview || viewModel.isRichPreviewSticky(memo.uuid)
-                            // 避免在滚动/重组热路径里每次都写入状态：仅在“停稳后”切回富预览时标记一次。
-                            LaunchedEffect(memo.uuid, enableRichPreview) {
-                                if (enableRichPreview) {
-                                    viewModel.markRichPreviewSticky(memo.uuid)
-                                }
+                        count = groupedItems.size,
+                        key = { index ->
+                            when (val item = groupedItems[index]) {
+                                is GroupedListItem.DateHeader -> item.itemKey
+                                is GroupedListItem.MemoEntry -> item.memo.uuid
+                                is GroupedListItem.LoadingEntry -> item.itemKey
                             }
-                            MemoItem(
+                        },
+                        contentType = { index ->
+                            when (groupedItems[index]) {
+                                is GroupedListItem.DateHeader -> "date_header"
+                                is GroupedListItem.MemoEntry -> "memo"
+                                is GroupedListItem.LoadingEntry -> "loading"
+                            }
+                        },
+                    ) { index ->
+                        when (val item = groupedItems[index]) {
+                            is GroupedListItem.DateHeader -> {
+                                DateHeader(dateKey = item.dateKey, epochMillis = item.epochMillis)
+                            }
+                            is GroupedListItem.LoadingEntry -> {
+                                MemoItemLoadingPlaceholder()
+                            }
+                            is GroupedListItem.MemoEntry -> {
+                                val memo = item.memo
+                                val renderRichPreview = enableRichPreview || viewModel.isRichPreviewSticky(memo.uuid)
+                                LaunchedEffect(memo.uuid, enableRichPreview) {
+                                    if (enableRichPreview) {
+                                        viewModel.markRichPreviewSticky(memo.uuid)
+                                    }
+                                }
+                                MemoItem(
                                 memo = memo,
                                 serverBase = uiState.serverBase,
                                 devKeywordsRaw = uiState.devAutoTagLineKeywords,
@@ -748,6 +779,7 @@ fun HomeScreen(
                                         }
                                     },
                             )
+                            }
                         }
                     }
 
@@ -875,9 +907,10 @@ private fun FilterStatusBanner(
                                         imageVector = Icons.Filled.Close,
                                         contentDescription = "清除关键词",
                                         modifier = Modifier.size(18.dp),
-                                    )
-                                }
+                            )
                             }
+                        }
+                    }
                         }
                     }
 
@@ -892,7 +925,6 @@ private fun FilterStatusBanner(
             }
         }
     }
-}
 
 @Composable
 private fun SyncStatusBanner(
@@ -1145,4 +1177,67 @@ private fun MemoItemLoadingPlaceholder() {
             color = blockColor,
         ) {}
     }
+}
+
+/**
+ * 列表项类型：日期头部 / memo 条目 / 加载占位。
+ * 用于 LazyColumn 的预分组渲染。
+ */
+internal sealed class GroupedListItem {
+    /** 日期分组头部。 */
+    data class DateHeader(
+        val dateKey: String, // yyyy-MM-dd
+        val epochMillis: Long,
+    ) : GroupedListItem() {
+        val itemKey: String get() = "date_header_$dateKey"
+    }
+
+    /** 单条 memo 条目。 */
+    data class MemoEntry(
+        val index: Int,
+        val memo: Memo,
+    ) : GroupedListItem()
+
+    /** 未加载的占位项。 */
+    data class LoadingEntry(
+        val index: Int,
+    ) : GroupedListItem() {
+        val itemKey: String get() = "loading_$index"
+    }
+}
+
+/**
+ * 将分页列表按日历日期（yyyy-MM-dd）分组，插入 [GroupedListItem.DateHeader]。
+ * 未加载的占位项不参与日期分组（直接以 [GroupedListItem.LoadingEntry] 穿插）。
+ */
+private fun buildGroupedItems(
+    pagingItems: androidx.paging.compose.LazyPagingItems<Memo>,
+): List<GroupedListItem> {
+    val memos = List(pagingItems.itemCount) { pagingItems.peek(it) }
+    return buildGroupedItemsFromList(memos)
+}
+
+/**
+ * 纯数据分组逻辑（可从 JVM 单元测试调用）。
+ * 输入可为 null 的列表，按日期分组输出。
+ */
+internal fun buildGroupedItemsFromList(
+    memos: List<Memo?>,
+): List<GroupedListItem> {
+    val items = mutableListOf<GroupedListItem>()
+    var currentDate = ""
+    for (i in memos.indices) {
+        val memo = memos[i]
+        if (memo != null) {
+            val dateKey = DateTimeFormatter.formatYmd(memo.createdAt)
+            if (dateKey != currentDate) {
+                currentDate = dateKey
+                items.add(GroupedListItem.DateHeader(dateKey, memo.createdAt))
+            }
+            items.add(GroupedListItem.MemoEntry(i, memo))
+        } else {
+            items.add(GroupedListItem.LoadingEntry(i))
+        }
+    }
+    return items
 }
