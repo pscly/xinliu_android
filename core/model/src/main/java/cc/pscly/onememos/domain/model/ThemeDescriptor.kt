@@ -26,16 +26,61 @@ data class ThemeDescriptor(
             fontFamily = ThemeFontFamily.WENKAI,
         )
 
+        /**
+         * 清简·月白：出厂预设。
+         * 月白色板 × 清简质感 × 宽松密度 × 标准字阶 × 系统字体。
+         */
+        val QINGJIAN_YUEBAI: ThemeDescriptor = ThemeDescriptor(
+            palette = ThemePalette.MOON_WHITE,
+            texture = ThemeTexture.MINIMAL,
+            density = ThemeDensity.RELAXED,
+            typeScale = ThemeTypeScale.STANDARD,
+            fontFamily = ThemeFontFamily.SYSTEM,
+        )
+
+        /**
+         * 夜航·黛蓝：出厂预设。
+         * 黛蓝色板 × 文墨卷轴 × 标准密度 × 标准字阶 × 文楷。
+         */
+        val YEHANG_DAILAN: ThemeDescriptor = ThemeDescriptor(
+            palette = ThemePalette.INDIGO,
+            texture = ThemeTexture.SCROLL,
+            density = ThemeDensity.STANDARD,
+            typeScale = ThemeTypeScale.STANDARD,
+            fontFamily = ThemeFontFamily.WENKAI,
+        )
+
+        /**
+         * 赛博·荧光青：出厂预设（策展组合，非 [fromLegacyPalette] 迁移映射）。
+         * 赛博色板 × 清简质感 × 紧凑密度 × 标准字阶 × 系统字体。
+         *
+         * 注意：旧色板迁移 [fromLegacyPalette](CYBER) 仍为 SCROLL+STANDARD，与本预设不同。
+         */
+        val SAIBO_FLUOR: ThemeDescriptor = ThemeDescriptor(
+            palette = ThemePalette.CYBER,
+            texture = ThemeTexture.MINIMAL,
+            density = ThemeDensity.COMPACT,
+            typeScale = ThemeTypeScale.STANDARD,
+            fontFamily = ThemeFontFamily.SYSTEM,
+        )
+
         /** 与 [WENMO_ZHUSHA] 相同，便于调用点语义化默认值。 */
         val DEFAULT: ThemeDescriptor = WENMO_ZHUSHA
+
+        /**
+         * 四处厂风格预设（一键应用；顺序即外观页卡片顺序）。
+         * DYNAMIC 色板仅作高级调节选项，不在此列表。
+         */
+        val FACTORY_PRESETS: List<ThemeDescriptor> =
+            listOf(WENMO_ZHUSHA, QINGJIAN_YUEBAI, YEHANG_DAILAN, SAIBO_FLUOR)
 
         /**
          * 旧 `theme_palette` 枚举 → 描述符迁移映射（亦作色板→默认轴组合）。
          *
          * - PAPER_INK → 朱砂 × 文墨卷轴 × 标准 × 标准 × 文楷
          * - INDIGO → 黛蓝 × 文墨卷轴 × 标准 × 标准 × 文楷
-         * - CYBER → 赛博 × 文墨卷轴 × 标准 × 标准 × 系统字体
-         * - MOON_WHITE → 月白 × 清简 × 宽松 × 标准 × 系统字体（清简·月白预设）
+         * - CYBER → 赛博 × 文墨卷轴 × 标准 × 标准 × 系统字体（迁移兼容；出厂 [SAIBO_FLUOR] 另为 MINIMAL+COMPACT）
+         * - MOON_WHITE → 月白 × 清简 × 宽松 × 标准 × 系统字体（与 [QINGJIAN_YUEBAI] 一致）
          * - DYNAMIC → 动态 × 文墨卷轴 × 标准 × 标准 × 系统字体
          *
          * 未知/缺失由调用方回退到 [WENMO_ZHUSHA]。
