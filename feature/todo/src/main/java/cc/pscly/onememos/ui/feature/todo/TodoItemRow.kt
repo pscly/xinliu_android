@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.model.TodoItem
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 internal fun TodoItemRow(
@@ -107,7 +109,7 @@ internal fun TodoItemRow(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(InkShape.Card)
                         .background(bgColor)
                         .padding(horizontal = 16.dp),
                 contentAlignment =
@@ -150,7 +152,7 @@ internal fun TodoItemRow(
                     },
                 )
 
-                Spacer(modifier = Modifier.size(10.dp))
+                Spacer(modifier = Modifier.size(InkSpacing.X10))
 
                 Column(
                     modifier = Modifier.weight(1f),
@@ -192,7 +194,7 @@ private fun TodoDoneMark(
     isRecurring: Boolean,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = InkShape.Tag
     val interactionSource = remember { MutableInteractionSource() }
     val borderColor =
         if (isDone) {

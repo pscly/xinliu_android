@@ -22,6 +22,7 @@ import cc.pscly.onememos.domain.model.TodoStatuses
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.InkChip
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 internal fun TodoFilterBar(
@@ -38,7 +39,7 @@ internal fun TodoFilterBar(
     modifier: Modifier = Modifier,
 ) {
     InkCard(modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -62,7 +63,7 @@ internal fun TodoFilterBar(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 item {
@@ -89,7 +90,7 @@ internal fun TodoFilterBar(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 item {
@@ -134,7 +135,7 @@ internal fun TodoFilterBar(
                         selected = true,
                         onClick = onOpenTagInput,
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(InkSpacing.X8))
                     InkChip(
                         label = "清除",
                         selected = false,
@@ -146,7 +147,7 @@ internal fun TodoFilterBar(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline,
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(InkSpacing.X10))
                     InkChip(
                         label = "筛选标签",
                         selected = false,

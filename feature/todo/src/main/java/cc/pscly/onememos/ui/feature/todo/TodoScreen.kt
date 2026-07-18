@@ -66,6 +66,7 @@ import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.SealStampOverlay
+import cc.pscly.onememos.ui.theme.InkSpacing
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -264,7 +265,7 @@ fun TodoScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = InkSpacing.X12, vertical = InkSpacing.X10),
         ) {
             ScrollPaperSurface(
                 modifier =
@@ -282,20 +283,20 @@ fun TodoScreen(
                 }
 
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     if (hasAnyReminders && !notificationPermissionGranted) {
                         item(key = "permission_banner") {
                             InkCard {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X8)) {
                                     Text(text = "待办提醒需要通知权限", style = MaterialTheme.typography.titleSmall)
                                     Text(
                                         text = "当前系统未授予通知权限（POST_NOTIFICATIONS），提醒将无法弹出。授权后会自动重排提醒。",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8)) {
                                         Button(onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
                                             Text("授权通知")
                                         }
@@ -337,14 +338,14 @@ fun TodoScreen(
                     if (uiState.items.isEmpty()) {
                         item(key = "empty") {
                             InkCard {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X8)) {
                                     Text(text = "今日无事，可安心挥毫。", style = MaterialTheme.typography.titleMedium)
                                     Text(
                                         text = "点击右下角「办」新增任务；也可以先新建一个清单，让待办更有条理。",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                                         TextButton(onClick = { showCreateList = true }) {
                                             Text("新建清单")
                                         }

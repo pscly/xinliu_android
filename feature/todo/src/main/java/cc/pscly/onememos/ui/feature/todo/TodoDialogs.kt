@@ -56,6 +56,7 @@ import cc.pscly.onememos.domain.model.TodoStatuses
 import cc.pscly.onememos.domain.todo.TodoRecurrenceCalculator
 import cc.pscly.onememos.domain.util.LocalDateTimes
 import cc.pscly.onememos.ui.component.InkChip
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.delay
 import org.json.JSONArray
@@ -79,7 +80,7 @@ internal fun TodoManageListDialog(
         onDismissRequest = onDismiss,
         title = { Text("管理清单") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X12)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -175,7 +176,7 @@ internal fun TodoDeletedListsDialog(
                 )
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(
@@ -234,7 +235,7 @@ internal fun TodoDeletedItemsDialog(
                 )
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                     modifier =
                         Modifier
                             .fillMaxWidth()
@@ -298,10 +299,10 @@ internal fun TodoCreateItemDialog(
         onDismissRequest = onDismiss,
         title = { Text("新增任务") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X12)) {
                 Text("选择清单", style = MaterialTheme.typography.labelLarge)
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(lists, key = { it.id }) { list ->
@@ -475,7 +476,7 @@ internal fun TodoEditItemDialog(
                         .fillMaxWidth()
                         .heightIn(max = 520.dp)
                         .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
             ) {
                 OutlinedTextField(
                     value = title,
@@ -495,7 +496,7 @@ internal fun TodoEditItemDialog(
 
                 Text("所属清单", style = MaterialTheme.typography.labelLarge)
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(lists, key = { it.id }) { list ->
@@ -573,7 +574,7 @@ internal fun TodoEditItemDialog(
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         InkChip(
@@ -611,7 +612,7 @@ internal fun TodoEditItemDialog(
                 }
 
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     item {
@@ -638,7 +639,7 @@ internal fun TodoEditItemDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         items(reminderEntries, key = { it.stableKey }) { entry ->
@@ -730,7 +731,7 @@ internal fun TodoEditItemDialog(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         TodoFilterChip(
@@ -754,7 +755,7 @@ internal fun TodoEditItemDialog(
                     if (rruleMode == RruleEditorMode.VISUAL) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             TodoFilterChip(label = "每天", selected = freq == RruleFreq.DAILY, onClick = { freq = RruleFreq.DAILY })
@@ -780,7 +781,7 @@ internal fun TodoEditItemDialog(
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X6),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 RruleDay.values().forEach { day ->
@@ -889,7 +890,7 @@ internal fun TodoEditItemDialog(
                         )
                     } else {
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             occurrences.take(20).forEach { oc ->
