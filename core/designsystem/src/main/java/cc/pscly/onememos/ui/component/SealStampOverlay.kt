@@ -2,6 +2,7 @@ package cc.pscly.onememos.ui.component
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import cc.pscly.onememos.ui.accessibility.ReducedMotion
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkMotion
 import cc.pscly.onememos.ui.theme.InkShape
@@ -30,6 +32,7 @@ import kotlin.math.roundToInt
  * 使用方式：
  * - visible=true 时弹出盖章；visible=false 时淡出
  * - 上层负责控制显示时长（例如 200~400ms）
+ * - [ReducedMotion] 生效时去掉入场关键帧与旋转/缩放过渡，印章即时出现/消失（ADR 0012）
  */
 @Composable
 fun SealStampOverlay(
@@ -38,6 +41,7 @@ fun SealStampOverlay(
     modifier: Modifier = Modifier,
     durationMs: Int = InkMotion.StampDurationDefaultMs,
 ) {
+    val reduceMotion = ReducedMotion.current
     val base = durationMs.coerceIn(InkMotion.StampDurationMinMs, InkMotion.StampDurationMaxMs)
     val enterMs =
         (base * InkMotion.StampEnterRatio).roundToInt()
@@ -49,7 +53,9 @@ fun SealStampOverlay(
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec =
-            if (visible) {
+            if (reduceMotion) {
+                snap()
+            } else if (visible) {
                 keyframes {
                     durationMillis = enterMs
                     0f at 0
@@ -64,7 +70,9 @@ fun SealStampOverlay(
         targetValue = if (visible) 1f else InkMotion.StampScaleOut,
         // “盖章压下”：先冲击(偏大) -> 轻微回弹(偏小) -> 稳定到 1f
         animationSpec =
-            if (visible) {
+            if (reduceMotion) {
+                snap()
+            } else if (visible) {
                 keyframes {
                     durationMillis = enterMs
                     InkMotion.StampScaleInStart at 0
@@ -81,7 +89,9 @@ fun SealStampOverlay(
     val rotation by animateFloatAsState(
         targetValue = if (visible) InkMotion.StampRotationEnd else InkMotion.StampRotationOut,
         animationSpec =
-            if (visible) {
+            if (reduceMotion) {
+                snap()
+            } else if (visible) {
                 keyframes {
                     durationMillis = enterMs
                     InkMotion.StampRotationStart at 0
