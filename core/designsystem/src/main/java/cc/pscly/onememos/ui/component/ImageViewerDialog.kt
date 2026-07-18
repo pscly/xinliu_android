@@ -46,7 +46,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
+import cc.pscly.onememos.ui.theme.InkBorder
+import cc.pscly.onememos.ui.theme.InkMotion
+import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.InkTone
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
@@ -78,7 +81,7 @@ fun ImageViewerDialog(
             // iOS 相册的“点一下隐藏 UI”，这里也做一个轻量模拟：默认显示，稍后自动隐藏；点一下再显示。
             LaunchedEffect(pagerState.currentPage, chromeVisible) {
                 if (!chromeVisible) return@LaunchedEffect
-                delay(2200)
+                delay(InkMotion.ViewerChromeAutoHideMs)
                 chromeVisible = false
             }
 
@@ -106,7 +109,10 @@ fun ImageViewerDialog(
                             1f to Color.Transparent,
                         ),
                     )
-                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                    .padding(
+                        horizontal = InkSpacing.ViewerChromePadding,
+                        vertical = InkSpacing.ViewerChromePadding,
+                    ),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -116,7 +122,7 @@ fun ImageViewerDialog(
                         shape = MaterialTheme.shapes.medium,
                         color = Color.White.copy(alpha = 0.10f),
                         border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
+                            InkBorder.Hairline,
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
                         ),
                     ) {
@@ -137,7 +143,7 @@ fun ImageViewerDialog(
                             imageVector = Icons.Filled.Circle,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = InkSpacing.ViewerDotPaddingEnd),
                         )
                         Text(
                             text = "${pagerState.currentPage + 1} / ${models.size}",
@@ -150,7 +156,7 @@ fun ImageViewerDialog(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(1.dp)
+                        .height(InkBorder.Hairline)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                 )
             }
@@ -167,7 +173,10 @@ fun ImageViewerDialog(
                             1f to Color.Black.copy(alpha = 0.72f),
                         ),
                     )
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                    .padding(
+                        horizontal = InkSpacing.ViewerHintPadding,
+                        vertical = InkSpacing.ViewerHintPadding,
+                    ),
             ) {
                 Text(
                     text = "双击放大 · 双指缩放 · 拖动查看",
@@ -197,15 +206,15 @@ private fun ZoomableImage(
     val paperEdge =
         remember {
             PaperEdgeStyle(
-                edgeColor = Color(0xFFF3E7C9),
-                lineColor = Color(0xFFB44A3A), // 朱砂偏棕红
+                edgeColor = InkTone.PaperEdge,
+                lineColor = InkTone.VermilionLine, // 朱砂偏棕红
             )
         }
 
     Box(
         modifier =
             modifier
-                .background(Color(0xFF050403))
+                .background(InkTone.ViewerBackdrop)
                 .graphicsLayer { /* 仅用于承接 drawWithCache 的缓存路径 */ }
                 .pointerInput(key) {
                     // 目标：
@@ -236,7 +245,7 @@ private fun ZoomableImage(
                                     transformHappened = true
                                     tapCandidate = false
 
-                                    scale = (scale * zoom).coerceIn(1f, 5f)
+                                    scale = (scale * zoom).coerceIn(1f, InkMotion.ViewerMaxZoom)
                                     offsetX += pan.x
                                     offsetY += pan.y
 
@@ -264,14 +273,14 @@ private fun ZoomableImage(
                         if (tapCandidate && !transformHappened) {
                             val dt = startTime - lastTapTime
                             val dist = hypot((startX - lastTapX).toDouble(), (startY - lastTapY).toDouble()).toFloat()
-                            if (dt in 1..320 && dist <= viewConfig.touchSlop * 2f) {
+                            if (dt in 1..InkMotion.ViewerDoubleTapWindowMs && dist <= viewConfig.touchSlop * 2f) {
                                 // 双击缩放：更像相册的“就地放大/还原”
                                 if (scale > 1f) {
                                     scale = 1f
                                     offsetX = 0f
                                     offsetY = 0f
                                 } else {
-                                    scale = 2.5f
+                                    scale = InkMotion.ViewerDoubleTapZoom
                                 }
                                 lastTapTime = 0L
                             } else {
@@ -317,7 +326,7 @@ private fun ZoomableImage(
                         drawRect(bottomFade)
 
                         // 极淡“朱砂细线”框（靠近边缘 6dp），增强国风边界感
-                        val inset = 6.dp.toPx()
+                        val inset = InkSpacing.ViewerSealInset.toPx()
                         drawRect(
                             color = line.copy(alpha = 0.10f),
                             topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
@@ -325,7 +334,7 @@ private fun ZoomableImage(
                                 width = size.width - inset * 2f,
                                 height = size.height - inset * 2f,
                             ),
-                            style = Stroke(width = 1.dp.toPx()),
+                            style = Stroke(width = InkBorder.Hairline.toPx()),
                         )
                     }
                 },

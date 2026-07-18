@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -18,8 +17,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import cc.pscly.onememos.ui.theme.InkBorder
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 /**
  * 国漫风“信纸/奏折”背景（无滚动版）：
  * - 仅负责绘制宣纸底色、横线、左侧朱砂竖线与外边框
@@ -30,28 +30,34 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ScrollPaperSurface(
     modifier: Modifier = Modifier,
-    lineHeight: TextUnit = 30.sp,
+    lineHeight: TextUnit = InkSpacing.LinePitch,
     scrollOffsetPx: Float = 0f,
-    contentPadding: PaddingValues = PaddingValues(start = 34.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+    contentPadding: PaddingValues =
+        PaddingValues(
+            start = InkSpacing.PaperPaddingStart,
+            end = InkSpacing.PaperPaddingEnd,
+            top = InkSpacing.PaperPaddingV,
+            bottom = InkSpacing.PaperPaddingV,
+        ),
     content: @Composable () -> Unit,
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = InkShape.Paper
     val density = LocalDensity.current
 
     val lineHeightPx = remember(density, lineHeight) { with(density) { lineHeight.toPx() } }
-    val marginLineX = remember(density) { with(density) { 24.dp.toPx() } }
+    val marginLineX = remember(density) { with(density) { InkSpacing.MarginLineX.toPx() } }
 
-    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
-    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
-    val marginColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineStrong)
+    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineSoft)
+    val marginColor = MaterialTheme.colorScheme.primary.copy(alpha = InkBorder.MarginLine)
 
     Box(
         modifier = modifier
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(width = 1.dp, color = borderColor, shape = shape)
+            .border(width = InkBorder.Hairline, color = borderColor, shape = shape)
             .drawWithCache {
-                val strokeWidth = 1.dp.toPx()
+                val strokeWidth = InkBorder.Hairline.toPx()
                 val linesPath = Path().apply {
                     var y = lineHeightPx
                     val endY = size.height + lineHeightPx

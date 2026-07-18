@@ -12,7 +12,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -31,7 +30,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+import cc.pscly.onememos.ui.theme.InkBorder
+import cc.pscly.onememos.ui.theme.InkMotion
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.accessibility.ReducedMotion
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 
@@ -39,7 +41,7 @@ import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 fun SealButton(
     text: String,
     modifier: Modifier = Modifier,
-    size: Dp = 56.dp,
+    size: Dp = InkSpacing.SealButtonSize,
     enabled: Boolean = true,
     contentDescription: String = text,
     onClick: () -> Unit,
@@ -49,26 +51,25 @@ fun SealButton(
     val focused by interactionSource.collectIsFocusedAsState()
     val reduceMotion = ReducedMotion.current
     val scale by animateFloatAsState(
-        targetValue = if (pressed && enabled && !reduceMotion) 0.92f else 1f,
-        animationSpec = if (reduceMotion) snap() else tween(durationMillis = 120),
+        targetValue = if (pressed && enabled && !reduceMotion) InkMotion.PressScale else 1f,
+        animationSpec = if (reduceMotion) snap() else tween(durationMillis = InkMotion.PressDurationMs),
         label = "seal_scale",
     )
     val haptics = rememberOneMemosHaptics()
-    val corner = if (size <= 44.dp) 12.dp else 14.dp
     val textStyle: TextStyle =
-        if (size <= 44.dp) {
+        if (size <= InkSpacing.SealCompactThreshold) {
             MaterialTheme.typography.titleMedium
         } else {
             MaterialTheme.typography.titleLarge
         }
-    val shape = RoundedCornerShape(corner)
+    val shape = InkShape.sealFor(size)
 
     // 外层保证 ≥48dp 触控区；内层保留视觉 size（可小于 48dp）。
     Box(
         modifier =
             modifier
                 .minimumInteractiveComponentSize()
-                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                .defaultMinSize(minWidth = InkSpacing.TouchTargetMin, minHeight = InkSpacing.TouchTargetMin)
                 .semantics {
                     this.contentDescription = contentDescription
                     role = Role.Button
@@ -105,7 +106,7 @@ fun SealButton(
                     )
                     .then(
                         if (focused) {
-                            Modifier.border(1.dp, MaterialTheme.colorScheme.primary, shape)
+                            Modifier.border(InkBorder.Hairline, MaterialTheme.colorScheme.primary, shape)
                         } else {
                             Modifier
                         },

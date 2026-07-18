@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.sp
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 /**
  * 国漫风“信纸/奏折”输入框：
@@ -32,7 +32,7 @@ fun ScrollTextField(
     placeholder: String = "",
 ) {
     // “信纸横线”的行距：略大一些更有留白感
-    val lineHeight = 30.sp
+    val lineHeight = InkSpacing.LinePitch
 
     val textStyle =
         MaterialTheme.typography.bodyLarge.copy(

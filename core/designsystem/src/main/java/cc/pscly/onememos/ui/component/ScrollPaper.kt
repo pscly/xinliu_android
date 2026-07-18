@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -21,8 +20,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import cc.pscly.onememos.ui.theme.InkBorder
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 /**
  * 国漫风“信纸/奏折”容器：
@@ -34,31 +34,37 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ScrollPaper(
     modifier: Modifier = Modifier,
-    lineHeight: TextUnit = 30.sp,
-    contentPadding: PaddingValues = PaddingValues(start = 34.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+    lineHeight: TextUnit = InkSpacing.LinePitch,
+    contentPadding: PaddingValues =
+        PaddingValues(
+            start = InkSpacing.PaperPaddingStart,
+            end = InkSpacing.PaperPaddingEnd,
+            top = InkSpacing.PaperPaddingV,
+            bottom = InkSpacing.PaperPaddingV,
+        ),
     content: @Composable (contentModifier: Modifier) -> Unit,
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = InkShape.Paper
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
 
     val lineHeightPx = remember(density, lineHeight) { with(density) { lineHeight.toPx() } }
-    val marginLineX = remember(density) { with(density) { 24.dp.toPx() } }
+    val marginLineX = remember(density) { with(density) { InkSpacing.MarginLineX.toPx() } }
 
-    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
-    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
-    val marginColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineStrong)
+    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineSoft)
+    val marginColor = MaterialTheme.colorScheme.primary.copy(alpha = InkBorder.MarginLine)
 
     Box(
         modifier = modifier
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(width = 1.dp, color = borderColor, shape = shape)
+            .border(width = InkBorder.Hairline, color = borderColor, shape = shape)
             .drawWithCache {
                 // 性能优化：
                 // - 旧实现每一帧都用 while 循环画横线；在输入/IME 动画期间会反复触发 draw，容易出现“卡卡的”感受。
                 // - 这里把横线“路径”缓存起来（尺寸不变时复用），每帧仅做一次 Y 方向平移即可。
-                val strokeWidth = 1.dp.toPx()
+                val strokeWidth = InkBorder.Hairline.toPx()
                 val linesPath = Path().apply {
                     var y = lineHeightPx
                     val endY = size.height + lineHeightPx

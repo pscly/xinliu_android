@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.ClickableText
@@ -34,8 +33,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import cc.pscly.onememos.ui.theme.InkBorder
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.InkTone
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
 import android.net.Uri
@@ -105,12 +106,12 @@ fun MarkdownPaper(
 
     ScrollPaper(
         modifier = modifier,
-        lineHeight = 30.sp,
+        lineHeight = InkSpacing.LinePitch,
     ) { contentModifier ->
         if (markdown.isBlank()) {
             Text(
                 text = placeholder,
-                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 30.sp),
+                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = InkSpacing.LinePitch),
                 color = MaterialTheme.colorScheme.outline,
                 modifier = contentModifier,
             )
@@ -122,8 +123,8 @@ fun MarkdownPaper(
             // 解析中：先展示快速预览，避免主线程解析导致的卡顿/白屏。
             Text(
                 text = fallbackText,
-                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 30.sp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f),
+                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = InkSpacing.LinePitch),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = InkBorder.PreviewText),
                 modifier = contentModifier,
             )
             return@ScrollPaper
@@ -196,7 +197,7 @@ fun MarkdownPreview(
 
     Column(
         modifier = modifier.clipToBounds(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(InkSpacing.MarkdownPreviewGap),
     ) {
         blocks.forEach { block ->
             when (block) {
@@ -228,16 +229,16 @@ fun MarkdownPreview(
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Box(
                             modifier = Modifier
-                                .width(3.dp)
-                                .heightIn(min = 24.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)),
+                                .width(InkSpacing.QuoteBarWidth)
+                                .heightIn(min = InkSpacing.QuoteBarMinHeight)
+                                .clip(InkShape.QuoteBar)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = InkBorder.QuoteBar)),
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(InkSpacing.QuoteGap))
                         Text(
                             text = block.text,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = InkBorder.QuoteText),
                             ),
                             maxLines = maxLines,
                             overflow = TextOverflow.Ellipsis,
@@ -246,19 +247,19 @@ fun MarkdownPreview(
                 }
 
                 is MarkdownBlock.CodeBlock -> {
-                    val shape = RoundedCornerShape(12.dp)
+                    val shape = InkShape.MarkdownSub
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(shape)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(12.dp),
+                            .padding(InkSpacing.CodeBlockPadding),
                     ) {
                         Text(
                             text = block.code.trimEnd(),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontFamily = FontFamily.Monospace,
-                                lineHeight = 20.sp,
+                                lineHeight = InkSpacing.CodeLineHeight,
                             ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = maxLines,
@@ -271,8 +272,8 @@ fun MarkdownPreview(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 1.dp)
-                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)),
+                            .heightIn(min = InkBorder.Hairline)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineSoft)),
                     )
                 }
 
@@ -636,7 +637,7 @@ private fun appendInlineRec(node: Node?, b: AnnotatedString.Builder) {
             b.pushStyle(
                 SpanStyle(
                     fontFamily = FontFamily.Monospace,
-                    background = androidx.compose.ui.graphics.Color(0x22000000),
+                    background = InkTone.InlineCodeBg,
                 ),
             )
             b.append(node.literal)
@@ -759,7 +760,7 @@ private fun MarkdownBlocks(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(InkSpacing.MarkdownBlockGap),
     ) {
         blocks.forEach { block ->
             when (block) {
@@ -781,7 +782,7 @@ private fun MarkdownBlocks(
                 is MarkdownBlock.Paragraph -> {
                     AnnotatedClickableText(
                         text = block.text,
-                        style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 30.sp),
+                        style = MaterialTheme.typography.bodyLarge.copy(lineHeight = InkSpacing.LinePitch),
                         onOpenUrl = onOpenUrl,
                     )
                 }
@@ -792,17 +793,17 @@ private fun MarkdownBlocks(
                     ) {
                         Box(
                             modifier = Modifier
-                                .width(3.dp)
-                                .heightIn(min = 24.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)),
+                                .width(InkSpacing.QuoteBarWidth)
+                                .heightIn(min = InkSpacing.QuoteBarMinHeight)
+                                .clip(InkShape.QuoteBar)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = InkBorder.QuoteBar)),
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(InkSpacing.QuoteGap))
                         AnnotatedClickableText(
                             text = block.text,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                lineHeight = 30.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
+                                lineHeight = InkSpacing.LinePitch,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = InkBorder.QuoteText),
                             ),
                             onOpenUrl = onOpenUrl,
                         )
@@ -810,19 +811,19 @@ private fun MarkdownBlocks(
                 }
 
                 is MarkdownBlock.CodeBlock -> {
-                    val shape = RoundedCornerShape(12.dp)
+                    val shape = InkShape.MarkdownSub
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(shape)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(12.dp),
+                            .padding(InkSpacing.CodeBlockPadding),
                     ) {
                         Text(
                             text = block.code.trimEnd(),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontFamily = FontFamily.Monospace,
-                                lineHeight = 20.sp,
+                                lineHeight = InkSpacing.CodeLineHeight,
                             ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -833,8 +834,8 @@ private fun MarkdownBlocks(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 1.dp)
-                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)),
+                            .heightIn(min = InkBorder.Hairline)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineSoft)),
                     )
                 }
 
@@ -858,9 +859,9 @@ private fun MarkdownTable(
         ).coerceAtLeast(1)
 
     val hScroll = rememberScrollState()
-    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-    val headerBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-    val cellMinWidth = 88.dp
+    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.TableOutline)
+    val headerBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = InkBorder.TableHeaderFill)
+    val cellMinWidth = InkSpacing.TableCellMinWidth
 
     Box(
         modifier = Modifier
@@ -870,8 +871,8 @@ private fun MarkdownTable(
         Column(
             modifier = Modifier
                 .widthIn(min = cellMinWidth * cols)
-                .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(12.dp))
-                .clip(RoundedCornerShape(12.dp)),
+                .border(width = InkBorder.Hairline, color = borderColor, shape = InkShape.MarkdownSub)
+                .clip(InkShape.MarkdownSub),
         ) {
             block.header?.let { header ->
                 Row(modifier = Modifier.background(headerBg)) {
@@ -880,8 +881,11 @@ private fun MarkdownTable(
                         Box(
                             modifier = Modifier
                                 .widthIn(min = cellMinWidth)
-                                .border(width = 0.5.dp, color = borderColor)
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                .border(width = InkBorder.TableCell, color = borderColor)
+                                .padding(
+                                    horizontal = InkSpacing.TableCellPaddingH,
+                                    vertical = InkSpacing.TableCellPaddingV,
+                                ),
                         ) {
                             Text(
                                 text = cell,
@@ -903,8 +907,11 @@ private fun MarkdownTable(
                         Box(
                             modifier = Modifier
                                 .widthIn(min = cellMinWidth)
-                                .border(width = 0.5.dp, color = borderColor)
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                .border(width = InkBorder.TableCell, color = borderColor)
+                                .padding(
+                                    horizontal = InkSpacing.TableCellPaddingH,
+                                    vertical = InkSpacing.TableCellPaddingV,
+                                ),
                         ) {
                             Text(
                                 text = cell,

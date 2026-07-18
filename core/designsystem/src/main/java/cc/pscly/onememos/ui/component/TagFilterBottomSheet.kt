@@ -22,7 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.domain.tag.TagStat
 import cc.pscly.onememos.ui.filter.TagMatchMode
 
@@ -53,26 +53,26 @@ fun TagFilterBottomSheet(
         onDismissRequest = onDismiss,
     ) {
         Text(
-            modifier = Modifier.padding(horizontal = 20.dp),
+            modifier = Modifier.padding(horizontal = InkSpacing.SheetMarginH),
             text = title,
             style = MaterialTheme.typography.titleLarge,
         )
 
         Text(
             modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .padding(top = 6.dp),
+                .padding(horizontal = InkSpacing.SheetMarginH)
+                .padding(top = InkSpacing.SheetTitleTopGap),
             text = "排除：含任意所选标签的记录会被隐藏",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.SheetGapM))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = InkSpacing.SheetMarginH),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
@@ -86,15 +86,15 @@ fun TagFilterBottomSheet(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.SheetGapM))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = InkSpacing.SheetMarginH),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.SheetGapS)) {
                 OutlinedButton(
                     onClick = { onTagMatchModeChange(TagMatchMode.OR) },
                     enabled = tagMatchMode != TagMatchMode.OR,
@@ -114,11 +114,11 @@ fun TagFilterBottomSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.SheetGapS))
 
         if (allTags.isEmpty()) {
             Text(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = InkSpacing.SheetMarginH, vertical = InkSpacing.SheetEmptyPaddingV),
                 text = "还没有任何标签。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline,
@@ -127,9 +127,9 @@ fun TagFilterBottomSheet(
             FlowRow(
                 modifier = modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(horizontal = InkSpacing.SheetMarginH),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.SheetGapS),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.SheetGapS),
             ) {
                 allTags.forEach { stat ->
                     TagChip(
@@ -142,20 +142,20 @@ fun TagFilterBottomSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.SheetGapL))
 
         if (onApply != null) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = InkSpacing.SheetMarginH),
                 horizontalArrangement = Arrangement.End,
             ) {
                 OutlinedButton(onClick = onApply) {
                     Text("应用筛选")
                 }
             }
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.SheetGapS))
         }
     }
 }

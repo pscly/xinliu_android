@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -25,7 +24,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
+import cc.pscly.onememos.ui.theme.InkBorder
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
@@ -37,23 +38,23 @@ fun InkCard(
     contentDescription: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = InkShape.Card
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
     val clickable = onClick != null || onLongClick != null
     val borderColor =
         when {
             focused && clickable -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+            else -> MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineStrong)
         }
-    val border = BorderStroke(1.dp, borderColor)
+    val border = BorderStroke(InkBorder.Hairline, borderColor)
 
     val interactiveModifier =
         when {
             onClick != null && onLongClick != null -> {
                 Modifier
                     .minimumInteractiveComponentSize()
-                    .defaultMinSize(minHeight = 48.dp)
+                    .defaultMinSize(minHeight = InkSpacing.TouchTargetMin)
                     .combinedClickable(
                         enabled = enabled,
                         interactionSource = interactionSource,
@@ -66,7 +67,7 @@ fun InkCard(
             onClick != null -> {
                 Modifier
                     .minimumInteractiveComponentSize()
-                    .defaultMinSize(minHeight = 48.dp)
+                    .defaultMinSize(minHeight = InkSpacing.TouchTargetMin)
                     .clickable(
                         enabled = enabled,
                         interactionSource = interactionSource,
@@ -96,7 +97,7 @@ fun InkCard(
                 }
                 .then(
                     if (focused && clickable) {
-                        Modifier.border(BorderStroke(1.dp, MaterialTheme.colorScheme.primary), shape)
+                        Modifier.border(BorderStroke(InkBorder.Hairline, MaterialTheme.colorScheme.primary), shape)
                     } else {
                         Modifier
                     },
@@ -105,6 +106,6 @@ fun InkCard(
         color = MaterialTheme.colorScheme.surface,
         border = border,
     ) {
-        Column(modifier = Modifier.padding(14.dp), content = content)
+        Column(modifier = Modifier.padding(InkSpacing.CardPadding), content = content)
     }
 }
