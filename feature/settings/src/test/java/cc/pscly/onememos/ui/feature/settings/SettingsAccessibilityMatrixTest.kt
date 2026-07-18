@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.model.CacheStats
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
+import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
@@ -298,12 +299,20 @@ class SettingsAccessibilityMatrixTest {
         composeRule.waitForIdle()
 
         listOf(
-            "settings_appearance_palette_paper_ink",
-            "settings_appearance_palette_indigo",
-            "settings_appearance_palette_cyber",
+            "settings_appearance_preset_wenmo_zhusha",
+            "settings_appearance_preset_qingjian_yuebai",
+            "settings_appearance_preset_yehang_dailan",
+            "settings_appearance_preset_saibo_fluor",
             "settings_appearance_mode_follow_system",
             "settings_appearance_mode_light",
             "settings_appearance_mode_dark",
+            "settings_appearance_palette_paper_ink",
+            "settings_appearance_palette_indigo",
+            "settings_appearance_palette_cyber",
+            "settings_appearance_palette_moon_white",
+            "settings_appearance_texture_scroll",
+            "settings_appearance_density_standard",
+            "settings_appearance_font_wenkai",
             "settings_appearance_overlay",
             "settings_appearance_duration_slider",
         ).forEach { tag ->
@@ -616,7 +625,7 @@ class SettingsAccessibilityMatrixTest {
             loading = false,
             snapshot =
                 AppearanceInteractionSettingsSnapshot(
-                    themePalette = ThemePalette.PAPER_INK,
+                    themeDescriptor = ThemeDescriptor.WENMO_ZHUSHA,
                     themeMode = ThemeMode.FOLLOW_SYSTEM,
                     quickCaptureOverlayEnabled = false,
                     sealStampDurationMs = 600,

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings_appearance_title">外观与交互</string>
-    <string name="settings_appearance_description">选择纸面风格、明暗表现和记录反馈；每项状态都以文字呈现。</string>
+    <string name="settings_appearance_description">一键选择出厂风格，或微调色板、质感、密度与字体；明暗与记录反馈亦在此页。</string>
     <string name="settings_appearance_loading">正在读取外观设置</string>
     <string name="settings_appearance_selected">已选</string>
     <string name="settings_appearance_not_selected">未选</string>
@@ -9,15 +9,41 @@
     <string name="settings_appearance_disabled">已关闭</string>
     <string name="settings_appearance_choice_semantics">%1$s，%2$s</string>
 
-    <string name="settings_appearance_palette_title">主题色板</string>
-    <string name="settings_appearance_palette_paper_ink">宣纸 · 朱砂</string>
-    <string name="settings_appearance_palette_indigo">宣纸 · 黛蓝</string>
-    <string name="settings_appearance_palette_cyber">玄青 · 荧光青</string>
+    <string name="settings_appearance_preset_title">风格预设</string>
+    <string name="settings_appearance_preset_wenmo_zhusha">文墨·朱砂</string>
+    <string name="settings_appearance_preset_wenmo_zhusha_sub">宣纸朱砂 · 卷轴 · 文楷</string>
+    <string name="settings_appearance_preset_qingjian_yuebai">清简·月白</string>
+    <string name="settings_appearance_preset_qingjian_yuebai_sub">月白中性 · 清简 · 宽松</string>
+    <string name="settings_appearance_preset_yehang_dailan">夜航·黛蓝</string>
+    <string name="settings_appearance_preset_yehang_dailan_sub">黛蓝宣纸 · 卷轴 · 文楷</string>
+    <string name="settings_appearance_preset_saibo_fluor">赛博·荧光青</string>
+    <string name="settings_appearance_preset_saibo_fluor_sub">玄青荧光 · 清简 · 紧凑</string>
 
     <string name="settings_appearance_mode_title">明暗模式</string>
     <string name="settings_appearance_mode_follow_system">跟随系统</string>
     <string name="settings_appearance_mode_light">浅色</string>
     <string name="settings_appearance_mode_dark">深色</string>
+
+    <string name="settings_appearance_advanced_title">高级调节</string>
+    <string name="settings_appearance_palette_title">色板</string>
+    <string name="settings_appearance_palette_paper_ink">宣纸 · 朱砂</string>
+    <string name="settings_appearance_palette_indigo">宣纸 · 黛蓝</string>
+    <string name="settings_appearance_palette_cyber">玄青 · 荧光青</string>
+    <string name="settings_appearance_palette_moon_white">月白 · 中性</string>
+    <string name="settings_appearance_palette_dynamic">跟随系统动态色</string>
+
+    <string name="settings_appearance_texture_title">质感</string>
+    <string name="settings_appearance_texture_scroll">文墨卷轴</string>
+    <string name="settings_appearance_texture_minimal">清简</string>
+
+    <string name="settings_appearance_density_title">密度</string>
+    <string name="settings_appearance_density_standard">标准</string>
+    <string name="settings_appearance_density_relaxed">宽松</string>
+    <string name="settings_appearance_density_compact">紧凑</string>
+
+    <string name="settings_appearance_font_title">字体</string>
+    <string name="settings_appearance_font_wenkai">霞鹜文楷</string>
+    <string name="settings_appearance_font_system">系统字体</string>
 
     <string name="settings_appearance_overlay_title">悬浮记录</string>
     <string name="settings_appearance_overlay_description">开启时按系统流程完成“在其他应用上层显示”授权；关闭时使用应用内极速记录。</string>

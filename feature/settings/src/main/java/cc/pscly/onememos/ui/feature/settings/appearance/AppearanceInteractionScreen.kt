@@ -1,5 +1,6 @@
 package cc.pscly.onememos.ui.feature.settings.appearance
 
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -39,8 +40,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import cc.pscly.onememos.domain.model.ThemeDensity
+import cc.pscly.onememos.domain.model.ThemeDescriptor
+import cc.pscly.onememos.domain.model.ThemeFontFamily
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
+import cc.pscly.onememos.domain.model.ThemeTexture
 import cc.pscly.onememos.domain.settings.AppearanceInteractionSettingsSnapshot
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
@@ -102,18 +107,144 @@ fun AppearanceInteractionContent(
         Text(stringResource(R.string.settings_appearance_loading), style = MaterialTheme.typography.bodyLarge)
         return
     }
-    SelectionSection(SelectionGroup.PALETTE, snapshot, uiState.controlsEnabled, onIntent)
-    SelectionSection(SelectionGroup.MODE, snapshot, uiState.controlsEnabled, onIntent)
+    PresetSection(snapshot, uiState.controlsEnabled, onIntent)
+    ModeSection(snapshot, uiState.controlsEnabled, onIntent)
+    AdvancedSection(snapshot, uiState.controlsEnabled, onIntent)
     OverlaySection(snapshot, uiState.controlsEnabled, onIntent)
     DurationSection(snapshot.sealStampDurationMs, uiState.controlsEnabled, onIntent)
 }
 
 @Composable
-private fun SelectionSection(group: SelectionGroup, snapshot: AppearanceInteractionSettingsSnapshot,
-    enabled: Boolean, onIntent: (AppearanceInteractionUserIntent) -> Unit) {
-    SettingsSection(stringResource(group.titleRes)) {
-        SelectionOption.entries.filter { it.group == group }.forEach { option ->
-            SelectionCard(option, snapshot, enabled) { onIntent(option.intent) }
+private fun PresetSection(
+    snapshot: AppearanceInteractionSettingsSnapshot,
+    enabled: Boolean,
+    onIntent: (AppearanceInteractionUserIntent) -> Unit,
+) {
+    SettingsSection(stringResource(R.string.settings_appearance_preset_title)) {
+        FactoryPresetOption.entries.forEach { option ->
+            val selected = snapshot.themeDescriptor == option.descriptor
+            ChoiceCard(
+                title = stringResource(option.titleRes),
+                subtitle = stringResource(option.subtitleRes),
+                selected = selected,
+                enabled = enabled,
+                testTag = option.testTag,
+                onClick = {
+                    onIntent(AppearanceInteractionUserIntent.SetThemeDescriptor(option.descriptor))
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModeSection(
+    snapshot: AppearanceInteractionSettingsSnapshot,
+    enabled: Boolean,
+    onIntent: (AppearanceInteractionUserIntent) -> Unit,
+) {
+    SettingsSection(stringResource(R.string.settings_appearance_mode_title)) {
+        ModeOption.entries.forEach { option ->
+            ChoiceCard(
+                title = stringResource(option.labelRes),
+                subtitle = null,
+                selected = snapshot.themeMode == option.mode,
+                enabled = enabled,
+                testTag = option.testTag,
+                onClick = { onIntent(AppearanceInteractionUserIntent.SetThemeMode(option.mode)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdvancedSection(
+    snapshot: AppearanceInteractionSettingsSnapshot,
+    enabled: Boolean,
+    onIntent: (AppearanceInteractionUserIntent) -> Unit,
+) {
+    val descriptor = snapshot.themeDescriptor
+    val dynamicSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = stringResource(R.string.settings_appearance_advanced_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = appearanceInk(MaterialTheme.colorScheme),
+        )
+        SettingsSection(stringResource(R.string.settings_appearance_palette_title)) {
+            AdvancedPaletteOption.entries
+                .filter { it.palette != ThemePalette.DYNAMIC || dynamicSupported }
+                .forEach { option ->
+                    ChoiceCard(
+                        title = stringResource(option.labelRes),
+                        subtitle = null,
+                        selected = descriptor.palette == option.palette,
+                        enabled = enabled,
+                        testTag = option.testTag,
+                        onClick = {
+                            onIntent(
+                                AppearanceInteractionUserIntent.SetThemeDescriptor(
+                                    descriptor.copy(palette = option.palette),
+                                ),
+                            )
+                        },
+                    )
+                }
+        }
+        SettingsSection(stringResource(R.string.settings_appearance_texture_title)) {
+            TextureOption.entries.forEach { option ->
+                ChoiceCard(
+                    title = stringResource(option.labelRes),
+                    subtitle = null,
+                    selected = descriptor.texture == option.texture,
+                    enabled = enabled,
+                    testTag = option.testTag,
+                    onClick = {
+                        onIntent(
+                            AppearanceInteractionUserIntent.SetThemeDescriptor(
+                                descriptor.copy(texture = option.texture),
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        SettingsSection(stringResource(R.string.settings_appearance_density_title)) {
+            DensityOption.entries.forEach { option ->
+                ChoiceCard(
+                    title = stringResource(option.labelRes),
+                    subtitle = null,
+                    selected = descriptor.density == option.density,
+                    enabled = enabled,
+                    testTag = option.testTag,
+                    onClick = {
+                        onIntent(
+                            AppearanceInteractionUserIntent.SetThemeDescriptor(
+                                descriptor.copy(density = option.density),
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        SettingsSection(stringResource(R.string.settings_appearance_font_title)) {
+            FontOption.entries.forEach { option ->
+                ChoiceCard(
+                    title = stringResource(option.labelRes),
+                    subtitle = null,
+                    selected = descriptor.fontFamily == option.fontFamily,
+                    enabled = enabled,
+                    testTag = option.testTag,
+                    onClick = {
+                        onIntent(
+                            AppearanceInteractionUserIntent.SetThemeDescriptor(
+                                descriptor.copy(fontFamily = option.fontFamily),
+                            ),
+                        )
+                    },
+                )
+            }
         }
     }
 }
@@ -195,30 +326,50 @@ private fun OnSurfaceFocus(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun SelectionCard(option: SelectionOption, snapshot: AppearanceInteractionSettingsSnapshot,
-    enabled: Boolean, onClick: () -> Unit) {
-    val label = stringResource(option.labelRes)
-    val selected = option.isSelected(snapshot)
+private fun ChoiceCard(
+    title: String,
+    subtitle: String?,
+    selected: Boolean,
+    enabled: Boolean,
+    testTag: String,
+    onClick: () -> Unit,
+) {
     val selectionRes = if (selected) R.string.settings_appearance_selected
         else R.string.settings_appearance_not_selected
     val selectionText = stringResource(selectionRes)
+    val semanticsLabel = if (subtitle.isNullOrBlank()) title else "$title，$subtitle"
     OnSurfaceFocus {
         InkCard(
             onClick = onClick,
             enabled = enabled,
-            contentDescription = stringResource(R.string.settings_appearance_choice_semantics,
-                label, selectionText),
+            contentDescription = stringResource(
+                R.string.settings_appearance_choice_semantics,
+                semanticsLabel,
+                selectionText,
+            ),
             modifier = Modifier.heightIn(min = 48.dp).semantics {
                 this.selected = selected
                 stateDescription = selectionText
-            }.testTag(option.testTag),
+            }.testTag(testTag),
         ) {
             Row(
                 Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically,
             ) {
-                Text(text = label, color = appearanceInk(MaterialTheme.colorScheme), modifier = Modifier.weight(1f))
-                Text(selectionText, style = MaterialTheme.typography.labelLarge,
-                    color = appearanceInk(MaterialTheme.colorScheme))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = title, color = appearanceInk(MaterialTheme.colorScheme))
+                    if (!subtitle.isNullOrBlank()) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = appearanceInk(MaterialTheme.colorScheme),
+                        )
+                    }
+                }
+                Text(
+                    selectionText,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = appearanceInk(MaterialTheme.colorScheme),
+                )
             }
         }
     }
@@ -239,27 +390,81 @@ private fun errorText(error: SettingsCapabilityError): String =
         },
     )
 
-private enum class SelectionGroup(val titleRes: Int) {
-    PALETTE(R.string.settings_appearance_palette_title), MODE(R.string.settings_appearance_mode_title) }
-
-private enum class SelectionOption(
-    val group: SelectionGroup,
-    val labelRes: Int,
-    val intent: AppearanceInteractionUserIntent,
+private enum class FactoryPresetOption(
+    val descriptor: ThemeDescriptor,
+    val titleRes: Int,
+    val subtitleRes: Int,
+    val testTag: String,
 ) {
-    PALETTE_PAPER_INK(SelectionGroup.PALETTE, R.string.settings_appearance_palette_paper_ink, AppearanceInteractionUserIntent.SetThemePalette(ThemePalette.PAPER_INK)), PALETTE_INDIGO(SelectionGroup.PALETTE, R.string.settings_appearance_palette_indigo, AppearanceInteractionUserIntent.SetThemePalette(ThemePalette.INDIGO)),
-    PALETTE_CYBER(SelectionGroup.PALETTE, R.string.settings_appearance_palette_cyber, AppearanceInteractionUserIntent.SetThemePalette(ThemePalette.CYBER)), MODE_FOLLOW_SYSTEM(SelectionGroup.MODE, R.string.settings_appearance_mode_follow_system, AppearanceInteractionUserIntent.SetThemeMode(ThemeMode.FOLLOW_SYSTEM)),
-    MODE_LIGHT(SelectionGroup.MODE, R.string.settings_appearance_mode_light, AppearanceInteractionUserIntent.SetThemeMode(ThemeMode.LIGHT)), MODE_DARK(SelectionGroup.MODE, R.string.settings_appearance_mode_dark, AppearanceInteractionUserIntent.SetThemeMode(ThemeMode.DARK)),
+    WENMO_ZHUSHA(
+        ThemeDescriptor.WENMO_ZHUSHA,
+        R.string.settings_appearance_preset_wenmo_zhusha,
+        R.string.settings_appearance_preset_wenmo_zhusha_sub,
+        "settings_appearance_preset_wenmo_zhusha",
+    ),
+    QINGJIAN_YUEBAI(
+        ThemeDescriptor.QINGJIAN_YUEBAI,
+        R.string.settings_appearance_preset_qingjian_yuebai,
+        R.string.settings_appearance_preset_qingjian_yuebai_sub,
+        "settings_appearance_preset_qingjian_yuebai",
+    ),
+    YEHANG_DAILAN(
+        ThemeDescriptor.YEHANG_DAILAN,
+        R.string.settings_appearance_preset_yehang_dailan,
+        R.string.settings_appearance_preset_yehang_dailan_sub,
+        "settings_appearance_preset_yehang_dailan",
+    ),
+    SAIBO_FLUOR(
+        ThemeDescriptor.SAIBO_FLUOR,
+        R.string.settings_appearance_preset_saibo_fluor,
+        R.string.settings_appearance_preset_saibo_fluor_sub,
+        "settings_appearance_preset_saibo_fluor",
+    ),
+}
+
+private enum class ModeOption(val mode: ThemeMode, val labelRes: Int) {
+    FOLLOW_SYSTEM(ThemeMode.FOLLOW_SYSTEM, R.string.settings_appearance_mode_follow_system),
+    LIGHT(ThemeMode.LIGHT, R.string.settings_appearance_mode_light),
+    DARK(ThemeMode.DARK, R.string.settings_appearance_mode_dark),
     ;
 
-    val testTag: String = "settings_appearance_${name.lowercase()}"
+    val testTag: String = "settings_appearance_mode_${name.lowercase()}"
+}
 
-    fun isSelected(snapshot: AppearanceInteractionSettingsSnapshot): Boolean =
-        when (val value = intent) {
-            is AppearanceInteractionUserIntent.SetThemePalette -> snapshot.themePalette == value.palette
-            is AppearanceInteractionUserIntent.SetThemeMode -> snapshot.themeMode == value.mode
-            else -> false
-        }
+private enum class AdvancedPaletteOption(val palette: ThemePalette, val labelRes: Int) {
+    PAPER_INK(ThemePalette.PAPER_INK, R.string.settings_appearance_palette_paper_ink),
+    INDIGO(ThemePalette.INDIGO, R.string.settings_appearance_palette_indigo),
+    CYBER(ThemePalette.CYBER, R.string.settings_appearance_palette_cyber),
+    MOON_WHITE(ThemePalette.MOON_WHITE, R.string.settings_appearance_palette_moon_white),
+    DYNAMIC(ThemePalette.DYNAMIC, R.string.settings_appearance_palette_dynamic),
+    ;
+
+    val testTag: String = "settings_appearance_palette_${name.lowercase()}"
+}
+
+private enum class TextureOption(val texture: ThemeTexture, val labelRes: Int) {
+    SCROLL(ThemeTexture.SCROLL, R.string.settings_appearance_texture_scroll),
+    MINIMAL(ThemeTexture.MINIMAL, R.string.settings_appearance_texture_minimal),
+    ;
+
+    val testTag: String = "settings_appearance_texture_${name.lowercase()}"
+}
+
+private enum class DensityOption(val density: ThemeDensity, val labelRes: Int) {
+    STANDARD(ThemeDensity.STANDARD, R.string.settings_appearance_density_standard),
+    RELAXED(ThemeDensity.RELAXED, R.string.settings_appearance_density_relaxed),
+    COMPACT(ThemeDensity.COMPACT, R.string.settings_appearance_density_compact),
+    ;
+
+    val testTag: String = "settings_appearance_density_${name.lowercase()}"
+}
+
+private enum class FontOption(val fontFamily: ThemeFontFamily, val labelRes: Int) {
+    WENKAI(ThemeFontFamily.WENKAI, R.string.settings_appearance_font_wenkai),
+    SYSTEM(ThemeFontFamily.SYSTEM, R.string.settings_appearance_font_system),
+    ;
+
+    val testTag: String = "settings_appearance_font_${name.lowercase()}"
 }
 
 private const val DURATION_MIN_MS = 200

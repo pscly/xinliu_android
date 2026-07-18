@@ -29,9 +29,11 @@ class AppearanceInteractionViewModelTest {
     }
 
     @Test
-    fun allPalettesModesOverlayAndDurations_executeTypedCommands() = runBlocking {
+    fun allDescriptorsPalettesModesOverlayAndDurations_executeTypedCommands() = runBlocking {
         val (viewModel, fake) = fixture()
-        val commands = ThemePalette.entries.map(AppearanceInteractionSettingsCommand::SetThemePalette) +
+        val commands =
+            ThemeDescriptor.FACTORY_PRESETS.map(AppearanceInteractionSettingsCommand::SetThemeDescriptor) +
+                ThemePalette.entries.map(AppearanceInteractionSettingsCommand::SetThemePalette) +
                 ThemeMode.entries.map(AppearanceInteractionSettingsCommand::SetThemeMode) +
                 listOf(
                     AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled(false),
@@ -239,6 +241,8 @@ class AppearanceInteractionViewModelTest {
         values.iterator().let { iterator -> { iterator.next() } }
 
     private fun AppearanceInteractionSettingsCommand.toIntent(): AppearanceInteractionUserIntent = when (this) {
+        is AppearanceInteractionSettingsCommand.SetThemeDescriptor ->
+            AppearanceInteractionUserIntent.SetThemeDescriptor(descriptor)
         is AppearanceInteractionSettingsCommand.SetThemePalette -> AppearanceInteractionUserIntent.SetThemePalette(palette)
         is AppearanceInteractionSettingsCommand.SetThemeMode -> AppearanceInteractionUserIntent.SetThemeMode(mode)
         is AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled -> AppearanceInteractionUserIntent.SetQuickCaptureOverlayEnabled(enabled)
@@ -293,7 +297,7 @@ class AppearanceInteractionViewModelTest {
         fun durationIntent(value: Int) = AppearanceInteractionUserIntent.SetSealStampDurationMs(value)
 
         fun defaultSnapshot(commandInFlight: AppearanceInteractionSettingsCommand? = null) = AppearanceInteractionSettingsSnapshot(
-                themePalette = ThemePalette.PAPER_INK,
+                themeDescriptor = ThemeDescriptor.WENMO_ZHUSHA,
                 themeMode = ThemeMode.FOLLOW_SYSTEM,
                 quickCaptureOverlayEnabled = false,
                 sealStampDurationMs = 600,

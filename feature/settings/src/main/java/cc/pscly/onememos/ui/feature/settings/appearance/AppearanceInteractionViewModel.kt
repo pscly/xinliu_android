@@ -2,6 +2,7 @@ package cc.pscly.onememos.ui.feature.settings.appearance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.settings.AppearanceInteractionSettingsCapability
@@ -41,6 +42,8 @@ data class AppearanceInteractionUiState(
 }
 
 sealed interface AppearanceInteractionUserIntent {
+    data class SetThemeDescriptor(val descriptor: ThemeDescriptor) : AppearanceInteractionUserIntent
+
     data class SetThemePalette(val palette: ThemePalette) : AppearanceInteractionUserIntent
 
     data class SetThemeMode(val mode: ThemeMode) : AppearanceInteractionUserIntent
@@ -79,6 +82,8 @@ class AppearanceInteractionViewModel @Inject constructor(
 
     fun onIntent(intent: AppearanceInteractionUserIntent) {
         when (intent) {
+            is AppearanceInteractionUserIntent.SetThemeDescriptor ->
+                submit(AppearanceInteractionSettingsCommand.SetThemeDescriptor(intent.descriptor))
             is AppearanceInteractionUserIntent.SetThemePalette ->
                 submit(AppearanceInteractionSettingsCommand.SetThemePalette(intent.palette))
             is AppearanceInteractionUserIntent.SetThemeMode ->
