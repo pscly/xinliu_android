@@ -81,6 +81,14 @@ object InkSpacing {
     val ViewerHintPadding = X14
     val ViewerSealInset = X6 // 朱砂细线框内缩
 
+    // ---------- 语义别名：状态原语（加载 / 空态 / 错误 / 重试横幅，M3.4） ----------
+    val StateIconSize = X44 // 空态 / 错误态引导图标尺寸（同印章紧凑阈值尺度）
+    val StatePaddingV = X34 // 全幅状态块垂直留白（与纸面左留白同尺度）
+    val StateGapM = X12 // 状态图标与主文案间距
+    val StateGapS = X8 // 主文案与动作按钮间距
+    val BannerPaddingH = X14 // 重试横幅水平内边距（对齐卡片内边距）
+    val BannerPaddingV = X12 // 重试横幅垂直内边距
+
     // ---------- 触控 ----------
     val TouchTargetMin = 48.dp // 最小触控目标（minimumInteractiveComponentSize 兜底）
 }
