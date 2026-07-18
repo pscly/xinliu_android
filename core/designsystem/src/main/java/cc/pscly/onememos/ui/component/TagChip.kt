@@ -80,7 +80,8 @@ fun TagChip(
 
 private fun tagBackgroundColor(tag: String, selected: Boolean): Color {
     val h = tag.hashCode().absoluteValue % 360
-    val saturation = if (selected) 0.52f else 0.40f
+    // 文墨质感：哈希彩色降饱和收敛，安静退后，仅保留轻微色彩倾向
+    val saturation = if (selected) 0.26f else 0.16f
     val value = if (selected) 0.92f else 0.86f
     return Color.hsv(h.toFloat(), saturation, value)
 }
