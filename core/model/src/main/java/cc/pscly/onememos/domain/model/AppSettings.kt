@@ -13,7 +13,11 @@ data class AppSettings(
     val dev2Unlocked: Boolean = false,
     // 是否已完成首次启动引导。升级用户若已配置过 serverUrl/token，会在读取设置时自动视为已完成。
     val welcomeCompleted: Boolean = false,
-    val themePalette: ThemePalette = ThemePalette.PAPER_INK,
+    /**
+     * 主题描述符（色板×质感×密度×字阶×字体）。
+     * 存储 key：`theme_descriptor`；旧 `theme_palette` 仅用于一次性迁移。
+     */
+    val themeDescriptor: ThemeDescriptor = ThemeDescriptor.WENMO_ZHUSHA,
     val themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
     val defaultVisibility: MemoVisibility = MemoVisibility.PRIVATE,
     // 仅影响“搜索文本”的匹配方式；#标签筛选逻辑不受影响。
@@ -55,6 +59,24 @@ data class AppSettings(
     val calendarIntegrationSyncReminders: Boolean = true,
 
     // ----------------------------
+    // 外观交互（M2/M3 字段：M1 只进 schema 与默认值，UI 后补）
+    // ----------------------------
+    /** 列表形态：自动 / 单列 / 双列。 */
+    val listLayout: ListLayout = ListLayout.AUTO,
+    /** 是否启用列表滑动手势。 */
+    val swipeEnabled: Boolean = true,
+    /** 右滑默认动作。 */
+    val swipeRightAction: SwipeAction = SwipeAction.ADD_TO_TODO,
+    /** 左滑默认动作。 */
+    val swipeLeftAction: SwipeAction = SwipeAction.FAVORITE,
+    /** 是否启用页面转场动画。 */
+    val pageTransitionsEnabled: Boolean = true,
+    /** 阅读字号档。 */
+    val readingFontScale: ReadingFontScale = ReadingFontScale.STANDARD,
+    /** 阅读行距档。 */
+    val lineHeight: ReadingLineHeight = ReadingLineHeight.STANDARD,
+
+    // ----------------------------
     // 同步（轻量状态）
     // ----------------------------
     val lastSync: LastSyncState = LastSyncState(),
@@ -78,4 +100,11 @@ data class AppSettings(
 
     // 主页富预览“粘住”上限：0=关闭；默认 500；仅 benchmark/release 生效。
     val devHomeRichPreviewStickyLimit: Int = 500,
-)
+) {
+    /**
+     * 兼容旧调用点：色板从 [themeDescriptor] 推导。
+     * 新代码请直接读 `themeDescriptor.palette`。
+     */
+    val themePalette: ThemePalette
+        get() = themeDescriptor.palette
+}
