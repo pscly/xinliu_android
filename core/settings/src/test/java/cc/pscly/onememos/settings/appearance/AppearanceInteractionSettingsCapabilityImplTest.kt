@@ -31,12 +31,13 @@ import org.junit.Test
 
 class AppearanceInteractionSettingsCapabilityImplTest {
     @Test
-    fun observe_mapsFourAppearanceFields() =
+    fun observe_mapsFullThemeDescriptorAndAppearanceFields() =
         runBlocking {
+            val expected = ThemeDescriptor.SAIBO_FLUOR
             val repo =
                 FakeSettingsRepository(
                     AppSettings(
-                        themeDescriptor = ThemeDescriptor.fromLegacyPalette(ThemePalette.CYBER),
+                        themeDescriptor = expected,
                         themeMode = ThemeMode.DARK,
                         quickCaptureOverlayEnabled = true,
                         sealStampDurationMs = 800,
@@ -48,6 +49,7 @@ class AppearanceInteractionSettingsCapabilityImplTest {
                     FakeOverlayGateway(granted = true),
                 )
             val snap = cap.observe().first()
+            assertEquals(expected, snap.themeDescriptor)
             assertEquals(ThemePalette.CYBER, snap.themePalette)
             assertEquals(ThemeMode.DARK, snap.themeMode)
             assertEquals(true, snap.quickCaptureOverlayEnabled)
@@ -61,6 +63,17 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             val repo = FakeSettingsRepository(AppSettings())
             val overlay = FakeOverlayGateway(granted = true)
             val cap = AppearanceInteractionSettingsCapabilityImpl(repo, overlay)
+
+            assertEquals(
+                AppearanceInteractionSettingsResult.Success,
+                cap.execute(
+                    AppearanceInteractionSettingsCommand.SetThemeDescriptor(
+                        ThemeDescriptor.QINGJIAN_YUEBAI,
+                    ),
+                ),
+            )
+            assertEquals(1, repo.descriptorCalls.get())
+            assertEquals(ThemeDescriptor.QINGJIAN_YUEBAI, repo.flow.value.themeDescriptor)
 
             assertEquals(
                 AppearanceInteractionSettingsResult.Success,
@@ -208,6 +221,7 @@ class AppearanceInteractionSettingsCapabilityImplTest {
     ) : SettingsRepository {
         val flow = MutableStateFlow(initial)
         val paletteCalls = AtomicInteger(0)
+        val descriptorCalls = AtomicInteger(0)
         val modeCalls = AtomicInteger(0)
         val overlayCalls = AtomicInteger(0)
         val sealCalls = AtomicInteger(0)
@@ -236,6 +250,13 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             maybeFail()
             flow.value =
                 flow.value.copy(themeDescriptor = ThemeDescriptor.fromLegacyPalette(palette))
+        }
+
+        override suspend fun setThemeDescriptor(descriptor: ThemeDescriptor) {
+            descriptorCalls.incrementAndGet()
+            maybeHold()
+            maybeFail()
+            flow.value = flow.value.copy(themeDescriptor = descriptor)
         }
 
         override suspend fun setThemeMode(mode: ThemeMode) {

@@ -32,7 +32,7 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
     override fun observe(): Flow<AppearanceInteractionSettingsSnapshot> =
         combine(settingsRepository.settings, commandInFlight) { settings, inFlight ->
             AppearanceInteractionSettingsSnapshot(
-                themePalette = settings.themePalette,
+                themeDescriptor = settings.themeDescriptor,
                 themeMode = settings.themeMode,
                 quickCaptureOverlayEnabled = settings.quickCaptureOverlayEnabled,
                 sealStampDurationMs = settings.sealStampDurationMs,
@@ -50,6 +50,10 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
         commandInFlight.value = command
         return try {
             when (command) {
+                is AppearanceInteractionSettingsCommand.SetThemeDescriptor -> {
+                    settingsRepository.setThemeDescriptor(command.descriptor)
+                    AppearanceInteractionSettingsResult.Success
+                }
                 is AppearanceInteractionSettingsCommand.SetThemePalette -> {
                     settingsRepository.setThemePalette(command.palette)
                     AppearanceInteractionSettingsResult.Success
@@ -96,6 +100,7 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
 
     private fun AppearanceInteractionSettingsCommand.lockKey(): String =
         when (this) {
+            is AppearanceInteractionSettingsCommand.SetThemeDescriptor -> "SetThemeDescriptor"
             is AppearanceInteractionSettingsCommand.SetThemePalette -> "SetThemePalette"
             is AppearanceInteractionSettingsCommand.SetThemeMode -> "SetThemeMode"
             is AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled ->
