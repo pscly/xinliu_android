@@ -61,6 +61,10 @@ dependencies {
     implementation(libs.commonmark.ext.gfm.strikethrough)
     implementation(libs.commonmark.ext.gfm.tables)
 
+    // M2.7：mikepenz Markdown 引擎（与旧 MarkdownPaper 并存，开关 useNewMarkdownEngine）
+    implementation(libs.multiplatform.markdown.renderer.m3.android)
+    implementation(libs.multiplatform.markdown.renderer.coil2.android)
+
     implementation(libs.hilt.android)
 
     implementation(project(":core:model"))

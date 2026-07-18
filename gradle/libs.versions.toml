@@ -32,6 +32,8 @@ coil = "2.6.0"
 securityCrypto = "1.0.0"
 material = "1.12.0"
 commonmark = "0.22.0"
+# M2.7：mikepenz multiplatform-markdown-renderer（计划钉 0.37.0；同上升策略）
+multiplatform-markdown-renderer = "0.37.0"
 zxing = "3.5.3"
 kotlinxSerialization = "1.11.0"
 
@@ -101,6 +103,10 @@ commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" 
 commonmark-ext-autolink = { module = "org.commonmark:commonmark-ext-autolink", version.ref = "commonmark" }
 commonmark-ext-gfm-strikethrough = { module = "org.commonmark:commonmark-ext-gfm-strikethrough", version.ref = "commonmark" }
 commonmark-ext-gfm-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
+
+# M2.7 mikepenz：Android M3 主题变体（传递依赖 core-android）+ Coil2 图片
+multiplatform-markdown-renderer-m3-android = { module = "com.mikepenz:multiplatform-markdown-renderer-m3-android", version.ref = "multiplatform-markdown-renderer" }
+multiplatform-markdown-renderer-coil2-android = { module = "com.mikepenz:multiplatform-markdown-renderer-coil2-android", version.ref = "multiplatform-markdown-renderer" }
 
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 

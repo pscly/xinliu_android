@@ -75,6 +75,7 @@ import cc.pscly.onememos.ui.component.ImageViewerDialog
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.MarkdownPaper
 import cc.pscly.onememos.ui.component.ScrollTextField
+import cc.pscly.onememos.ui.markdown2.MikepenzMarkdown
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.SealStampOverlay
 import cc.pscly.onememos.ui.component.TagChip
@@ -445,13 +446,23 @@ fun EditorScreen(
                         )
                     }
                 } else {
-                    MarkdownPaper(
-                        markdown = uiState.content.text,
-                        placeholder = "写点什么…",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f, fill = true),
-                    )
+                    // M2.7：功能开关控制新旧引擎并存（默认 mikepenz；关闭后回退旧 MarkdownPaper）
+                    val markdownModifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = true)
+                    if (uiState.useNewMarkdownEngine) {
+                        MikepenzMarkdown(
+                            markdownText = uiState.content.text,
+                            placeholder = "写点什么…",
+                            modifier = markdownModifier,
+                        )
+                    } else {
+                        MarkdownPaper(
+                            markdown = uiState.content.text,
+                            placeholder = "写点什么…",
+                            modifier = markdownModifier,
+                        )
+                    }
                 }
 
                 if (uiState.attachments.isNotEmpty()) {

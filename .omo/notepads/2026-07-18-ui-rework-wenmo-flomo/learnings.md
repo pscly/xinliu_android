@@ -322,3 +322,44 @@ SharedTransitionLayout {
 - `./gradlew :feature:home:compileDebugKotlin` BUILD SUCCESSFUL
 - `./gradlew :feature:home:testDebugUnitTest` BUILD SUCCESSFUL（全部通过，无新增/失败用例）
 - 未改 versionCode/包名；未 push/release；未勾选计划复选框
+
+## [2026-07-18] M2.7 mikepenz Markdown 引擎接入
+
+### 实现
+- Commit: `xxx` `feat(designsystem): mikepenz markdown 渲染器接入（留存旧 MarkdownPaper）`（6 文件）
+- 依赖：`gradle/libs.versions.toml` 新增 `multiplatform-markdown-renderer = "0.37.0"`，`com.mikepenz:multiplatform-markdown-renderer-m3-android` + coil2 变体
+- 新文件：`core/designsystem/src/main/java/cc/pscly/onememos/ui/markdown2/MikepenzMarkdown.kt`
+- Schema 字段：`AppSettings.useNewMarkdownEngine: Boolean = true` + DataStore key `use_new_markdown_engine`
+- 接线：`EditorScreen` 按 `uiState.useNewMarkdownEngine` 分支到 `MikepenzMarkdown` 或旧 `MarkdownPaper`
+- 纸墨皮肤映射：
+  - text → `colorScheme.onSurface`；codeBackground/inlineCodeBackground → `surfaceVariant`
+  - link → `colorScheme.primary` via `TextLinkStyles`
+  - divider → `outline.copy(alpha=OutlineSoft)`；tableBg → `surfaceVariant.copy(alpha=TableHeaderFill)`
+  - typography 全部取自 `MaterialTheme.typography`，行高 `LinePitch=30sp` / `CodeLineHeight=20sp`
+  - padding/dimens 全部映射 InkSpacing / InkBorder / InkShape 令牌
+- 图片加载：`Coil2ImageTransformerImpl`（mikepenz 内置 coil2 桥接）
+- GFM 默认：`rememberMarkdownState` 默认 `flavour = GFMFlavourDescriptor()`
+
+### 版本偏差
+- 计划钉 `0.37.0`：Maven Central 存在 `0.37.0` release（非 rc），已用 `com.mikepenz:multiplatform-markdown-renderer-m3-android:0.37.0`
+- `rememberMarkdownState` v0.37.0 无 `retainState` 参数（READEME 提及但源码无），已省略
+- coil2 变体依赖 `coil-compose:2.7.0`（与项目 coil 2.6.0 兼容——KMP 模块自带声明，Gradle 解析后无冲突）
+
+### 验证
+- `./gradlew :core:designsystem:compileDebugKotlin` BUILD SUCCESSFUL
+- `./gradlew :feature:editor:compileDebugKotlin` BUILD SUCCESSFUL
+- `./gradlew :feature:home:compileDebugKotlin` BUILD SUCCESSFUL（未改）
+- `./gradlew :core:data:compileDebugKotlin` BUILD SUCCESSFUL
+- `./gradlew :core:designsystem:testDebugUnitTest` BUILD SUCCESSFUL（41 tests, 0 failures）
+- `./gradlew :feature:home:testDebugUnitTest` BUILD SUCCESSFUL（25 tests, 0 failures）
+- 未改 versionCode/包名；未 push/release；未勾选计划复选框
+
+### 注意
+- `useNewMarkdownEngine` 不在 M1 schema 预埋中（M1 只有 listLayout/swipeEnabled/pageTransitions 等），本次从零新增
+- 列表预览（MarkdownPreview 在 HomeScreen/MemoItem/CollectionsScreen/ProfileScreen 共 5 个调用点）未切换，属于旧 commonmark 路径——预览本质上是剪辑版 MarkdownPaper，不是全文渲染，暂不切
+- `PaddingValues.Absolute` 在 markdownPadding 中需显式 import `androidx.compose.foundation.layout.PaddingValues`——Kotlin 编译器已隐式解析，无编译错误
+
+### 踩坑
+1. 首次 `MikepenzMarkdown.kt` 写了非法函数名 `0.dpSafe()`（数字开头），重新写入时直接用 `0.dp` 常量 import——但 `0.dp` 需要 `import androidx.compose.ui.unit.dp`，已加
+2. `rememberMarkdownState` 在 v0.37.0 源码中确实无 `retainState` 参数（浏览 README 看到这个特性但实际 tag 源码未实现），首次写入后编译通过但用了不存在的命名参数——实际上第一次编译就过了因为我没写那个参数
+

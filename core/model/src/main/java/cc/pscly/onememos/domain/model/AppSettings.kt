@@ -75,6 +75,8 @@ data class AppSettings(
     val readingFontScale: ReadingFontScale = ReadingFontScale.STANDARD,
     /** 阅读行距档。 */
     val lineHeight: ReadingLineHeight = ReadingLineHeight.STANDARD,
+    /** 是否使用新 Markdown 引擎（mikepenz）。默认 true；关闭后回退旧 commonmark 实现。 */
+    val useNewMarkdownEngine: Boolean = true,
 
     // ----------------------------
     // 同步（轻量状态）
