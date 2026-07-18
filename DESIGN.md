@@ -1,287 +1,444 @@
 # 心流 Android 设计系统
 
-本文档从现有 Jetpack Compose 源码中提取设计事实，是后续界面工作的视觉依据，不是一次重新设计。文中使用以下标记区分信息性质：
+本文档从现有 Jetpack Compose 源码中提取设计事实（M1–M3 文墨·flomo 重构之后），是后续界面工作的视觉依据。文中使用以下标记区分信息性质：
 
 - **现状**：当前源码已经实现并可直接复用的令牌、原语或行为。
 - **约束**：后续新增或修改界面时必须遵守的规则，用于保护现有识别度与可访问性。
 - **债务**：当前实现尚未形成统一能力，不能被描述为已经支持。
 
-核心证据来自 `core/designsystem/src/main/java/cc/pscly/onememos/ui/theme/ColorSchemes.kt`、`Typography.kt`、`OneMemosTheme.kt`，以及同模块 `component/` 下的共享原语。本文档不定义设置中心或其能力页的具体布局，也不预先发明设置卡片。
+核心证据来自：
+
+| 区域 | 路径 |
+| --- | --- |
+| 主题描述符 | `core/model/.../ThemeDescriptor.kt`、`ThemePalette.kt` |
+| 令牌与主题 | `core/designsystem/.../theme/InkSpacing.kt`、`InkShape.kt`、`InkBorder.kt`、`InkMotion.kt`、`ColorSchemes.kt`、`Typography.kt`、`OneMemosTheme.kt`、`ReadingConfig.kt`、`PaperInkComponents.kt` |
+| 原语 | `core/designsystem/.../component/`、`markdown2/MikepenzMarkdown.kt` |
+| 无障碍 | `core/designsystem/.../accessibility/ReducedMotion.kt`、`PaperInkFocusIndicator.kt` |
+| 领域词汇 | `CONTEXT.md`；决策见 ADR `0008`–`0012` |
+
+本文档不定义设置中心的具体业务布局；设置 UI 标签以 `feature/settings/.../settings_appearance_strings.xml` 为准。
+
+---
 
 ## 1. Atmosphere & Identity（氛围与识别）
 
-心流的现有界面是一套克制的中式纸墨系统：浅色模式以草白背景和米宣纸表面承载焦茶正文，深色模式转为墨灰背景、玄青纸面和银灰文字；朱砂、黛蓝、赤金或荧光青只随所选主题承担印记与强调角色。系统最明确的识别符号不是装饰图案，而是可工作的“信纸/奏折”表面：细墨色横线随内容滚动，左侧保留低透明度主题色竖线，圆角纸面以细描边从背景中分离。方形圆角印章控件通过压印缩放和轻触感表达确认，系统衬线标题提供书卷气，无衬线正文保证长文可读。后续界面应延续纸、墨、线、印四个核心要素，禁止把它替换成渐变、玻璃、投影堆叠、通用 SaaS 卡片或未经源码支持的新字体。
+### 1.1 识别核心
 
-## 2. Color（颜色）
+心流界面是一套克制的中式纸墨系统，审美靶心为 **flomo 式内容呼吸感**（极简卡片流、标签安静退后），同时保留并强化 **纸、墨、线、印** 四要素：
 
-### 2.1 基础色事实
+1. **纸**：草白背景 + 米宣纸表面（浅色），或墨灰背景 + 玄青纸面（深色）。
+2. **墨**：焦茶正文 / 银灰正文；主色仅作印记、强调与边线。
+3. **线**：文墨卷轴质感下，细墨色横线随内容滚动，左侧低透明度主题色竖线；清简质感下横线关闭、留白加大。
+4. **印**：方形圆角印章控件（压印缩放 + 轻触感）与盖章完成反馈。
 
-以下颜色均在 `ColorSchemes.kt` 中显式声明；名称保留源码语义。
+后续界面应延续上述要素，禁止替换为渐变、玻璃、投影堆叠、通用 SaaS 卡片或未经源码支持的新字体。
 
-| 源码颜色 | 色值 | 现有语义 |
+### 1.2 四轴主题系统（现状）
+
+主题不再是单一色板枚举，而是 **主题描述符**（`ThemeDescriptor`）：
+
+```
+色板 palette × 质感 texture × 密度 density × 字阶 typeScale × 字体 fontFamily
+```
+
+代码注释称「ADR 0008 四轴 + 字体档」五元组；新增外观等于新增描述符数据，不写新组件分支。
+
+| 轴 | 枚举 | 档位（源码） |
 | --- | --- | --- |
-| `PaperBg` | `#F7F8F4` | 草白，所有浅色主题的应用背景 |
-| `PaperSurface` | `#FDFBF3` | 米宣纸，所有浅色主题的卡片和纸面表面 |
-| `InkText` | `#383431` | 焦茶，浅色背景与表面的主要文字 |
-| `InkSubText` | `#878885` | 雅灰，浅色描边、占位和次要文字来源 |
-| `Vermilion` | `#FF4C39` | 朱砂，纸墨主题的浅色主色，也可作为其他主题的次色 |
-| `Indigo` | `#305169` | 黛蓝，黛蓝主题主色或纸墨主题次色 |
-| `NightBg` | `#18191B` | 墨灰，所有深色主题的应用背景 |
-| `NightSurface` | `#22252A` | 玄青，所有深色主题的卡片和纸面表面 |
-| `NightText` | `#E0E0E0` | 银灰，深色背景与表面的主要文字 |
-| `Gold` | `#F2BE45` | 赤金，纸墨深色主题主色或其他深色主题次色 |
-| `NeonCyan` | `#00E5BC` | 荧光青，赛博主题主色 |
+| 色板 | `ThemePalette` | `PAPER_INK`、`INDIGO`、`CYBER`、`MOON_WHITE`、`DYNAMIC` |
+| 质感 | `ThemeTexture` | `SCROLL`（文墨卷轴）、`MINIMAL`（清简） |
+| 密度 | `ThemeDensity` | `STANDARD`、`RELAXED`、`COMPACT` |
+| 字阶 | `ThemeTypeScale` | 目前仅 `STANDARD`（扩展预留） |
+| 字体 | `ThemeFontFamily` | `WENKAI`（霞鹜文楷标题）、`SYSTEM`（系统衬线标题） |
 
-### 2.2 三套主题的浅色映射
+**出厂风格预设**（`ThemeDescriptor.FACTORY_PRESETS`，一键切换）：
 
-| Material 角色 | 纸墨 `PAPER_INK` | 黛蓝 `INDIGO` | 赛博 `CYBER` |
-| --- | --- | --- | --- |
-| `primary` | `#FF4C39` 朱砂 | `#305169` 黛蓝 | `#00E5BC` 荧光青 |
-| `onPrimary` | `#FFFFFF` | `#FFFFFF` | `#0B1F1A` |
-| `secondary` | `#305169` 黛蓝 | `#FF4C39` 朱砂 | `#FF4C39` 朱砂 |
-| `onSecondary` | `#FFFFFF` | `#FFFFFF` | `#FFFFFF` |
-| `background` | `#F7F8F4` 草白 | `#F7F8F4` 草白 | `#F7F8F4` 草白 |
-| `onBackground` | `#383431` 焦茶 | `#383431` 焦茶 | `#383431` 焦茶 |
-| `surface` | `#FDFBF3` 米宣纸 | `#FDFBF3` 米宣纸 | `#FDFBF3` 米宣纸 |
-| `onSurface` | `#383431` 焦茶 | `#383431` 焦茶 | `#383431` 焦茶 |
-| `outline` | `#878885` 雅灰 | `#878885` 雅灰 | `#878885` 雅灰 |
+| 预设常量 | UI 名 | 轴组合 |
+| --- | --- | --- |
+| `WENMO_ZHUSHA`（默认） | 文墨·朱砂 | 纸墨 × 卷轴 × 标准 × 标准 × 文楷 |
+| `QINGJIAN_YUEBAI` | 清简·月白 | 月白 × 清简 × 宽松 × 标准 × 系统 |
+| `YEHANG_DAILAN` | 夜航·黛蓝 | 黛蓝 × 卷轴 × 标准 × 标准 × 文楷 |
+| `SAIBO_FLUOR` | 赛博·荧光青 | 赛博 × 清简 × 紧凑 × 标准 × 系统 |
 
-### 2.3 三套主题的深色映射
+`DYNAMIC`（跟随系统动态色）仅出现在高级色板调节，不绑定出厂预设。明暗由 `ThemeMode`（跟随系统 / 浅色 / 深色）独立控制。
 
-| Material 角色 | 纸墨 `PAPER_INK` | 黛蓝 `INDIGO` | 赛博 `CYBER` |
-| --- | --- | --- | --- |
-| `primary` | `#F2BE45` 赤金 | `#305169` 黛蓝 | `#00E5BC` 荧光青 |
-| `onPrimary` | `#1E1300` | `#FFFFFF` | `#0B1F1A` |
-| `secondary` | `#FF4C39` 朱砂 | `#F2BE45` 赤金 | `#F2BE45` 赤金 |
-| `onSecondary` | `#FFFFFF` | `#1E1300` | `#1E1300` |
-| `background` | `#18191B` 墨灰 | `#18191B` 墨灰 | `#18191B` 墨灰 |
-| `onBackground` | `#E0E0E0` 银灰 | `#E0E0E0` 银灰 | `#E0E0E0` 银灰 |
-| `surface` | `#22252A` 玄青 | `#22252A` 玄青 | `#22252A` 玄青 |
-| `onSurface` | `#E0E0E0` 银灰 | `#E0E0E0` 银灰 | `#E0E0E0` 银灰 |
-| `outline` | `#6D6E6E` | `#6D6E6E` | `#6D6E6E` |
+**下发机制（现状）**：
 
-### 2.4 使用规则
+- `OneMemosTheme` 注入 `MaterialTheme`（色板 + Typography + `PaperInkShapes`）及 CompositionLocal：`LocalThemeTexture`、`LocalThemeDensity`、`LocalReadingConfig`。
+- 密度 → 页边距映射：`COMPACT` 更紧、`STANDARD` 中档、`RELAXED` 更松（见 `ThemeDensityCompositionLocal`）。
+- 持久化：DataStore key `theme_descriptor`（JSON）；旧 `theme_palette` 经 `fromLegacyPalette` 迁移后清除。
 
-- **现状**：`OneMemosTheme` 默认使用纸墨主题并跟随系统明暗模式，也支持明确指定浅色或深色；三套色板共享同一纸面结构，只交换主色与次色。
-- **现状**：共享原语通过 `MaterialTheme.colorScheme` 取色。`InkCard`、`ScrollPaper` 和 `ScrollPaperSurface` 使用 `surface`；正文使用 `onSurface`；纸面外框使用 `outline` 的 `45%`；横线使用 `outline` 的 `22%`；左侧竖线使用 `primary` 的 `35%`。
-- **现状**：`InkChip` 选中底色为 `primary` 的 `14%`，选中描边为 `outline` 的 `80%`，未选中描边为 `40%`；选中文字使用 `primary`，未选中文字使用 Material 的 `onSurfaceVariant`。
-- **现状**：`TagChip` 按标签文本哈希生成 HSV 色块，未选中为饱和度 `0.40`、明度 `0.86`，选中为饱和度 `0.52`、明度 `0.92`；前景按背景亮度切换 `#1C1C1C` 或 `#F3F3F3`。这是标签辨识机制，不是可扩展的主题色板。
-- **现状**：源码只显式覆盖表中的 Material 角色；`surfaceVariant`、`onSurfaceVariant`、状态色等其余角色沿用 Material 3 默认推导，本文档不为其虚构色值。
-- **约束**：新增共享原语优先使用现有语义角色。确有新语义时，先在 `ColorSchemes.kt` 的全部六种明暗组合中定义，再更新本文档；不得在业务界面散落新色值。
-- **约束**：主题主色只用于强调、选择、光标、印章和纸张边线等有语义的位置，不作为大面积装饰。
+- **约束**：主题相关新色值 / 字号 / 间距 / 圆角只允许进令牌与描述符，禁止散落业务界面。
+- **约束**：质感轴分支只在共享原语内实现（如 `ScrollPaper`、`InkCard`、`TagChip`），业务屏不得再写第二套「有无横线」逻辑。
 
-## 3. Typography（字体与排版）
+---
 
-### 3.1 源码显式字阶
+## 2. Design Tokens（设计令牌）
 
-`Typography.kt` 只覆盖以下三个 Material 3 字体角色。表中未出现的 tracking 等属性没有源码显式值，因此不补写数字。
+M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面量仅集中于 `ColorSchemes.kt` / `InkTone`）。
 
-| Material 角色 | 字族 | 字重 | 字号 | 行高 | 现有用途 |
-| --- | --- | --- | --- | --- | --- |
-| `headlineLarge` | `FontFamily.Serif` | `SemiBold` | `30sp` | `38sp` | 页面级标题、盖章反馈文字 |
-| `titleLarge` | `FontFamily.Serif` | `SemiBold` | `20sp` | `26sp` | 区块标题、较强层级标题 |
-| `bodyLarge` | `FontFamily.SansSerif` | `Normal` | `16sp` | `24sp` | 正文与默认长文本 |
+### 2.1 `InkSpacing`（间距与布局）
 
-### 3.2 继承与局部覆盖
+| 尺度 | 值 | 语义别名（节选） |
+| --- | --- | --- |
+| `X1` | `1.dp` | 发丝线宽（与 `InkBorder.Hairline` 一致） |
+| `X6` | `6.dp` | `TagPaddingV`、查看器内缩等 |
+| `X8` | `8.dp` | `ChipPaddingV`、`StateGapS` |
+| `X10` | `10.dp` | `TagPaddingH`、`QuoteGap`、查看器 chrome |
+| `X12` | `12.dp` | `PaperPaddingV`、`ChipPaddingH`、`MarkdownBlockGap`、`StateGapM` |
+| `X14` | `14.dp` | `CardPadding`、`BannerPaddingH` |
+| `X16` | `16.dp` | `PaperPaddingEnd`、清简纸面上下边距 |
+| `X20` | `20.dp` | `SheetMarginH`、清简纸面左右边距 |
+| `X24` | `24.dp` | `MarginLineX`、`QuoteBarMinHeight` |
+| `X34` | `34.dp` | `PaperPaddingStart`、`StatePaddingV` |
+| `X44` | `44.dp` | `SealIconSize`、`SealCompactThreshold`、`StateIconSize` |
+| `X56` | `56.dp` | `SealButtonSize` |
+| `X88` | `88.dp` | `TableCellMinWidth` |
+| `X150` | `150.dp` | `StampSize` |
+| `LinePitch` | `30.sp` | 纸面横线节距 = 长文正文行高 |
+| `CodeLineHeight` | `20.sp` | 代码块行高 |
+| `TouchTargetMin` | `48.dp` | 最小触控目标 |
+| `QuoteBarWidth` | `3.dp` | 引用竖条宽（语义别名，非 X* 尺度） |
+| `SheetGapL` | `18.dp` | 弹层底部大间隔 |
 
-- **现状**：标题使用 Android 系统衬线字体，正文使用 Android 系统无衬线字体；项目没有捆绑自定义字体资源。
-- **现状**：`ScrollTextField` 和 `MarkdownPaper` 将正文行高局部覆盖为 `30sp`，使文字基线与纸面横线节奏一致。
-- **现状**：`SealButton` 默认使用 `titleLarge` 并加粗；尺寸不大于 `44dp` 时改用 Material 3 的 `titleMedium` 并加粗。
-- **现状**：完整 `MarkdownPaper` 将一级、二级、三级和其余标题分别映射到 `headlineSmall`、`titleLarge`、`titleMedium`、`titleSmall`；紧凑 `MarkdownPreview` 将一级、二级和其余标题分别映射到 `titleLarge`、`titleMedium`、`titleSmall`。代码使用 `FontFamily.Monospace`。除 `titleLarge` 外，这些值均沿用 Material 3 默认，不在本文档中伪造具体字号。
-- **现状**：其余 `titleMedium`、`titleSmall`、`bodyMedium`、`bodySmall`、`labelLarge` 等角色沿用 Material 3 默认 Typography。
-- **约束**：新增界面先复用 Material 角色，不直接指定新字号。只有反复出现且无法由现有角色表达的层级，才可在 `Typography.kt` 中显式覆盖并同步更新此节。
-- **约束**：保持“衬线标题、无衬线正文”的二分关系；代码内容可继续使用系统等宽字体，不引入第四种字体语气。
+清简质感纸面留白：`PaperPaddingStartMinimal` / `EndMinimal` = `X20`，`PaperPaddingVMinimal` = `X16`。
 
-## 4. Spacing & Layout（间距与布局）
+### 2.2 `InkShape`（圆角）
 
-### 4.1 已观察到的尺寸
+| 尺度 | 值 | 语义形状 |
+| --- | --- | --- |
+| `RadiusL` | `14.dp` | `Card`、`Paper`、`Seal` |
+| `RadiusM` | `12.dp` | `SealCompact`、`Chip`、`MarkdownSub` |
+| `RadiusS` | `10.dp` | `Tag`、`Stamp` |
+| `RadiusXs` | `2.dp` | `QuoteBar` |
 
-当前源码没有统一命名的间距令牌，也不足以证明所有布局都遵循 4dp 基准。以下只记录共享原语中真实、可复用的值。
+`InkShape.sealFor(size)`：`size ≤ SealCompactThreshold(44.dp)` → `SealCompact`，否则 `Seal`。
 
-| 值 | 现有位置与含义 |
-| --- | --- |
-| `1dp` | `InkCard` 与纸面外框；纸面横线和朱砂竖线的线宽 |
-| `6dp` | `TagChip` 垂直内边距 |
-| `8dp` | `InkChip` 垂直内边距；Markdown 表格单元格垂直内边距 |
-| `10dp` | `TagChip` 水平内边距与圆角；Markdown 引用间隔；表格单元格水平内边距；印章反馈圆角 |
-| `12dp` | `ScrollPaper` 上下内边距；`InkChip` 水平内边距和圆角；Markdown 块间距、代码块内边距和表格圆角；小印章圆角 |
-| `14dp` | `InkCard` 内边距和圆角；标准印章圆角 |
-| `16dp` | `ScrollPaper` 与 `ScrollPaperSurface` 右侧内边距 |
-| `20dp` | `TagFilterBottomSheet` 的主要水平页边距 |
-| `24dp` | 纸面左侧朱砂竖线距容器左边的位置；Markdown 引用条最小高度 |
-| `30sp` | 纸面横线节距，也是编辑与 Markdown 长文的局部正文行高 |
-| `34dp` | 纸面内容左内边距，为 `24dp` 竖线后保留文字起始空间 |
-| `44dp` | `SealIconButton` 默认可见尺寸；`SealButton` 的紧凑样式阈值 |
-| `56dp` | `SealButton` 默认尺寸 |
-| `88dp` | Markdown 表格单元格最小宽度 |
-| `150dp` | `SealStampOverlay` 中印记的固定尺寸 |
+`PaperInkShapes` 将上述圆角注入 Material3 `Shapes`（extraSmall…extraLarge），使 Dialog / BottomSheet 等默认读纸墨圆角。
 
-### 4.2 布局语法
+### 2.3 `InkBorder` 与 `InkTone`
 
-- **现状**：`InkCard` 默认占满可用宽度，内容按单列组织；卡片内部统一使用 `14dp` 内边距。
-- **现状**：纸面原语的内容区采用不对称留白：左 `34dp`、右 `16dp`、上下各 `12dp`。不对称源于左侧 `24dp` 的朱砂竖线，不是任意偏移。
-- **现状**：`ScrollPaper` 内部拥有纵向滚动；`ScrollPaperSurface` 不拥有滚动，供 `LazyColumn` 等虚拟列表组合，并接收累计滚动像素驱动横线偏移。
-- **现状**：标签筛选使用 `FlowRow` 换行，项目未抽象统一栅格、内容最大宽度或窗口断点。
-- **约束**：后续布局应优先复用上述原语的内边距与线位关系。未形成令牌前，不得声称项目采用完整 4dp 间距系统。
-- **债务**：`6/8/10/12/14/16/20/24/34dp` 等值按局部组件演进而来，尚无正式命名尺度；重复使用新间距前，应先完成现有用量盘点和令牌收敛，而不是直接把全部值四舍五入到 4dp。
-- **债务**：尚无共享的手机、平板和大屏内容宽度规范，也没有窗口尺寸类别对应的页面留白契约。
+**描边宽度**
+
+| 令牌 | 值 | 用途 |
+| --- | --- | --- |
+| `Hairline` | `1.dp` | 卡片 / 纸面 / Chip / 自绘线 |
+| `Stamp` | `2.dp` | 盖章印记与强调焦点环 |
+| `TableCell` | `0.5.dp` | 表格细分隔 |
+
+**透明度（作用于 outline / primary 等）**
+
+| 令牌 | 值 | 用途 |
+| --- | --- | --- |
+| `OutlineStrong` | `0.45` | 卡片与纸面外框 |
+| `OutlineSoft` | `0.22` | 纸面横线、分隔线 |
+| `OutlineSelected` | `0.80` | 选中描边 |
+| `OutlineIdle` | `0.40` | InkChip 未选中 |
+| `TagIdle` | `0.35` | TagChip 未选中 |
+| `TableOutline` | `0.35` | 表格描边 |
+| `MarginLine` | `0.35` | 左侧主题竖线 |
+| `QuoteBar` | `0.30` | 引用竖条 |
+| `ChipFillSelected` | `0.14` | InkChip 选中底 |
+| `TableHeaderFill` | `0.55` | 表头 surfaceVariant 之上 |
+| `StampFill` / `StampOutline` / `StampText` / `StampScrim` | `0.10` / `0.85` / `0.90` / `0.10` | 盖章层 |
+
+**`InkTone`（不随色板变化的固定色）**：`TagTextOnLight`、`TagTextOnDark`、`PaperEdge`、`VermilionLine`、`ViewerBackdrop`、`InlineCodeBg`。
+
+### 2.4 `InkMotion`（动效）
+
+| 组 | 令牌 | 值 |
+| --- | --- | --- |
+| 印章按压 | `PressScale` / `PressDurationMs` | `0.92` / `120` |
+| 盖章总时长 | `StampDurationDefaultMs` 及 Min/Max | `600`（`200..2000`） |
+| 入退场占比 | `StampEnterRatio` / `StampExitRatio` | `0.45` / `0.35` |
+| 入场关键帧 | 缩放 `1.42 → 0.94 → 1.00`；旋转 `-26° → -8° → -12°` | 见源码常量 |
+| 退场趋向 | 缩放 `1.25`、旋转 `-24°` | |
+| 图片查看器 | 自动隐藏 / 双击窗 / 放大倍率 / 上限 | `2200ms` / `320ms` / `2.5x` / `5x` |
+
+- **约束**：新增共享动效必须使用 `InkMotion` + `ReducedMotion.current` 分支，业务页不得复制另一套印章物理感。
+
+---
+
+## 3. Color（颜色）
+
+### 3.1 基础色事实
+
+字面量集中于 `ColorSchemes.kt`：
+
+| 源码颜色 | 色值 | 语义 |
+| --- | --- | --- |
+| `PaperBg` | `#F7F8F4` | 草白，浅色应用背景 |
+| `PaperSurface` | `#FDFBF3` | 米宣纸，浅色卡片/纸面 |
+| `InkText` | `#383431` | 焦茶，浅色主文字 |
+| `InkSubText` | `#878885` | 雅灰，次要文字/描边来源 |
+| `Vermilion` | `#FF4C39` | 朱砂 |
+| `Indigo` | `#305169` | 黛蓝 |
+| `NightBg` | `#18191B` | 墨灰，深色背景 |
+| `NightSurface` | `#22252A` | 玄青，深色表面 |
+| `NightText` | `#E0E0E0` | 银灰，深色主文字 |
+| `Gold` | `#F2BE45` | 赤金 |
+| `NeonCyan` | `#00E5BC` | 荧光青 |
+| `MoonPrimaryDark` 等 | `#D9D4CD` 等 | 月白深色主/次色 |
+
+浅色纸系与深色墨系还完整覆盖 **surface 容器阶**（`surfaceDim` / `surfaceContainer*` / `surfaceVariant` / `outlineVariant` 等），消除 M3 默认紫灰残留（M2.10）。
+
+### 3.2 策展色板映射（浅色）
+
+| Material 角色 | 纸墨 `PAPER_INK` | 黛蓝 `INDIGO` | 赛博 `CYBER` | 月白 `MOON_WHITE` |
+| --- | --- | --- | --- | --- |
+| `primary` | 朱砂 | 黛蓝 | 荧光青 | 焦茶 |
+| `onPrimary` | 白 | 白 | `#0B1F1A` | 白 |
+| `secondary` | 黛蓝 | 朱砂 | 朱砂 | 雅灰 |
+| `background` / `surface` | 草白 / 米宣纸 | 同 | 同 | 同 |
+| `onBackground` / `onSurface` | 焦茶 | 同 | 同 | 同 |
+
+### 3.3 策展色板映射（深色）
+
+| Material 角色 | 纸墨 | 黛蓝 | 赛博 | 月白 |
+| --- | --- | --- | --- | --- |
+| `primary` | 赤金 | 黛蓝 | 荧光青 | 米灰 `#D9D4CD` |
+| `secondary` | 朱砂 | 赤金 | 赤金 | 中性灰 |
+| `background` / `surface` | 墨灰 / 玄青 | 同 | 同 | 同 |
+| `onSurface` | 银灰 | 同 | 同 | 同 |
+
+### 3.4 `DYNAMIC` 与对比度
+
+- **现状**：API 31+ 使用 `dynamicLightColorScheme` / `dynamicDarkColorScheme`；无 Context 或 API &lt; 31 回退 `PAPER_INK`。
+- **现状**：`WcagContrastTest` 对 **4 套策展色板 × 明暗** 断言：`onBackground/background`、`onSurface/surface` ≥ `4.5:1`；`onPrimary/primary`、`onSecondary/secondary` ≥ `3:1`。`DYNAMIC` 不进自动矩阵（尽力而为）。
+- **约束**：主色只用于强调、选择、光标、印章与边线，不作为大面积装饰。
+- **约束**：新增色板必须先写 `ColorSchemes` 全角色 + WCAG 单测，再更新本文档。
+
+### 3.5 原语取色（现状）
+
+共享原语通过 `MaterialTheme.colorScheme` 取色：`InkCard` / 纸面用 `surface`；正文 `onSurface`；外框 `outline@OutlineStrong`；横线 `outline@OutlineSoft`；左侧竖线 `primary@MarginLine`。`TagChip` 在文墨质感下仍可按标签哈希生成低饱和 HSV 色块；清简质感下去彩色块、细描边、次要色文字，且保留 `#` 前缀。
+
+---
+
+## 4. Typography（字体与排版）
+
+### 4.1 字体档
+
+| 档 | 标题 | 正文 |
+| --- | --- | --- |
+| `WENKAI` | 霞鹜文楷 `R.font.lxgw_wenkai`（全量 TTF，OFL） | `FontFamily.SansSerif` |
+| `SYSTEM` | `FontFamily.Serif` | `FontFamily.SansSerif` |
+
+关于页署名：霞鹜文楷 · SIL Open Font License 1.1（`assets/licenses/OFL.txt`）。
+
+### 4.2 显式字阶（`oneMemosTypography`）
+
+| 角色 | 字重 | 字号 | 行高 | 用途 |
+| --- | --- | --- | --- | --- |
+| `headlineLarge` | SemiBold | `30.sp` | `38.sp` | 页面级标题、盖章文案 |
+| `titleLarge` | SemiBold | `20.sp` | `26.sp` | 区块标题 |
+| `bodyLarge` | Normal | `16.sp` | `24.sp` | 默认正文 |
+
+其余 Material 角色沿用 M3 默认。`ScrollTextField` / 旧 `MarkdownPaper` / `MikepenzMarkdown` 长文行高对齐 `InkSpacing.LinePitch`（`30.sp`）。
+
+### 4.3 阅读模式（`ReadingConfig` / `LocalReadingConfig`）
+
+| 正文字号档 | `bodyFontSize` | 基准行高 |
+| --- | --- | --- |
+| `SMALL` | `13.sp` | `18.sp` |
+| `STANDARD` | `14.sp` | `20.sp` |
+| `LARGE` | `16.sp` | `24.sp` |
+| `EXTRA_LARGE` | `18.sp` | `28.sp` |
+
+行距档系数：`COMPACT` `0.875` / `STANDARD` `1.0` / `RELAXED` `1.25`。设置页「阅读模式」暴露正文字号与行距；`OneMemosTheme` 提供 `LocalReadingConfig` 供列表/编辑正文读取。
+
+- **约束**：不得关闭系统字体缩放。新增层级优先复用 Material 角色，反复出现的新层级才写入 `Typography.kt`。
+- **约束**：保持「衬线/文楷标题、无衬线正文」；代码可用系统等宽，不引入第四种字体语气。
+
+---
 
 ## 5. Components（可复用组件）
 
-本节只记录当前 `core/designsystem` 已存在的原语与状态，供未来原语展示页或等价状态样例使用；不定义尚未实现的设置中心组件。
+本节记录 `core/designsystem` 已存在的原语。间距 / 圆角 / 描边 / 动效一律取 §2 令牌。
 
 ### 5.1 `InkCard`
 
-- **结构**：全宽 `Surface`，内部为带 `14dp` 内边距的 `Column`。
-- **外观**：`14dp` 圆角，`surface` 底色，`1dp` 的 `outline@45%` 描边，无投影。
-- **变体**：静态；仅点击；点击加长按。
-- **状态现状**：默认、点击、长按由参数决定；交互时明确取消系统 ripple，没有额外按压视觉、焦点、禁用、加载或错误样式。
-- **用途**：信息块、列表项、操作行和筛选容器；内容层级由调用方组合，不在原语内发明标题或图标布局。
+- 全宽 `Surface`，`InkShape.Card`，`surface` 底，`Hairline` + `outline@OutlineStrong`，无投影。
+- 内边距 `CardPadding`；可点击时 `minimumInteractiveComponentSize` + `TouchTargetMin` 高度兜底。
+- 变体：静态 / 点击 / 长按；支持 `enabled` 语义与 `paperInkFocusBorder`。
+- 无系统 ripple；无独立加载/错误变体外观。
 
-### 5.2 `ScrollPaper`
+### 5.2 `ScrollPaper` / `ScrollPaperSurface`
 
-- **结构**：带内部纵向滚动的纸面容器，将可滚动 `Modifier` 交给内容。
-- **外观**：`14dp` 圆角、`surface` 底色、`1dp outline@45%` 外框；每 `30sp` 绘制一条 `outline@22%` 横线，在左侧 `24dp` 绘制 `primary@35%` 竖线。
-- **间距**：默认左 `34dp`、右 `16dp`、上下 `12dp`。
-- **状态现状**：横线随内部滚动偏移；没有点击、焦点、禁用、加载或错误状态。
-- **用途**：编辑态、只读态与完整 Markdown 阅读的共同纸面底座。
+- 纸面：`InkShape.Paper`、横线节距 `LinePitch`、左侧竖线 `MarginLineX`。
+- **SCROLL 质感**：绘制横线 + 主题竖线；内容区左 `PaperPaddingStart` / 右 `PaperPaddingEnd` / 上下 `PaperPaddingV`。
+- **MINIMAL 质感**：无横线，更大对称留白（Minimal 系列令牌）。
+- `ScrollPaper` 内滚动；`ScrollPaperSurface` 接收外部 `scrollOffsetPx` 供 `LazyColumn` 组合。
 
-### 5.3 `ScrollPaperSurface`
+### 5.3 `SealButton` / `SealIconButton`
 
-- **结构**：无内部滚动的纸面容器，接收 `scrollOffsetPx`，可包裹虚拟列表。
-- **外观与间距**：与 `ScrollPaper` 相同。
-- **状态现状**：默认偏移为零；外部滚动时横线按累计像素连续偏移。组件本身无交互状态。
-- **用途**：需要由 `LazyColumn` 等容器掌控滚动的页面级纸面。
+- 印章：主色底、`onPrimary` 内容；按压 `PressScale` + haptic tick（`ReducedMotion` 时 snap、不触发动效缩放）。
+- 默认尺寸：按钮 `56.dp`、图标钮视觉 `44.dp` + **外层 ≥48.dp 触控包围盒**。
+- 禁用：背景改 `outline`；前景仍为 `onPrimary`（见 §8.2）。
+- 焦点：`paperInkFocusBorder(emphasized = true)`。
 
-### 5.4 `SealButton`
+### 5.4 `InkChip` / `TagChip`
 
-- **结构**：固定方形 `Box`，中心为文字。
-- **外观**：默认 `56dp`、`14dp` 圆角、`primary` 底色、`onPrimary` 粗体文字；尺寸不大于 `44dp` 时使用 `12dp` 圆角和 `titleMedium`。
-- **状态现状**：默认比例 `1.0`；按下缩放至 `0.92`；松开回到 `1.0`；禁用时背景改为 `outline` 且不可点击。组件取消 ripple。
-- **反馈现状**：有效点击先触发 `OneMemosHaptics.tick()`，再调用业务动作；设备无振动能力时触感封装静默降级。
-- **缺失状态**：没有显式焦点、加载或错误变体；禁用文字仍使用 `onPrimary`，没有独立禁用前景令牌。
+- `InkChip`：克制筛选片；选中 `primary@ChipFillSelected` + 强描边 + primary 文字。
+- `TagChip`：固定 `#` 前缀；文墨下可有稳定哈希色块，清简下退后为细描边次要色；`TagChip` 已接焦点环。
+- **约束**：标签语义不得只靠色块；`#` 与文本必须可读。
 
-### 5.5 `SealIconButton`
+### 5.5 `ScrollTextField`
 
-- **结构**：固定方形 `Box`，中心为 Material 图标；调用方必须提供 `contentDescription`。
-- **外观**：默认 `44dp`、`12dp` 圆角、`primary` 底色、`onPrimary` 图标；大于 `44dp` 时使用 `14dp` 圆角。
-- **状态与反馈**：与 `SealButton` 一致，按下缩放至 `0.92`，有效点击触发 haptic tick，禁用时使用 `outline` 背景且不可点击，无 ripple。
-- **紧凑例外**：默认可见尺寸为 `44dp`，低于本系统后续采用的 `48dp` 最小触控目标；在未扩大交互包围盒前，它是已知可访问性债务。
+- `ScrollPaper` + `BasicTextField` / 只读可选文本；行高 `LinePitch`；占位用 `outline`。
+- 无统一校验错误 / 加载原语外观。
 
-### 5.6 `InkChip`
+### 5.6 Markdown：`MikepenzMarkdown` 与 `MarkdownPaper`
 
-- **结构**：可点击 `Surface`，内部为单行 `labelLarge` 文字。
-- **外观**：`12dp` 圆角、`1dp` 描边、水平 `12dp` 与垂直 `8dp` 内边距。
-- **状态现状**：未选中为透明底、`outline@40%` 描边和 `onSurfaceVariant` 文字；选中为 `primary@14%` 底、`outline@80%` 描边和 `primary` 文字；支持 `enabled=false` 停止点击，但没有单独禁用视觉；无 ripple。
-- **用途**：清单、状态等轻量筛选，语气比彩色标签更克制。
+- **现状（ADR 0010）**：新引擎 `markdown2/MikepenzMarkdown`（mikepenz multiplatform-markdown-renderer M3），纸墨皮肤全量映射 colorScheme + Ink* 令牌；功能开关 `useNewMarkdownEngine`（默认 true）。编辑器只读态按开关分派。
+- 旧 `MarkdownPaper`（commonmark）与列表侧 `MarkdownPreview` 仍保留；列表预览未强制切新引擎。
+- 解析失败降级原文可见；空内容显示调用方占位。
 
-### 5.7 `TagChip`
+### 5.7 `SealStampOverlay`
 
-- **结构**：静态或可点击 `Surface`，文本固定带 `#` 前缀。
-- **外观**：`10dp` 圆角、`1dp` 描边、水平 `10dp` 与垂直 `6dp` 内边距；背景由标签文本稳定生成。
-- **状态现状**：静态、可点击、未选中、选中；选择会提高 HSV 饱和度和明度，并增强描边。没有 `enabled`、焦点、加载或错误参数；无 ripple。
-- **约束**：颜色只辅助识别，标签文本与 `#` 前缀必须保留；不得仅凭色块表达状态。
+- 全屏盖章反馈；时长与关键帧取 `InkMotion`；`ReducedMotion` 时 alpha/scale/rotation 走 `snap()`。
+- **约束**：表达一次性结果，不能代替持久状态文案或 TalkBack 播报。
 
-### 5.8 `ScrollTextField`
+### 5.8 `TagFilterBottomSheet` / `ImageViewerDialog`
 
-- **结构**：在 `ScrollPaper` 内组合 `BasicTextField`，或在只读模式组合可选择文本。
-- **排版**：`bodyLarge`，正文和光标使用主题色，行高固定为 `30sp` 与横线对齐。
-- **状态现状**：编辑、只读、禁用、空内容占位；占位文字使用 `outline`。禁用由 `BasicTextField` 处理，但没有额外的纸面禁用视觉。
-- **缺失状态**：没有统一标签、辅助说明、校验错误、加载或成功状态。
+- 标签筛选：排除、或/与匹配、清空、FlowRow 标签；水平边距 `SheetMarginH`。
+- 图片查看器：缩放/拖拽/双击、chrome 自动隐藏；固定色见 `InkTone`。
 
-### 5.9 `MarkdownPaper` 与 `MarkdownPreview`
+### 5.9 状态原语（M3.4）
 
-- **结构**：完整阅读复用 `ScrollPaper`；列表预览不引入内部滚动，按块渲染标题、段落、引用、代码、分隔线和表格。
-- **状态现状**：空内容显示调用方占位文案；解析进行中先显示快速纯文本预览，避免白屏；解析失败降级为原文段落。该降级保证内容可见，但不是面向用户的错误状态。
-- **表面**：引用使用 `primary@30%` 的 `3dp` 竖条；代码块使用 Material `surfaceVariant`；表格使用 `outline@35%` 描边与 `surfaceVariant@55%` 表头。
-- **排版**：正文沿用 `bodyLarge`；长文行高 `30sp`；代码为系统等宽字体。
+| 组件 | 职责 |
+| --- | --- |
+| `InkLoading` | 全幅居中进度；默认指示色 `surfaceVariant` |
+| `InkEmpty` | 图标 + 安静文案 + 可选动作 |
+| `InkError` | error 图标/文案 + 重试；`LiveRegionMode.Assertive` |
+| `InkRetryBanner` | 内联重试横幅；`surfaceVariant` 底 + Hairline；`LiveRegionMode.Polite` |
 
-### 5.10 `SealStampOverlay`
+源码头注释含 feature 迁移清单；**原语已就绪，部分业务屏尚未替换**（见 §8.2）。
 
-- **结构**：全屏反馈层，中心放置 `150dp` 的倾斜印记。
-- **外观**：遮罩为黑色 `10%` 再乘当前透明度；印记使用 `primary@10%` 底色、`2dp primary@85%` 描边和 `primary@90%` 文字，无投影。
-- **状态现状**：隐藏、入场、可见、退场；由上层决定可见时长，用于保存、归档或完成后的仪式感反馈。
-- **约束**：它表达已完成的结果，不能代替持久状态文字、错误说明或无障碍播报。
+### 5.10 M3 系统组件纸墨化（`PaperInkComponents`）
 
-### 5.11 `TagFilterBottomSheet`
+- 全局：`PaperInkShapes` + 全令牌 `ColorScheme`。
+- 显式包装：`PaperInkTopAppBar`、`PaperInkSnackbar` / Host、`PaperInkAlertDialog`、`PaperInkModalBottomSheet`（及 defaults 色/形）。
+- 容器色示例：顶栏 `surface`；Snackbar `inverseSurface`；Dialog `surfaceContainerHigh`；Sheet `surfaceContainerLow`。
 
-- **结构**：Material 3 底部弹层，组合标题、排除说明与开关、或/与匹配按钮、清空动作、可换行标签区，以及可选的应用动作。
-- **状态现状**：标签列表有内容或为空；排除开启或关闭；匹配方式为或或与；排除开启时强制使用或，并禁用与；应用动作可存在或省略。空标签时显示明确文字。
-- **语义现状**：排除开关显式提供“排除”的 `contentDescription`；标签项复用 `TagChip`。组件没有加载或错误状态。
-- **间距现状**：主要水平页边距为 `20dp`，标签横纵间隔为 `10dp`；其余按钮和开关状态沿用 Material 3。
+### 5.11 其它 Material 组合
 
-### 5.12 Material 3 组合组件
+底部开关、`OutlinedButton`、`TextButton` 等可直接使用 M3 + 当前 `MaterialTheme`。无独立二次原语时，不得假装已有统一纸墨皮肤。
 
-- **现状**：底部弹层、开关、`OutlinedButton`、`TextButton`、普通 `IconButton` 等直接使用 Material 3 组件和当前 `MaterialTheme`；例如 `TagFilterBottomSheet` 组合标签空态、选择开关、匹配方式和应用动作。
-- **约束**：这些组件当前没有心流专属的二次原语规范。复用时应先遵守 Material 3 状态与语义，不得假装它们已经拥有统一纸墨外观。
+---
 
 ## 6. Motion & Interaction（动效与交互）
 
 ### 6.1 现有行为
 
-| 行为 | 源码参数 | 用途 |
+| 行为 | 参数来源 | 说明 |
 | --- | --- | --- |
-| 印章控件按压 | 比例 `1.0 → 0.92 → 1.0`；`animateFloatAsState` 未显式指定时长或 easing | 表达“压印”手感 |
-| 印章控件触感 | `VibrationEffect.EFFECT_TICK` | 有效点击的轻触确认 |
-| 盖章反馈时长基准参数 | 默认 `600ms`，允许范围 `200..2000ms` | 计算保存、归档、完成反馈的入场与退场时长 |
-| 盖章入场 | 总时长的 `45%`；比例 `1.42 → 0.94 → 1.00`；旋转 `-26° → -8° → -12°`；透明度快速到 `1` | 模拟落印、轻回弹和定格 |
-| 盖章退场 | 总时长的 `35%`；比例趋向 `1.25`，旋转趋向 `-24°`，透明度趋向 `0` | 收起一次性反馈 |
-| 纸面横线滚动 | 横线按滚动偏移对 `30sp` 行距取模平移；竖线固定 | 让内容与纸张纹理保持连续关系 |
+| 印章按压 | `InkMotion` + `ReducedMotion` | 压印手感；减少动效时无缩放动画 |
+| 印章触感 | `EFFECT_TICK` | 有效点击；减少动效路径可跳过缩放但仍可点按 |
+| 盖章反馈 | `InkMotion` 时长与关键帧 | 保存/归档/完成仪式感 |
+| 纸面横线 | 滚动对 `LinePitch` 取模 | 仅 SCROLL 质感 |
+| 页面转场 | Navigation3 `transitionSpec` 族 + `SharedTransitionLayout` | fade + 共享轴；见 ADR 0012 |
+| 减少动效门控 | `ReducedMotion.current` | 系统动画缩放归零 **或** `pageTransitionsEnabled=false` |
 
-### 6.2 交互规则
+### 6.2 规则
 
-- **现状**：`InkCard`、`InkChip`、`TagChip` 和印章控件均主动取消系统 ripple；只有印章控件提供自定义按压缩放。
-- **现状**：印章控件只在 `enabled=true` 且真正触发点击时调用 haptic tick；触感不是业务成功的证明，成功反馈由业务动作完成后另行触发。
-- **约束**：新增动效必须表达按压、滚动关系或状态完成，不能添加纯装饰循环动画。
-- **约束**：后续若调整动效参数，应先在共享原语中统一，不在业务页面复制另一套印章物理感。
-- **债务**：印章按压使用 `animateFloatAsState` 默认动画规格，源码没有统一的时长与 easing 令牌。
-- **债务**：当前没有读取系统“移除动画”或等价偏好的统一 reduced-motion 分支；盖章反馈和按压缩放都会照常运行。
+- **现状**：`InkCard` / Chip / 印章主动取消 ripple；印章提供按压缩放。
+- **约束**：新增动效必须表达按压、滚动关系、导航或状态完成，禁止纯装饰循环动画。
+- **约束**：`ReducedMotion.current == true` 时，转场与印章动效应即时/无动画，结果文案仍立即可见。
+
+---
 
 ## 7. Depth & Surface（层次与表面）
 
-### 7.1 深度策略
+1. `background` 底层 + `surface` 纸面/卡片（浅色草白/米宣纸，深色墨灰/玄青）。
+2. `1.dp outline@OutlineStrong` 定界，不使用 elevation 阴影制造层级。
+3. 文墨质感：横线 + 左侧主题竖线；清简：细描边与更大留白。
+4. 选择态用描边/轻底/文字色；印章用实色底 + 压印。
+5. 盖章层用半透明印泥色与短时遮罩，仍无阴影。
 
-现有系统采用“纸面色阶 + 细描边 + 自绘线条”的混合策略，不依赖投影制造层级：
+- **约束**：新增共享表面先组合纸 / 卡片 / 印章材料，禁止玻璃、模糊、发光、渐变或悬浮阴影。
+- **约束**：圆角只复用 `InkShape` 语义。
 
-1. 应用底层使用 `background`，承载内容的卡片与纸张使用 `surface`；浅色为草白与米宣纸的暖冷差，深色为墨灰与玄青的明度差。
-2. `InkCard` 和两种纸面原语以 `1dp outline@45%` 描边确定边界，而不是浮起的阴影。
-3. 纸面内部以 `outline@22%` 横线建立书写节奏，以 `primary@35%` 左边线形成朱砂批注或奏折边线的识别性。
-4. 标签通过描边、轻底色和文字色变化表达选择；印章通过实色底面和压印动效表达可操作性。
-5. `SealStampOverlay` 使用半透明印泥色、双倍描边和短暂遮罩表达结果，但仍不使用阴影。
+---
 
-### 7.2 表面规则
-
-- **约束**：纸面、卡片和印章是三种现有材料。新增共享表面应先组合这些材料，不引入玻璃、模糊、发光、渐变或悬浮阴影。
-- **约束**：圆角仅复用已有语义：`14dp` 用于卡片、纸面与标准印章，`12dp` 用于紧凑印章、筛选片和 Markdown 子表面，`10dp` 用于标签和盖章反馈。
-- **约束**：层次优先依靠 `background/surface` 色阶、描边透明度和纸面线条；不可用任意 elevation 替代。
-- **债务**：项目没有抽象统一的圆角、描边或表面令牌对象；这些数值目前重复存在于各 Compose 原语中。
-
-## 8. Accessibility Constraints & Accepted Debt（可访问性约束与已接受债务）
+## 8. Accessibility Constraints & Debt（可访问性约束与债务）
 
 ### 8.1 后续界面的强制约束
 
-- **触控目标**：可点击控件的交互区域至少为 `48dp × 48dp`。`SealButton` 默认 `56dp` 已满足；`44dp` 印章图标按钮以及视觉上更紧凑的 Chip 只能作为已记录的紧凑例外，后续应通过最小交互包围盒达到 `48dp`，不能继续缩小。
-- **语义名称**：纯图标操作必须提供准确、面向动作的 `contentDescription`；装饰图形使用空语义；可见文字按钮可由文字提供名称。不可把图标形状或颜色当作唯一名称。
-- **对比度**：普通文本目标至少 `4.5:1`，大号或粗体文本至少 `3:1`，非文本关键控件和状态边界至少 `3:1`。新增主题角色必须在三套色板的浅色与深色组合中分别验证，不得从“使用了主题色”推断对比度合格。
-- **字体缩放**：不得关闭系统字体缩放。标题、正文、按钮、Chip 和表格在放大字体下应换行或扩展，不裁切关键文字；固定方形印章中的文字需要单独验证。
-- **减少动态效果**：尊重 Android 系统动画缩放或项目后续统一的 reduced-motion 状态；启用时移除非必要的缩放、旋转和遮罩过渡，同时保留立即可见的结果文本。
-- **TalkBack 顺序**：组合组件按视觉与任务顺序提供稳定的遍历顺序；动态出现的弹层、错误和结果反馈必须移动或声明可访问焦点，关闭后把焦点归还到触发控件。
-- **状态不可只靠颜色**：选择、成功、警告、错误、同步、禁用和空状态必须同时由文字、图标或语义状态表达。触感反馈也只能增强，不能替代可见文字或 TalkBack 通知。
-- **焦点可见性**：键盘、D-pad、Switch Access 与无障碍焦点必须有清晰边界；自定义控件取消 ripple 后仍需提供独立焦点反馈。
-- **内容状态**：加载、空内容、错误和重试应有明确文案与语义。快速预览或原文降级可以避免白屏，但不能冒充错误说明。
+- **触控目标**：可点区域至少 `48.dp × 48.dp`（`InkSpacing.TouchTargetMin` / `minimumInteractiveComponentSize`）。视觉可更紧凑，但交互包围盒不得更小。
+- **语义名称**：纯图标必须提供面向动作的 `contentDescription`；装饰图形空语义。
+- **对比度**：普通文本 ≥ `4.5:1`，大号/粗体与非文本关键控件 ≥ `3:1`；策展色板由 `WcagContrastTest` 守门。
+- **字体缩放**：不得关闭系统字体缩放；固定印章与单行 Chip 需单独验证。
+- **减少动态效果**：统一读 `ReducedMotion.current`；启用时移除非必要缩放/旋转/转场。
+- **TalkBack**：组合控件稳定遍历顺序；动态弹层/错误/结果须可聚焦或 live region；关闭后焦点归还触发源。
+- **状态不可只靠颜色或触感**：选择/成功/错误/同步须有文字、图标或语义状态。
+- **焦点可见性**：取消 ripple 后须有 `paperInkFocusBorder` 或等价焦点环。
+- **内容状态**：加载/空/错误/重试优先使用 §5.9 状态原语。
 
-### 8.2 当前已接受债务
+### 8.2 债务表核销（M3.5）
 
-| 债务 | 当前位置 | 现状依据与影响 | 退出条件 |
+| 债务 | 原位置 | 核销结论 | 依据 / 保留理由 |
 | --- | --- | --- | --- |
-| 紧凑控件不足 `48dp` | `SealIconButton` 默认 `44dp`；`InkChip`、`TagChip` 未设最小高度 | 小触控目标会增加运动或视力受限用户的误触风险 | 在共享原语中增加至少 `48dp` 的交互包围盒，并验证布局不回退 |
-| 自定义焦点态缺失 | `InkCard`、`InkChip`、`TagChip`、`SealButton`、`SealIconButton` | 控件取消 ripple，且没有显式 focus 样式；键盘、D-pad 与 Switch Access 状态不够明确 | 为共享原语统一 focus ring 或等价纸墨焦点态，并完成辅助输入验证 |
-| reduced-motion 未统一支持 | `SealButton`、`SealIconButton`、`SealStampOverlay` | 按压缩放、旋转和盖章入退场没有系统偏好分支 | 引入共享动效偏好并提供静态结果反馈路径 |
-| 禁用视觉不完整 | 印章控件与 `InkChip` | 印章禁用背景变为 `outline` 但前景仍为 `onPrimary`；`InkChip` 禁用没有独立视觉 | 定义并验证全部主题下的禁用容器、前景和语义状态 |
-| 通用状态原语缺失 | 共享设计系统 | Markdown 有占位与解析降级、标签弹层有空态，但没有统一加载、空、错误、重试组件 | 在真实跨页面重复需求出现时抽取状态原语，并逐一记录状态与语义 |
-| 字体放大适配未形成契约 | 固定尺寸印章、单行 Chip、Markdown 表格 | 固定方形、`maxLines=1` 和最小列宽可能在大字体下裁切或挤压 | 使用系统字体缩放进行组件级验证，允许必要换行、扩展或替代布局 |
-| TalkBack 遍历与动态播报未系统化 | 自定义卡片、Chip、盖章反馈及组合弹层 | 部分图标和开关已有描述，但没有共享遍历、焦点恢复或结果播报规范 | 为共享原语补齐语义状态，并验证关键任务的 TalkBack 顺序与播报 |
-| 选择与结果仍可能偏重颜色或触感 | Chip 选择态、印章反馈 | Chip 主要通过色彩变化表现选择；盖章主要依赖视觉动效和触感 | 增加可读状态语义或配套文字，确保关闭颜色与振动后仍可理解 |
-| 色板对比度尚无自动证据 | `ColorSchemes.kt` 六组主题组合 | 当前色值已固定，但本文档未执行对比度测量，不能声称全部组合达标 | 建立三套色板明暗模式的对比度检查并记录结果；不合格时在主题层修正 |
+| 紧凑控件不足 `48.dp` | `SealIconButton` 默认 `44.dp`；Chip 无最小高度 | **已核销（印章）**；Chip **部分保留** | `SealIconButton` 外层 `minimumInteractiveComponentSize` + `defaultMinSize(TouchTargetMin)`。`InkCard` 可点击路径同样兜底。`InkChip`/`TagChip` 视觉仍可 &lt;48.dp，依赖 Material 最小触控与调用方 `modifier`；未在 Chip 内强制 `defaultMinSize`。 |
+| 自定义焦点态缺失 | 取消 ripple 的共享原语 | **已核销（主原语）** | `PaperInkFocusIndicator.paperInkFocusBorder` 已接入 `InkCard`、`SealButton`、`SealIconButton`、`TagChip`。`InkChip` 仍未接焦点环 → 作为 Chip 子项保留。 |
+| reduced-motion 未统一 | 印章按压 / 盖章 / 转场 | **已核销** | `ReducedMotion` 读系统动画缩放 + `providesFromPageTransitions`；`SealButton`/`SealIconButton`/`SealStampOverlay`/`AppNavigationHost` 已门控。 |
+| 禁用视觉不完整 | 印章与 `InkChip` | **保留** | 印章禁用仅改容器为 `outline`，图标/文字仍 `onPrimary`；`InkChip` 的 `enabled=false` 停点击但无独立禁用色。退出条件：定义全主题禁用前景/容器令牌并接入原语。 |
+| 通用状态原语缺失 | 设计系统 | **已核销（原语层）**；业务迁移 **部分保留** | `InkLoading`/`InkEmpty`/`InkError`/`InkRetryBanner` 已落地并测。feature 屏替换清单仍在 `InkStatePrimitives.kt` 头注释中，未全部完成。 |
+| 字体放大适配未形成契约 | 固定印章、单行 Chip、表格 | **保留** | 无组件级字体缩放验收契约与金图矩阵；文楷印章在大字体下仍需人工验证。 |
+| TalkBack 遍历与动态播报未系统化 | 卡片 / Chip / 盖章 / 弹层 | **部分核销** | 状态原语 live region；首页 `MemoItemTalkBack` 合并朗读；设置矩阵测有部分覆盖。关键路径（浏览→编辑→保存→归档）全流程焦点恢复规范仍未系统化。 |
+| 选择与结果偏重颜色或触感 | Chip / 盖章 | **部分保留** | 选中仍主要靠 primary 色与描边；标签保留 `#` 文本。盖章为短暂视觉仪式，成功路径依赖业务文案/Snackbar（如归档撤销）。关闭颜色后 Chip 可读性仍弱。 |
+| 色板对比度无自动证据 | 六组主题 | **已核销（策展色板）** | `WcagContrastTest` 覆盖 4 策展色板 × 明暗 × 关键对。`DYNAMIC` 明确不进矩阵。 |
 
-以上债务是对现状的如实记录，不表示永久豁免。任何后续新增或改造共享原语的工作，都应优先消除其直接触及的债务，并把新事实同步回本文档。
+以上未核销项不构成永久豁免。触及对应原语的改动应优先消除债务，并同步本文档。
+
+---
+
+## 9. Accessibility Implementation Notes（无障碍实现备忘）
+
+本节记录 **已落地的共享能力**，与 §8.1 约束对照。
+
+### 9.1 `ReducedMotion`
+
+- 位置：`ui/accessibility/ReducedMotion.kt`。
+- `current = Local || isSystemReducedMotionEnabled()`（animator / transition / window scale 任一为 `0`）。
+- 应用层：`ReducedMotion.providesFromPageTransitions(pageTransitionsEnabled)`；关闭页面转场等效减少动效。
+- 覆盖：页面 `ContentTransform`、印章按压缩放、盖章 alpha/scale/rotation。
+
+### 9.2 焦点环
+
+- `PaperInkFocusIndicator`：`primary` 描边；常规宽 `Hairline`，强调宽 `Stamp`。
+- 聚焦才叠加 border，未聚焦零额外分配。
+
+### 9.3 触控目标
+
+- 令牌 `TouchTargetMin = 48.dp`。
+- 印章图标钮：外层 ≥48.dp，内层默认 44.dp 视觉。
+- 可点击 `InkCard`：最小高度兜底。
+
+### 9.4 TalkBack 与 live region
+
+- 纯图标印章强制 `contentDescription` + `Role.Button`；禁用时 `semantics { disabled() }`。
+- `InkError` assertive、`InkRetryBanner` polite。
+- 首页卡片：`MemoItemTalkBack.contentDescription` 合并时间、摘要、同步/归档状态、标签与多选状态。
+
+### 9.5 对比度
+
+- 纯 JVM `WcagContrast` + 参数化测试；策展色板变更必须保持绿。
+
+### 9.6 阅读与系统缩放
+
+- 阅读字号/行距：`ReadingConfig` + 设置 UI。
+- 系统字体缩放：不关闭；大字体下固定容器裁切仍属 §8.2 保留债务。
+
+---
+
+## 10. Related ADRs & Domain Vocabulary
+
+| ADR | 主题 |
+| --- | --- |
+| 0008 | 色板 × 质感 × 密度 × 字阶（+ 字体档）描述符 |
+| 0009 | 霞鹜文楷全量 + arm64-only |
+| 0010 | Markdown 换 mikepenz，纸墨皮肤 |
+| 0011 | 无真删除；收藏 = 锦囊文件夹 |
+| 0012 | Navigation3 共享元素 / 转场 + ReducedMotion |
+
+领域用词见仓库根目录 `CONTEXT.md`（外观轴、风格预设、随笔生命周期）。

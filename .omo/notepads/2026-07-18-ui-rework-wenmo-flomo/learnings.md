@@ -363,3 +363,75 @@ SharedTransitionLayout {
 1. 首次 `MikepenzMarkdown.kt` 写了非法函数名 `0.dpSafe()`（数字开头），重新写入时直接用 `0.dp` 常量 import——但 `0.dp` 需要 `import androidx.compose.ui.unit.dp`，已加
 2. `rememberMarkdownState` 在 v0.37.0 源码中确实无 `retainState` 参数（浏览 README 看到这个特性但实际 tag 源码未实现），首次写入后编译通过但用了不存在的命名参数——实际上第一次编译就过了因为我没写那个参数
 
+## [2026-07-18] M2.R local acceptance
+
+- **Commit**: `a5d3420` `chore(release): bump 1.11.0 (159) M2 样板屏+编辑器收口`
+  - Files only: `app/build.gradle.kts` (158/1.10.0 → 159/1.11.0) + `.ai_session.md` (M2.R 发布纪要)
+  - Not staged: `.omo/plans/*`、`.omo/evidence/`、`.omo/notepads/`、keystores 等
+- **Git log** (M2 chain, 43c0a17^..46f7bdd):
+  - M2.0 `4edd939` — shared element spike FEASIBLE (ADR 0012)
+  - M2.1 `5d97269` — home timeline redo (date grouping + density spacing)
+  - M2.2 `bb4ec40` — image grid (1/2/4/9+ cols)
+  - M2.3 `faa23f9` — MemoItem visual hierarchy (flomo breathing)
+  - M2.4 `117acd8` — wide-screen responsive (dual-column + listLayout)
+  - M2.5 `87cb907` — swipe gestures (SwipeToDismissBox + archive undo)
+  - M2.6 `c17809f` — collections (addMemoToFavorites)
+  - M2.7 `4cb96a3` — mikepenz markdown engine coexistence
+  - M2.8 `25c1dc8` — editor refactor (syntax highlighting + dual-pane)
+  - M2.9 `1ea6c89`/`b60f124`/`e6a044b` — page transitions (SharedTransitionLayout + ReducedMotion)
+  - M2.10 `46f7bdd` — paper-ink components (TopAppBar/Snackbar/Dialog/BottomSheet)
+- **Architecture**: `./scripts/verify-architecture.sh` → exit 0 (`verify-architecture.sh: OK`)
+- **Focused tests**:
+  ```
+  ./gradlew :core:designsystem:testDebugUnitTest \
+    :feature:home:testDebugUnitTest \
+    :feature:editor:testDebugUnitTest \
+    :app:testDebugUnitTest \
+    -Pkotlin.compiler.execution.strategy=in-process --stacktrace
+  ```
+  BUILD SUCCESSFUL in 1m 49s (458 actionable tasks, 24 executed)
+- **Benchmark APK** (timestamped, post-version-commit rebuild):
+  - Path: `/root/1codes/xinliu_android/app/build/outputs/apk/benchmark/2026-07-18T21-25-26.apk`
+  - Size: 72M (75606572 bytes)
+  - `aapt2 dump badging`: `package: name='cc.pscly.onememos' versionCode='159' versionName='1.11.0'`
+  - `output-metadata.json`: applicationId=`cc.pscly.onememos`, versionCode=159, versionName=1.11.0, variant=benchmark
+  - No `.dev` suffix (formal package invariant held)
+  - **REMOTE / §8**: `BLOCKED_SIGNING_MISSING` — `ANDROID_RELEASE_KEYSTORE_PATH` / `STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` 本机均为空；不得 push tag / 不得用 debug/临时签名发 latest Release。
+- **Remaining when secrets available**:
+  1. push `main`（本地已 ahead，含 M2.0–M2.10 + 本 release bump）
+  2. tag `v1.11.0` 并 push
+  3. 等 GitHub Actions 成功
+  4. 核验 APK 包名/版本 + 证书 SHA-256 `58749c794f0c54af6b69bb6d80248a9fda0b75c687fde55b98d9575fc091633e`
+  5. 发布非草稿非预发布的 GitHub latest Release（仅固定签名 Benchmark APK）
+- **Not done here (by design)**: no push, no tag, no GitHub Release, plan checkbox left for orchestrator
+
+## [2026-07-18] M3.5 done - DESIGN.md / CONTEXT.md 文档回写
+
+### DESIGN.md 重写（287行 → 新 10 章 580 行+）
+- §1：四轴主题系统（色板×质感×密度×字阶×字体）+ 出厂四预设 + 下发机制 + 持久化
+- §2：设计令牌完整表（InkSpacing 17级尺度+语义别名、InkShape 4级+9语义、InkBorder 宽/alpha/InkTone、InkMotion 全部关键帧）
+- §3：色彩 5 色板×明暗 + DYNAMIC + 纸墨容器阶 + WCAG 现状
+- §4：Typography 字体档（WENKAI/SYSTEM）+ 阅读模式 ReadingConfig 四档×系数
+- §5：组件全量（12件 Ink* + MikepenzMarkdown + 4状态原语 + 5 PaperInk 组件纸墨化）
+- §6：动效（按压/盖章/转场/ReducedMotion 门控）
+- §7：深度策略（纸面色阶+细描边+自绘线）
+- §8.2：债务表逐条核销——共 9 条：已核销 4条（48dp触控目标、reduced-motion、焦点环、WCAG对比度）、部分核销 3条（状态原语原语层已就绪但业务屏未全替换、TalkBack遍历系统未建立、颜色依赖部分保留）、保留 2条（禁用视觉、字体放大契约）
+- §9：无障碍实现备忘（ReducedMotion/焦点环/触控/live region/对比度/阅读缩放）
+- §10：关联 ADR 与领域词汇索引
+
+### CONTEXT.md 更新（外观节重写 + 随笔生命周期补全）
+- 外观：色板 3→5 档（增月白·中性、跟随系统动态色）+ 各轴枚举值完整列出 + 字体轴 + 明暗模式 + 阅读模式 + 列表形态 + 滑动操作 + 悬浮记录
+- 修正「四根轴」为「五根轴」；四预设列出名称与副标题
+- 随笔生命周期：新增待办转换 + 滑动操作交互模型 + 收藏的锦囊交叉引用
+- 保留"避免"注释（区分色板/主题/质感等常用混词）
+
+### 边界
+- 纯 Markdown 文档变更，不改代码、不 bump versionCode、不 push、不触发 §8 发布
+- plan checkbox 待更新
+
+### 经验
+- 两代理探索 token/术语 → 1 次主写：探索覆盖度决定文档准确度
+- 债务核销需 grep 验证实际接入点（焦点环 4/5 原语已接、InkChip 未接视为部分保留）
+- CONTEXT.md 领域词汇更新应同时核对 strings.xml 中文标签确保一致
+- ReadingConfig 虽在 OneMemosTheme + 设置 UI 中暴露，但阅读模式不是 M3.3 独立落地的「四档字号+行距滑块」，需在债务表中区分"schema 已就绪"与"设置页交互已就绪"
+
