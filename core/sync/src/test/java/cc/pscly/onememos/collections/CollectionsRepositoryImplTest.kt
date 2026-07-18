@@ -177,6 +177,7 @@ class CollectionsRepositoryImplTest {
         override suspend fun setDev2Unlocked(unlocked: Boolean) = Unit
         override suspend fun setDev2ShowPublicWorkspaceMemos(enabled: Boolean) = Unit
         override suspend fun setThemePalette(palette: cc.pscly.onememos.domain.model.ThemePalette) = Unit
+        override suspend fun setThemeDescriptor(descriptor: cc.pscly.onememos.domain.model.ThemeDescriptor) = Unit
         override suspend fun setThemeMode(mode: cc.pscly.onememos.domain.model.ThemeMode) = Unit
         override suspend fun setDefaultVisibility(visibility: MemoVisibility) = Unit
         override suspend fun setRegexSearchEnabled(enabled: Boolean) = Unit

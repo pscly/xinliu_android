@@ -405,10 +405,7 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
         }
     }
 
-    /**
-     * 写入完整主题描述符（M1.7 预设切换将调用；当前先提供给迁移与单测）。
-     */
-    suspend fun setThemeDescriptor(descriptor: ThemeDescriptor) {
+    override suspend fun setThemeDescriptor(descriptor: ThemeDescriptor) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.THEME_DESCRIPTOR] = encodeThemeDescriptor(descriptor)
             prefs.remove(Keys.LEGACY_THEME_PALETTE)

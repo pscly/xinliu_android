@@ -6,6 +6,7 @@ import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.ThemeMode
+import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.domain.repository.SettingsRepository
@@ -70,6 +71,7 @@ class AppSettingsStateTest {
         override suspend fun setDev2ShowPublicWorkspaceMemos(enabled: Boolean) = Unit
 
         override suspend fun setThemePalette(palette: ThemePalette) = Unit
+        override suspend fun setThemeDescriptor(descriptor: ThemeDescriptor) = Unit
 
         override suspend fun setThemeMode(mode: ThemeMode) = Unit
 

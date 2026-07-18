@@ -5,6 +5,7 @@ import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
+import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
@@ -23,6 +24,13 @@ interface SettingsRepository {
     suspend fun setDev2ShowPublicWorkspaceMemos(enabled: Boolean)
 
     suspend fun setThemePalette(palette: ThemePalette)
+
+    /**
+     * 写入完整主题描述符（出厂预设一键切换、高级轴调节）。
+     * 会清除旧 `theme_palette` 键。
+     */
+    suspend fun setThemeDescriptor(descriptor: ThemeDescriptor)
+
     suspend fun setThemeMode(mode: ThemeMode)
 
     suspend fun setDefaultVisibility(visibility: MemoVisibility)

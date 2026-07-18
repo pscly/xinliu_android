@@ -264,6 +264,7 @@ class SettingsHubCapabilityImplTest {
         override suspend fun setDev2Unlocked(unlocked: Boolean) = Unit
         override suspend fun setDev2ShowPublicWorkspaceMemos(enabled: Boolean) = Unit
         override suspend fun setThemePalette(palette: ThemePalette) = Unit
+        override suspend fun setThemeDescriptor(descriptor: ThemeDescriptor) = Unit
         override suspend fun setThemeMode(mode: ThemeMode) = Unit
         override suspend fun setDefaultVisibility(visibility: MemoVisibility) = Unit
         override suspend fun setRegexSearchEnabled(enabled: Boolean) = Unit
