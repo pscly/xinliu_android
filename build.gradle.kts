@@ -7,4 +7,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.ksp) apply false
+    // M1.9：Roborazzi 截图基建（子模块按需 apply）
+    alias(libs.plugins.roborazzi) apply false
 }

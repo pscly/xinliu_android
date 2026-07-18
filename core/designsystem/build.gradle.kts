@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.compose.compiler)
+    // M1.9：提供 recordRoborazziDebug / verifyRoborazziDebug
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -22,8 +24,19 @@ android {
     }
 
     testOptions {
-        unitTests.isIncludeAndroidResources = true
+        unitTests {
+            isIncludeAndroidResources = true
+            // Roborazzi + Compose 截图需要系统属性；默认不自动 record，避免 CI 漂移
+            all {
+                it.systemProperties["robolectric.pixelCopyRenderMode"] = "hardware"
+            }
+        }
     }
+}
+
+// 截图产物：src/test/screenshots（相对模块根）；录制用 :core:designsystem:recordRoborazziDebug
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
@@ -59,5 +72,9 @@ dependencies {
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui)
     testImplementation("androidx.compose.ui:ui-test-junit4")
+    // M1.9 Roborazzi（版本仅来自 catalog）
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.roborazzi.junit.rule)
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
