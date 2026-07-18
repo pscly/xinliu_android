@@ -102,6 +102,9 @@ class CollectionsViewModelNoteRefCacheTest {
 
         override fun observeAll(): Flow<List<CollectionItem>> = childrenFlow
 
+        override suspend fun addMemoToFavorites(memoUuid: String): String =
+            throw NotImplementedError()
+
         override suspend fun createFolder(parentId: String?, name: String, color: String?): String =
             throw NotImplementedError()
 

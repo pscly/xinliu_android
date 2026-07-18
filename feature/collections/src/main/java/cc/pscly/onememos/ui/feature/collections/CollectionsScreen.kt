@@ -43,7 +43,6 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -97,6 +96,8 @@ import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.InkChip
 import cc.pscly.onememos.ui.component.MarkdownPreview
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.TagChip
 import cc.pscly.onememos.ui.component.TagFilterBottomSheet
@@ -470,7 +471,7 @@ fun CollectionsScreen(
                             imageVector = if (reorderMode) Icons.Filled.Check else Icons.Filled.SwapVert,
                             contentDescription = if (reorderMode) "完成排序" else "排序",
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(InkSpacing.X6))
                         Text(text = if (reorderMode) "完成" else "排序")
                     }
                 },
@@ -478,12 +479,12 @@ fun CollectionsScreen(
         },
     ) { padding ->
         ScrollPaperSurface(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(12.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(InkSpacing.X12),
             scrollOffsetPx = paperScrollOffsetPx.floatValue,
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
             ) {
                 if (!uiState.enabled) {
                     Text(
@@ -511,7 +512,7 @@ fun CollectionsScreen(
                     ) {
                         LazyRow(
                             modifier = Modifier.weight(1f),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                         ) {
                             items(selectedTags.toList(), key = { it }) { t ->
                                 TagChip(
@@ -526,7 +527,7 @@ fun CollectionsScreen(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(InkSpacing.X10))
                         InkChip(
                             label = "清除",
                             selected = false,
@@ -543,7 +544,7 @@ fun CollectionsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(InkSpacing.X12))
                         SealButton(
                             text = "新建文件夹",
                             enabled = !busy,
@@ -559,8 +560,8 @@ fun CollectionsScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().nestedScroll(paperScrollConnection),
                     state = listState,
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                    contentPadding = PaddingValues(bottom = InkSpacing.X12),
                 ) {
                     items(itemsToRender, key = { it.id }) { item ->
                         val selected = selectedIds.contains(item.id)
@@ -855,7 +856,7 @@ private fun BreadcrumbBar(
 ) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
     ) {
         items(breadcrumb, key = { it.id ?: "root" }) { seg ->
             InkChip(
@@ -930,12 +931,12 @@ private fun CollectionItemCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(InkSpacing.X24),
                 contentAlignment = Alignment.Center,
             ) {
                 if (color != null) {
                     Box(
-                        modifier = Modifier.size(10.dp),
+                        modifier = Modifier.size(InkSpacing.X10),
                         contentAlignment = Alignment.Center,
                     ) {
                         androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
@@ -946,7 +947,7 @@ private fun CollectionItemCard(
             }
 
             Icon(imageVector = icon, contentDescription = null)
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(InkSpacing.X10))
 
             Column(modifier = Modifier.weight(1f)) {
                 if (item.itemType == CollectionItemType.NOTE_REF && item.refType == CollectionRefType.MEMOS_MEMO) {
@@ -958,7 +959,7 @@ private fun CollectionItemCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(InkSpacing.X8))
                     }
 
                     if (memo != null && !noteRefTargetId.isNullOrBlank()) {
@@ -975,7 +976,7 @@ private fun CollectionItemCard(
                         if (visibleTags.isNotEmpty()) {
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                             ) {
                                 items(visibleTags, key = { it }) { t ->
                                     TagChip(
@@ -990,7 +991,7 @@ private fun CollectionItemCard(
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(InkSpacing.X10))
                         }
 
                         val allImageThumbModels =
@@ -1058,11 +1059,11 @@ private fun CollectionItemCard(
 
                         if (hasOneImage) {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X12),
                                 verticalAlignment = Alignment.Top,
                             ) {
                                 Box(
-                                    modifier = Modifier.size(76.dp).clip(RoundedCornerShape(14.dp)),
+                                        modifier = Modifier.size(76.dp).clip(InkShape.Card),
                                 ) {
                                     Surface(
                                         modifier = Modifier.matchParentSize(),
@@ -1077,8 +1078,8 @@ private fun CollectionItemCard(
                                     if (moreImages > 0) {
                                         Surface(
                                             modifier = Modifier.matchParentSize(),
-                                            color = Color.Black.copy(alpha = 0.35f),
-                                            contentColor = Color.White,
+                                            color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f),
+                                            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
                                         ) {
                                             Box(contentAlignment = Alignment.Center) {
                                                 Text(text = "+$moreImages", style = MaterialTheme.typography.labelLarge)
@@ -1135,15 +1136,15 @@ private fun CollectionItemCard(
                             }
 
                             if (imageThumbModels.size >= 2) {
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(InkSpacing.X10))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     imageThumbModels.forEach { model ->
                                         Box(
-                                            modifier = Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)),
+                                                modifier = Modifier.size(88.dp).clip(InkShape.Chip),
                                         ) {
                                             Surface(
                                                 modifier = Modifier.matchParentSize(),
@@ -1160,7 +1161,7 @@ private fun CollectionItemCard(
                                     if (moreImages > 0) {
                                         Surface(
                                             modifier = Modifier.size(88.dp),
-                                            shape = RoundedCornerShape(12.dp),
+                                            shape = InkShape.Chip,
                                             color = MaterialTheme.colorScheme.surfaceVariant,
                                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                         ) {
@@ -1173,7 +1174,7 @@ private fun CollectionItemCard(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(InkSpacing.X10))
                         val statusText =
                             when (memo.syncStatus) {
                                 SyncStatus.LOCAL_ONLY -> "仅本地"
@@ -1215,7 +1216,7 @@ private fun CollectionItemCard(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(InkSpacing.X8))
                         Text(
                             text = meta,
                             style = MaterialTheme.typography.bodySmall,
@@ -1251,7 +1252,7 @@ private fun CollectionItemCard(
                     }
                 }
             } else if (selectionMode) {
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(InkSpacing.X8))
                 Icon(
                     imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                     contentDescription = if (selected) "已选" else "未选",
@@ -1450,7 +1451,7 @@ private fun ColorPickerDialog(
                                 androidx.compose.foundation.Canvas(modifier = Modifier.size(12.dp)) {
                                     drawCircle(color = opt.swatch)
                                 }
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(InkSpacing.X10))
                             } else {
                                 Spacer(modifier = Modifier.width(22.dp))
                             }
