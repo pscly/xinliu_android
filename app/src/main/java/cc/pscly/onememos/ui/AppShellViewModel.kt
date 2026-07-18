@@ -15,6 +15,8 @@ import javax.inject.Inject
 data class AppShellUiState(
     val showTodo: Boolean = false,
     val showCollections: Boolean = false,
+    /** 设置「页面转场」总开关；false 时全 App 动效（页面转场 + 印章按压/盖章）停用。 */
+    val pageTransitionsEnabled: Boolean = true,
 )
 
 @HiltViewModel
@@ -28,6 +30,7 @@ class AppShellViewModel @Inject constructor(
                 AppShellUiState(
                     showTodo = ok,
                     showCollections = ok,
+                    pageTransitionsEnabled = s.pageTransitionsEnabled,
                 )
             }
             .distinctUntilChanged()

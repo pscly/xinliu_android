@@ -50,6 +50,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.R
+import cc.pscly.onememos.ui.accessibility.ReducedMotion
 import cc.pscly.onememos.navigation.AppNavigationHost
 import cc.pscly.onememos.navigation.ExternalNavigationInput
 import cc.pscly.onememos.navigation.TopLevelSection
@@ -175,6 +176,7 @@ fun OneMemosApp(
     CompositionLocalProvider(
         LocalSettingsPlatformActionDispatcher provides platformDispatcher,
         LocalSettingsUpdateDeliveryDispatcher provides updateDispatcher,
+        ReducedMotion.providesFromPageTransitions(shellUiState.pageTransitionsEnabled),
     ) {
         ModalNavigationDrawer(
             drawerState = drawerState,
