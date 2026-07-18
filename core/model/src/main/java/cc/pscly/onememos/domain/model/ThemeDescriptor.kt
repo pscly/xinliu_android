@@ -30,11 +30,13 @@ data class ThemeDescriptor(
         val DEFAULT: ThemeDescriptor = WENMO_ZHUSHA
 
         /**
-         * 旧 `theme_palette` 枚举 → 描述符迁移映射。
+         * 旧 `theme_palette` 枚举 → 描述符迁移映射（亦作色板→默认轴组合）。
          *
          * - PAPER_INK → 朱砂 × 文墨卷轴 × 标准 × 标准 × 文楷
          * - INDIGO → 黛蓝 × 文墨卷轴 × 标准 × 标准 × 文楷
          * - CYBER → 赛博 × 文墨卷轴 × 标准 × 标准 × 系统字体
+         * - MOON_WHITE → 月白 × 清简 × 宽松 × 标准 × 系统字体（清简·月白预设）
+         * - DYNAMIC → 动态 × 文墨卷轴 × 标准 × 标准 × 系统字体
          *
          * 未知/缺失由调用方回退到 [WENMO_ZHUSHA]。
          */
@@ -61,6 +63,24 @@ data class ThemeDescriptor(
                 ThemePalette.CYBER ->
                     ThemeDescriptor(
                         palette = ThemePalette.CYBER,
+                        texture = ThemeTexture.SCROLL,
+                        density = ThemeDensity.STANDARD,
+                        typeScale = ThemeTypeScale.STANDARD,
+                        fontFamily = ThemeFontFamily.SYSTEM,
+                    )
+
+                ThemePalette.MOON_WHITE ->
+                    ThemeDescriptor(
+                        palette = ThemePalette.MOON_WHITE,
+                        texture = ThemeTexture.MINIMAL,
+                        density = ThemeDensity.RELAXED,
+                        typeScale = ThemeTypeScale.STANDARD,
+                        fontFamily = ThemeFontFamily.SYSTEM,
+                    )
+
+                ThemePalette.DYNAMIC ->
+                    ThemeDescriptor(
+                        palette = ThemePalette.DYNAMIC,
                         texture = ThemeTexture.SCROLL,
                         density = ThemeDensity.STANDARD,
                         typeScale = ThemeTypeScale.STANDARD,
