@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.Icon
@@ -33,10 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.domain.derived.MarkdownDeriver
 import cc.pscly.onememos.domain.model.Memo
@@ -46,6 +46,7 @@ import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.MarkdownPreview
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.AutoTagLineHider
@@ -67,9 +68,30 @@ internal fun MemoItem(
     onToggleTag: (String) -> Unit,
     onMoreActions: (() -> Unit)? = null,
 ) {
-    val selectedBorder = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.70f))
+    // 选中态视觉统一：primary 8% 底色 + 同色系描边环，所有选中卡片观感一致。
+    // 通过局部覆盖 colorScheme.surface 实现底色，避免给 InkCard 增加参数、也避免遮罩盖住正文。
+    val baseScheme = MaterialTheme.colorScheme
+    val cardScheme =
+        remember(baseScheme, selected) {
+            if (selected) {
+                baseScheme.copy(
+                    surface =
+                        baseScheme.primary
+                            .copy(alpha = 0.08f)
+                            .compositeOver(baseScheme.surface),
+                )
+            } else {
+                baseScheme
+            }
+        }
+    val selectedBorder =
+        BorderStroke(
+            width = InkBorder.Stamp,
+            color = baseScheme.primary.copy(alpha = InkBorder.OutlineSelected),
+        )
     // 卡片圆角统一走 InkShape 令牌（14dp），不再书写裸值。
     val cardShape = InkShape.Card
+    MaterialTheme(colorScheme = cardScheme) {
     InkCard(
         modifier = if (selected) Modifier.border(selectedBorder, cardShape) else Modifier,
         onClick = onOpenMemo,
@@ -82,21 +104,41 @@ internal fun MemoItem(
             }
         val visibleTags = remember(tags) { tags.take(5) }
         val moreTags = (tags.size - visibleTags.size).coerceAtLeast(0)
-        if (visibleTags.isNotEmpty()) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                visibleTags.forEach { t ->
-                    TagChip(tag = t, onClick = if (selectionMode) null else ({ onToggleTag(t) }))
-                }
-                if (moreTags > 0) {
-                    TagChip(tag = "+$moreTags", label = "+$moreTags")
+
+        // 顶部元信息行：时间戳退居左上（次级、安静），右上为更多操作/选择指示。
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = DateTimeFormatter.formatYmdHm(memo.createdAt),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (selectionMode) {
+                Icon(
+                    imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                    contentDescription = if (selected) "已选" else "未选",
+                    tint =
+                        if (selected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            } else if (onMoreActions != null) {
+                // 更多操作常显但保持弱化：onSurfaceVariant 低透明度，不抢正文注意力。
+                IconButton(onClick = onMoreActions) {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = "更多操作",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(10.dp))
         }
+        Spacer(modifier = Modifier.height(InkSpacing.X8))
 
         val autoTagKeywords = remember(devKeywordsRaw) { AutoTagLineHider.parseKeywords(devKeywordsRaw) }
 
@@ -167,6 +209,7 @@ internal fun MemoItem(
             }
 
         // 文本预览统一整行展示；图片区域独立于文本下方，按图片数量自适应排布。
+        // 正文行高对齐纸面节距（InkSpacing.LinePitch），保持 flomo 式呼吸感。
         if (enableRichPreview) {
             val displayMarkdown =
                 remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
@@ -182,7 +225,10 @@ internal fun MemoItem(
         } else {
             Text(
                 text = plainPreview,
-                style = MaterialTheme.typography.bodyLarge,
+                style =
+                    MaterialTheme.typography.bodyMedium.copy(
+                        lineHeight = InkSpacing.LinePitch,
+                    ),
                 maxLines = 6,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -196,11 +242,28 @@ internal fun MemoItem(
 
         if (memo.attachments.isNotEmpty()) {
             Text(
-                modifier = Modifier.padding(top = 10.dp),
+                modifier = Modifier.padding(top = InkSpacing.X8),
                 text = "附件：${memo.attachments.size} 个",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.outline,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        // 标签行退到内容之后：属于次级元信息，不与正文抢视觉焦点。
+        if (visibleTags.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(InkSpacing.X12))
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+            ) {
+                visibleTags.forEach { t ->
+                    TagChip(tag = t, onClick = if (selectionMode) null else ({ onToggleTag(t) }))
+                }
+                if (moreTags > 0) {
+                    TagChip(tag = "+$moreTags", label = "+$moreTags")
+                }
+            }
         }
 
         val statusText =
@@ -222,63 +285,36 @@ internal fun MemoItem(
                 }
             }
 
+        // 底部状态行：仅承载同步状态，弱化字号与颜色，退到卡片最底层。
         Row(
-            modifier = Modifier.padding(top = 10.dp),
+            modifier = Modifier.padding(top = InkSpacing.X8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = statusText,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color =
                     when (memo.syncStatus) {
-                        SyncStatus.LOCAL_ONLY -> MaterialTheme.colorScheme.outline
+                        SyncStatus.LOCAL_ONLY -> MaterialTheme.colorScheme.onSurfaceVariant
                         SyncStatus.DIRTY -> MaterialTheme.colorScheme.secondary
                         SyncStatus.SYNCING -> MaterialTheme.colorScheme.secondary
-                        SyncStatus.SYNCED -> MaterialTheme.colorScheme.outline
+                        SyncStatus.SYNCED -> MaterialTheme.colorScheme.onSurfaceVariant
                         SyncStatus.FAILED -> MaterialTheme.colorScheme.error
                     },
             )
             if (memo.syncStatus == SyncStatus.FAILED && !memo.lastSyncError.isNullOrBlank()) {
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(InkSpacing.X8))
                 Text(
                     text = "原因：${memo.lastSyncError}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                Spacer(modifier = Modifier.width(10.dp))
-            } else {
-                Spacer(modifier = Modifier.weight(1f))
-            }
-
-            Text(
-                text = DateTimeFormatter.formatYmdHm(memo.createdAt),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
-            )
-
-            if (selectionMode) {
-                Spacer(modifier = Modifier.width(10.dp))
-                Icon(
-                    imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                    contentDescription = if (selected) "已选" else "未选",
-                    tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                )
-            } else if (onMoreActions != null) {
-                Spacer(modifier = Modifier.width(6.dp))
-                IconButton(
-                    onClick = onMoreActions,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.MoreHoriz,
-                        contentDescription = "更多操作",
-                        tint = MaterialTheme.colorScheme.outline,
-                    )
-                }
             }
         }
+    }
     }
 }
 
