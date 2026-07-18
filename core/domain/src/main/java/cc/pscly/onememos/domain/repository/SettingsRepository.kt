@@ -5,6 +5,8 @@ import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
+import cc.pscly.onememos.domain.model.ReadingFontScale
+import cc.pscly.onememos.domain.model.ReadingLineHeight
 import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
@@ -46,6 +48,18 @@ interface SettingsRepository {
     suspend fun setQuickInsertTimeFormat(format: QuickInsertTimeFormat)
 
     suspend fun setSealStampDurationMs(durationMs: Int)
+
+    /**
+     * 阅读字号档（M3.3）。
+     * 默认空实现：既有测试 Fake 无需逐一覆写；正式实现见 SettingsRepositoryImpl。
+     */
+    suspend fun setReadingFontScale(scale: ReadingFontScale) = Unit
+
+    /**
+     * 阅读行距档（M3.3）。
+     * 默认空实现：既有测试 Fake 无需逐一覆写；正式实现见 SettingsRepositoryImpl。
+     */
+    suspend fun setReadingLineHeight(lineHeight: ReadingLineHeight) = Unit
 
     suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean)
 

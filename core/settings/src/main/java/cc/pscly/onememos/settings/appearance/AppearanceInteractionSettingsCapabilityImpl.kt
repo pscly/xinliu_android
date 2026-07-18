@@ -36,6 +36,8 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
                 themeMode = settings.themeMode,
                 quickCaptureOverlayEnabled = settings.quickCaptureOverlayEnabled,
                 sealStampDurationMs = settings.sealStampDurationMs,
+                readingFontScale = settings.readingFontScale,
+                lineHeight = settings.lineHeight,
                 commandInFlight = inFlight,
             )
         }
@@ -82,6 +84,14 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
                     settingsRepository.setSealStampDurationMs(command.value)
                     AppearanceInteractionSettingsResult.Success
                 }
+                is AppearanceInteractionSettingsCommand.SetReadingFontScale -> {
+                    settingsRepository.setReadingFontScale(command.scale)
+                    AppearanceInteractionSettingsResult.Success
+                }
+                is AppearanceInteractionSettingsCommand.SetReadingLineHeight -> {
+                    settingsRepository.setReadingLineHeight(command.lineHeight)
+                    AppearanceInteractionSettingsResult.Success
+                }
             }
         } catch (t: Throwable) {
             val mapped = SettingsCapabilityErrorMapper.map(t)
@@ -107,5 +117,7 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
                 "SetQuickCaptureOverlayEnabled"
             is AppearanceInteractionSettingsCommand.SetSealStampDurationMs ->
                 "SetSealStampDurationMs"
+            is AppearanceInteractionSettingsCommand.SetReadingFontScale -> "SetReadingFontScale"
+            is AppearanceInteractionSettingsCommand.SetReadingLineHeight -> "SetReadingLineHeight"
         }
 }

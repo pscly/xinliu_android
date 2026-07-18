@@ -462,6 +462,18 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
         }
     }
 
+    override suspend fun setReadingFontScale(scale: ReadingFontScale) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.READING_FONT_SCALE] = scale.name
+        }
+    }
+
+    override suspend fun setReadingLineHeight(lineHeight: ReadingLineHeight) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.LINE_HEIGHT] = lineHeight.name
+        }
+    }
+
     override suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.OFFLINE_IMAGE_PREFETCH_ENABLED] = enabled

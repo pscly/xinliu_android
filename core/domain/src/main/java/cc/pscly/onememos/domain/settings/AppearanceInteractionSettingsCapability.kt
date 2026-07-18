@@ -1,5 +1,7 @@
 package cc.pscly.onememos.domain.settings
 
+import cc.pscly.onememos.domain.model.ReadingFontScale
+import cc.pscly.onememos.domain.model.ReadingLineHeight
 import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
@@ -14,12 +16,15 @@ interface AppearanceInteractionSettingsCapability {
 /**
  * 外观与交互快照。
  * [themeDescriptor] 为完整五元组；[themePalette] 派生自描述符色板轴。
+ * [readingFontScale] / [lineHeight] 为阅读模式字号与行距（M3.3）。
  */
 data class AppearanceInteractionSettingsSnapshot(
     val themeDescriptor: ThemeDescriptor,
     val themeMode: ThemeMode,
     val quickCaptureOverlayEnabled: Boolean,
     val sealStampDurationMs: Int,
+    val readingFontScale: ReadingFontScale = ReadingFontScale.STANDARD,
+    val lineHeight: ReadingLineHeight = ReadingLineHeight.STANDARD,
     val commandInFlight: AppearanceInteractionSettingsCommand? = null,
 ) {
     val themePalette: ThemePalette
@@ -36,6 +41,10 @@ sealed interface AppearanceInteractionSettingsCommand {
     data class SetQuickCaptureOverlayEnabled(val enabled: Boolean) : AppearanceInteractionSettingsCommand
 
     data class SetSealStampDurationMs(val value: Int) : AppearanceInteractionSettingsCommand
+
+    data class SetReadingFontScale(val scale: ReadingFontScale) : AppearanceInteractionSettingsCommand
+
+    data class SetReadingLineHeight(val lineHeight: ReadingLineHeight) : AppearanceInteractionSettingsCommand
 }
 
 sealed interface AppearanceInteractionSettingsResult {

@@ -40,6 +40,8 @@ class AppearanceInteractionScreenTest {
             "质感", "文墨卷轴", "清简",
             "密度", "标准", "宽松", "紧凑",
             "字体", "霞鹜文楷", "系统字体",
+            "阅读模式", "正文字号", "字号·小", "字号·标准", "字号·大", "字号·特大",
+            "行距", "行距·紧凑", "行距·标准", "行距·宽松",
             "悬浮记录", "已关闭", "盖章反馈时长", "600 毫秒",
         ).forEach { text ->
             composeRule.onNodeWithText(text, substring = false, useUnmergedTree = true).assertExists()
@@ -52,6 +54,8 @@ class AppearanceInteractionScreenTest {
         tag("settings_appearance_texture_scroll").assertIsSelected()
         tag("settings_appearance_density_standard").assertIsSelected()
         tag("settings_appearance_font_wenkai").assertIsSelected()
+        tag("settings_appearance_reading_font_standard").assertIsSelected()
+        tag("settings_appearance_reading_line_standard").assertIsSelected()
         tag("settings_appearance_duration_slider").assertHeightIsAtLeast(48.dp)
         assertEquals("已关闭", tag("settings_appearance_overlay").stateDescription())
     }
@@ -68,6 +72,8 @@ class AppearanceInteractionScreenTest {
             "settings_appearance_texture_minimal",
             "settings_appearance_density_compact",
             "settings_appearance_font_system",
+            "settings_appearance_reading_font_large",
+            "settings_appearance_reading_line_relaxed",
             "settings_appearance_overlay",
         ).forEach { tag(it).performScrollTo().performClick() }
         assertEquals(
@@ -86,6 +92,8 @@ class AppearanceInteractionScreenTest {
                 AppearanceInteractionUserIntent.SetThemeDescriptor(
                     ThemeDescriptor.WENMO_ZHUSHA.copy(fontFamily = ThemeFontFamily.SYSTEM),
                 ),
+                AppearanceInteractionUserIntent.SetReadingFontScale(ReadingFontScale.LARGE),
+                AppearanceInteractionUserIntent.SetReadingLineHeight(ReadingLineHeight.RELAXED),
                 AppearanceInteractionUserIntent.SetQuickCaptureOverlayEnabled(true),
             ),
             intents,
@@ -253,6 +261,13 @@ class AppearanceInteractionScreenTest {
             "settings_appearance_density_compact",
             "settings_appearance_font_wenkai",
             "settings_appearance_font_system",
+            "settings_appearance_reading_font_small",
+            "settings_appearance_reading_font_standard",
+            "settings_appearance_reading_font_large",
+            "settings_appearance_reading_font_extra_large",
+            "settings_appearance_reading_line_compact",
+            "settings_appearance_reading_line_standard",
+            "settings_appearance_reading_line_relaxed",
             "settings_appearance_overlay",
         )
 

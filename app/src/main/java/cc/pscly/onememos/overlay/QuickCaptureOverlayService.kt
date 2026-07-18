@@ -715,7 +715,13 @@ class QuickCaptureOverlayService : Service() {
     private fun rememberThemeConfig(): androidx.compose.runtime.State<OneMemosThemeConfig> =
         androidx.compose.runtime.produceState(initialValue = OneMemosThemeConfig()) {
             val s = withContext(Dispatchers.IO) { settingsRepository.settings.first() }
-            value = OneMemosThemeConfig(palette = s.themePalette, themeMode = s.themeMode)
+            value =
+                OneMemosThemeConfig(
+                    themeDescriptor = s.themeDescriptor,
+                    themeMode = s.themeMode,
+                    readingFontScale = s.readingFontScale,
+                    readingLineHeight = s.lineHeight,
+                )
         }
 
     private fun refreshDraftBannerOnStart() {

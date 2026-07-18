@@ -45,6 +45,17 @@
     <string name="settings_appearance_font_wenkai">霞鹜文楷</string>
     <string name="settings_appearance_font_system">系统字体</string>
 
+    <string name="settings_appearance_reading_title">阅读模式</string>
+    <string name="settings_appearance_reading_font_title">正文字号</string>
+    <string name="settings_appearance_reading_font_small">字号·小</string>
+    <string name="settings_appearance_reading_font_standard">字号·标准</string>
+    <string name="settings_appearance_reading_font_large">字号·大</string>
+    <string name="settings_appearance_reading_font_extra_large">字号·特大</string>
+    <string name="settings_appearance_reading_line_title">行距</string>
+    <string name="settings_appearance_reading_line_compact">行距·紧凑</string>
+    <string name="settings_appearance_reading_line_standard">行距·标准</string>
+    <string name="settings_appearance_reading_line_relaxed">行距·宽松</string>
+
     <string name="settings_appearance_overlay_title">悬浮记录</string>
     <string name="settings_appearance_overlay_description">开启时按系统流程完成“在其他应用上层显示”授权；关闭时使用应用内极速记录。</string>
     <string name="settings_appearance_overlay_semantics">悬浮记录，%1$s，点击切换并在需要时授权</string>

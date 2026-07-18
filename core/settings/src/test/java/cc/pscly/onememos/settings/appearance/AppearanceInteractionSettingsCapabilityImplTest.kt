@@ -5,6 +5,8 @@ import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
+import cc.pscly.onememos.domain.model.ReadingFontScale
+import cc.pscly.onememos.domain.model.ReadingLineHeight
 import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
@@ -41,6 +43,8 @@ class AppearanceInteractionSettingsCapabilityImplTest {
                         themeMode = ThemeMode.DARK,
                         quickCaptureOverlayEnabled = true,
                         sealStampDurationMs = 800,
+                        readingFontScale = ReadingFontScale.LARGE,
+                        lineHeight = ReadingLineHeight.RELAXED,
                     ),
                 )
             val cap =
@@ -54,6 +58,8 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             assertEquals(ThemeMode.DARK, snap.themeMode)
             assertEquals(true, snap.quickCaptureOverlayEnabled)
             assertEquals(800, snap.sealStampDurationMs)
+            assertEquals(ReadingFontScale.LARGE, snap.readingFontScale)
+            assertEquals(ReadingLineHeight.RELAXED, snap.lineHeight)
             assertEquals(null, snap.commandInFlight)
         }
 
@@ -108,6 +114,24 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             )
             assertEquals(1, repo.sealCalls.get())
             assertEquals(1200, repo.flow.value.sealStampDurationMs)
+
+            assertEquals(
+                AppearanceInteractionSettingsResult.Success,
+                cap.execute(
+                    AppearanceInteractionSettingsCommand.SetReadingFontScale(ReadingFontScale.EXTRA_LARGE),
+                ),
+            )
+            assertEquals(1, repo.readingFontCalls.get())
+            assertEquals(ReadingFontScale.EXTRA_LARGE, repo.flow.value.readingFontScale)
+
+            assertEquals(
+                AppearanceInteractionSettingsResult.Success,
+                cap.execute(
+                    AppearanceInteractionSettingsCommand.SetReadingLineHeight(ReadingLineHeight.COMPACT),
+                ),
+            )
+            assertEquals(1, repo.readingLineCalls.get())
+            assertEquals(ReadingLineHeight.COMPACT, repo.flow.value.lineHeight)
         }
 
     @Test
@@ -225,6 +249,8 @@ class AppearanceInteractionSettingsCapabilityImplTest {
         val modeCalls = AtomicInteger(0)
         val overlayCalls = AtomicInteger(0)
         val sealCalls = AtomicInteger(0)
+        val readingFontCalls = AtomicInteger(0)
+        val readingLineCalls = AtomicInteger(0)
 
         override val settings: Flow<AppSettings> = flow
 
@@ -285,6 +311,20 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             maybeHold()
             maybeFail()
             flow.value = flow.value.copy(sealStampDurationMs = durationMs)
+        }
+
+        override suspend fun setReadingFontScale(scale: ReadingFontScale) {
+            readingFontCalls.incrementAndGet()
+            maybeHold()
+            maybeFail()
+            flow.value = flow.value.copy(readingFontScale = scale)
+        }
+
+        override suspend fun setReadingLineHeight(lineHeight: ReadingLineHeight) {
+            readingLineCalls.incrementAndGet()
+            maybeHold()
+            maybeFail()
+            flow.value = flow.value.copy(lineHeight = lineHeight)
         }
 
         override suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean) = Unit

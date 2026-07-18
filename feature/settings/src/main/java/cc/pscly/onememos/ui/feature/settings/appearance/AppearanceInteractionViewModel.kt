@@ -2,6 +2,8 @@ package cc.pscly.onememos.ui.feature.settings.appearance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cc.pscly.onememos.domain.model.ReadingFontScale
+import cc.pscly.onememos.domain.model.ReadingLineHeight
 import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
@@ -51,6 +53,10 @@ sealed interface AppearanceInteractionUserIntent {
     data class SetQuickCaptureOverlayEnabled(val enabled: Boolean) : AppearanceInteractionUserIntent
 
     data class SetSealStampDurationMs(val value: Int) : AppearanceInteractionUserIntent
+
+    data class SetReadingFontScale(val scale: ReadingFontScale) : AppearanceInteractionUserIntent
+
+    data class SetReadingLineHeight(val lineHeight: ReadingLineHeight) : AppearanceInteractionUserIntent
 
     data class ApplyPlatformResult(val result: SettingsPlatformResult) : AppearanceInteractionUserIntent
 }
@@ -102,6 +108,10 @@ class AppearanceInteractionViewModel @Inject constructor(
             }
             is AppearanceInteractionUserIntent.SetSealStampDurationMs ->
                 submit(AppearanceInteractionSettingsCommand.SetSealStampDurationMs(intent.value))
+            is AppearanceInteractionUserIntent.SetReadingFontScale ->
+                submit(AppearanceInteractionSettingsCommand.SetReadingFontScale(intent.scale))
+            is AppearanceInteractionUserIntent.SetReadingLineHeight ->
+                submit(AppearanceInteractionSettingsCommand.SetReadingLineHeight(intent.lineHeight))
             is AppearanceInteractionUserIntent.ApplyPlatformResult ->
                 applyPlatformResult(intent.result)
         }

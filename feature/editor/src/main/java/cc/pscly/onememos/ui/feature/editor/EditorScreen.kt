@@ -102,6 +102,7 @@ import cc.pscly.onememos.ui.filter.MemoFilter
 import cc.pscly.onememos.ui.filter.TagMatchMode
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.LocalReadingConfig
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import coil.compose.AsyncImage
@@ -848,12 +849,13 @@ private fun HighlightingEditorField(
             )
         }
 
-    val lineHeight = InkSpacing.LinePitch
+    // 编辑区正文字号/行高跟随阅读模式；纸面横线节距与文字行高对齐。
+    val readingConfig = LocalReadingConfig.current
     val textStyle =
-        MaterialTheme.typography.bodyLarge.copy(
+        readingConfig.applyTo(MaterialTheme.typography.bodyLarge).copy(
             color = scheme.onSurface,
-            lineHeight = lineHeight,
         )
+    val lineHeight = readingConfig.bodyLineHeight
 
     ScrollPaper(
         modifier = modifier,

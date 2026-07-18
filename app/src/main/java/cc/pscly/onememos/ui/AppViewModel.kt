@@ -27,8 +27,10 @@ class AppViewModel @Inject constructor(
         settingsRepository.settings
             .map { settings ->
                 OneMemosThemeConfig(
-                    palette = settings.themePalette,
+                    themeDescriptor = settings.themeDescriptor,
                     themeMode = settings.themeMode,
+                    readingFontScale = settings.readingFontScale,
+                    readingLineHeight = settings.lineHeight,
                 )
             }
             .stateIn(

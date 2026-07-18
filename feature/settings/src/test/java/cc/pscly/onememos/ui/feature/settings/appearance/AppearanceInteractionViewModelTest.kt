@@ -35,6 +35,8 @@ class AppearanceInteractionViewModelTest {
             ThemeDescriptor.FACTORY_PRESETS.map(AppearanceInteractionSettingsCommand::SetThemeDescriptor) +
                 ThemePalette.entries.map(AppearanceInteractionSettingsCommand::SetThemePalette) +
                 ThemeMode.entries.map(AppearanceInteractionSettingsCommand::SetThemeMode) +
+                ReadingFontScale.entries.map(AppearanceInteractionSettingsCommand::SetReadingFontScale) +
+                ReadingLineHeight.entries.map(AppearanceInteractionSettingsCommand::SetReadingLineHeight) +
                 listOf(
                     AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled(false),
                     AppearanceInteractionSettingsCommand.SetSealStampDurationMs(200),
@@ -247,6 +249,10 @@ class AppearanceInteractionViewModelTest {
         is AppearanceInteractionSettingsCommand.SetThemeMode -> AppearanceInteractionUserIntent.SetThemeMode(mode)
         is AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled -> AppearanceInteractionUserIntent.SetQuickCaptureOverlayEnabled(enabled)
         is AppearanceInteractionSettingsCommand.SetSealStampDurationMs -> AppearanceInteractionUserIntent.SetSealStampDurationMs(value)
+        is AppearanceInteractionSettingsCommand.SetReadingFontScale ->
+            AppearanceInteractionUserIntent.SetReadingFontScale(scale)
+        is AppearanceInteractionSettingsCommand.SetReadingLineHeight ->
+            AppearanceInteractionUserIntent.SetReadingLineHeight(lineHeight)
     }
 
     private suspend fun await(condition: () -> Boolean) = withTimeout(2_000) { while (!condition()) delay(10) }

@@ -40,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import cc.pscly.onememos.domain.model.ReadingFontScale
+import cc.pscly.onememos.domain.model.ReadingLineHeight
 import cc.pscly.onememos.domain.model.ThemeDensity
 import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeFontFamily
@@ -110,6 +112,7 @@ fun AppearanceInteractionContent(
     PresetSection(snapshot, uiState.controlsEnabled, onIntent)
     ModeSection(snapshot, uiState.controlsEnabled, onIntent)
     AdvancedSection(snapshot, uiState.controlsEnabled, onIntent)
+    ReadingSection(snapshot, uiState.controlsEnabled, onIntent)
     OverlaySection(snapshot, uiState.controlsEnabled, onIntent)
     DurationSection(snapshot.sealStampDurationMs, uiState.controlsEnabled, onIntent)
 }
@@ -241,6 +244,52 @@ private fun AdvancedSection(
                             AppearanceInteractionUserIntent.SetThemeDescriptor(
                                 descriptor.copy(fontFamily = option.fontFamily),
                             ),
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadingSection(
+    snapshot: AppearanceInteractionSettingsSnapshot,
+    enabled: Boolean,
+    onIntent: (AppearanceInteractionUserIntent) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = stringResource(R.string.settings_appearance_reading_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = appearanceInk(MaterialTheme.colorScheme),
+        )
+        SettingsSection(stringResource(R.string.settings_appearance_reading_font_title)) {
+            ReadingFontOption.entries.forEach { option ->
+                ChoiceCard(
+                    title = stringResource(option.labelRes),
+                    subtitle = null,
+                    selected = snapshot.readingFontScale == option.scale,
+                    enabled = enabled,
+                    testTag = option.testTag,
+                    onClick = {
+                        onIntent(AppearanceInteractionUserIntent.SetReadingFontScale(option.scale))
+                    },
+                )
+            }
+        }
+        SettingsSection(stringResource(R.string.settings_appearance_reading_line_title)) {
+            ReadingLineOption.entries.forEach { option ->
+                ChoiceCard(
+                    title = stringResource(option.labelRes),
+                    subtitle = null,
+                    selected = snapshot.lineHeight == option.lineHeight,
+                    enabled = enabled,
+                    testTag = option.testTag,
+                    onClick = {
+                        onIntent(
+                            AppearanceInteractionUserIntent.SetReadingLineHeight(option.lineHeight),
                         )
                     },
                 )
@@ -465,6 +514,25 @@ private enum class FontOption(val fontFamily: ThemeFontFamily, val labelRes: Int
     ;
 
     val testTag: String = "settings_appearance_font_${name.lowercase()}"
+}
+
+private enum class ReadingFontOption(val scale: ReadingFontScale, val labelRes: Int) {
+    SMALL(ReadingFontScale.SMALL, R.string.settings_appearance_reading_font_small),
+    STANDARD(ReadingFontScale.STANDARD, R.string.settings_appearance_reading_font_standard),
+    LARGE(ReadingFontScale.LARGE, R.string.settings_appearance_reading_font_large),
+    EXTRA_LARGE(ReadingFontScale.EXTRA_LARGE, R.string.settings_appearance_reading_font_extra_large),
+    ;
+
+    val testTag: String = "settings_appearance_reading_font_${name.lowercase()}"
+}
+
+private enum class ReadingLineOption(val lineHeight: ReadingLineHeight, val labelRes: Int) {
+    COMPACT(ReadingLineHeight.COMPACT, R.string.settings_appearance_reading_line_compact),
+    STANDARD(ReadingLineHeight.STANDARD, R.string.settings_appearance_reading_line_standard),
+    RELAXED(ReadingLineHeight.RELAXED, R.string.settings_appearance_reading_line_relaxed),
+    ;
+
+    val testTag: String = "settings_appearance_reading_line_${name.lowercase()}"
 }
 
 private const val DURATION_MIN_MS = 200
