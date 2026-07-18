@@ -8,17 +8,16 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
-/**
- * M1.9：策展色板 × 明/暗 WCAG AA 对比度断言。
- *
- * 当前 [ThemePalette] 仅 PAPER_INK / INDIGO / CYBER。
- * 月白（MOON_WHITE）待 M1.6 色板数据化后再挂入 [curatedSchemes]；
- * 动态色「随系统」不进本矩阵（计划：尽力而为、不自动断言）。
- *
- * 断言对：
- * - 普通文本 ≥4.5:1 — onBackground/background、onSurface/surface
- * - 大文本/控件 ≥3:1 — onPrimary/primary、onSecondary/secondary
- */
+    /**
+     * M1.9 / M1.6：策展色板 × 明/暗 WCAG AA 对比度断言。
+     *
+     * 覆盖 PAPER_INK / INDIGO / CYBER / MOON_WHITE（4 套策展）。
+     * [ThemePalette.DYNAMIC] 不进本矩阵（随系统尽力而为、不自动断言）。
+     *
+     * 断言对：
+     * - 普通文本 ≥4.5:1 — onBackground/background、onSurface/surface
+     * - 大文本/控件 ≥3:1 — onPrimary/primary、onSecondary/secondary
+     */
 @RunWith(Parameterized::class)
 class WcagContrastTest(
     private val label: String,
@@ -88,14 +87,13 @@ class WcagContrastTest(
 
     companion object {
         /**
-         * 策展色板注册表。M1.6 增加月白后在此追加 light/dark 条目即可。
-         * 结构预留：`// MOON_WHITE light/dark — 待 M1.6`
+         * 策展色板注册表：枚举 entries 排除 [ThemePalette.DYNAMIC]。
          */
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
         fun curatedSchemes(): Collection<Array<Any>> {
             val cases = mutableListOf<Array<Any>>()
-            for (palette in ThemePalette.entries) {
+            for (palette in ThemePalette.entries.filter { it != ThemePalette.DYNAMIC }) {
                 cases += arrayOf(
                     "${palette.name}/light",
                     oneMemosLightColorScheme(palette),
@@ -105,7 +103,6 @@ class WcagContrastTest(
                     oneMemosDarkColorScheme(palette),
                 )
             }
-            // MOON_WHITE light/dark — 待 M1.6 色板数据化后挂入
             return cases
         }
     }
