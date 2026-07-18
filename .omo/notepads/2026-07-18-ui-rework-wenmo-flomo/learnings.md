@@ -303,3 +303,22 @@ SharedTransitionLayout {
 1. `remember` 在 LazyColumn 的 `else { }` 分支内调用会触发 `@Composable invocations can only happen from the context of a @Composable function` 错误，即使代码在 `@Composable` 函数内。根因可能与 Kotlin 编译器对 `if/else if/else` 链中 Composable lambda scope 的识别有关。改为直接调用非 Composable 函数。
 2. 编辑文件时，`GroupedListItem` 等新增声明被意外插入到函数内部而非文件顶层，需要特别注意 `edit` 工具匹配的精确边界。
 3. 测试中的硬编码日期字符串 (`"2023-11-14"`) 因时区差异（Asia/Shanghai vs UTC）而失败，改为使用 `DateTimeFormatter.formatYmd()` 动态生成期望值。
+
+## M2.2 图片宫格（MemoItem 响应式图片布局）
+
+### 实现
+- 仅改 `feature/home/.../MemoItem.kt`：删除旧的“单图侧栏缩略图(76dp) / 双图 88dp 行”逻辑，新增 `MemoImageGrid` + `MemoImageTile` 两个私有 Composable
+- 布局规则：1 图通栏 3:2；2 图等宽并排(1:1)；3~4 图 2×2 宫格；5+ 图 3 列宫格、最多 9 张、最后一张叠 `+N` 角标（半透明黑底白字）
+- 圆角统一 `InkShape.Card`（14dp，含卡片选中边框 shape 一并替换裸值）；瓦片间距 `InkSpacing.X6`；图片区上方间距 `InkSpacing.X12`
+- Coil 改用 `SubcomposeAsyncImage`：底层 `Surface(surfaceVariant)` 做加载占位（非白屏），`error` 槽叠加 `Icons.Outlined.BrokenImage`（onSurfaceVariant 60% 透明度）
+- 不再显式 `.size(px)`：交由 Coil 按瓦片实际布局约束解析解码尺寸；保留 `crossfade(false)` 滚动性能优化
+- `enableRichPreview` 不再限制图片数量（旧逻辑 maxThumbs=2/1），图片区只按数量排布；文本预览统一整行（rich: maxBlocks=4/maxLines=6，plain: maxLines=6）
+
+### 令牌偏差（计划 vs 实际）
+- 计划写 `InkShape.DEFAULT`(14dp)：实际令牌名是 `InkShape.Card`（RadiusL=14dp），已用 `Card`
+- 计划写 `InkSpacing.X4`(4dp)：**InkSpacing 中不存在 X4**（尺度为 X1/X6/X8/X10/X12...），就近取 `InkSpacing.X6`(6dp) 作为瓦片间距
+
+### 验证
+- `./gradlew :feature:home:compileDebugKotlin` BUILD SUCCESSFUL
+- `./gradlew :feature:home:testDebugUnitTest` BUILD SUCCESSFUL（全部通过，无新增/失败用例）
+- 未改 versionCode/包名；未 push/release；未勾选计划复选框

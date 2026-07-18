@@ -6,20 +6,21 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +35,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.core.network.MemosUrls
@@ -46,9 +46,11 @@ import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.MarkdownPreview
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 
 @Composable
@@ -66,7 +68,8 @@ internal fun MemoItem(
     onMoreActions: (() -> Unit)? = null,
 ) {
     val selectedBorder = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.70f))
-    val cardShape = RoundedCornerShape(14.dp)
+    // 卡片圆角统一走 InkShape 令牌（14dp），不再书写裸值。
+    val cardShape = InkShape.Card
     InkCard(
         modifier = if (selected) Modifier.border(selectedBorder, cardShape) else Modifier,
         onClick = onOpenMemo,
@@ -124,31 +127,6 @@ internal fun MemoItem(
                         }
                     }
             }
-        val maxThumbs = if (enableRichPreview) 2 else 1
-        val imageThumbModels =
-            remember(allImageThumbModels, maxThumbs) {
-                allImageThumbModels.take(maxThumbs.coerceAtLeast(0))
-            }
-        val moreImages = (allImageThumbModels.size - imageThumbModels.size).coerceAtLeast(0)
-        val context = LocalContext.current
-        val thumbSizePx =
-            with(LocalDensity.current) {
-                // 与布局里固定的缩略图尺寸对齐（76dp / 88dp），让 Coil 直接按目标尺寸解码，减少滚动路径开销。
-                if (imageThumbModels.size == 1) 76.dp.roundToPx() else 88.dp.roundToPx()
-            }
-        val imageThumbRequests =
-            remember(imageThumbModels, context, thumbSizePx) {
-                imageThumbModels.map { model ->
-                    // 首页滚动中大量缩略图出现时，crossfade 动画会带来额外合成成本；这里对缩略图关闭。
-                    ImageRequest.Builder(context)
-                        .data(model)
-                        .size(thumbSizePx)
-                        .crossfade(false)
-                        .build()
-                }
-            }
-        val hasOneImage = imageThumbRequests.size == 1
-
         val contentPlaceholder =
             remember(allImageThumbModels, memo.attachments) {
                 val hasAttachments = memo.attachments.isNotEmpty()
@@ -188,128 +166,32 @@ internal fun MemoItem(
                 p.ifBlank { contentPlaceholder }
             }
 
-        if (hasOneImage) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(76.dp)
-                            .clip(RoundedCornerShape(14.dp)),
-                ) {
-                    // 缩略图加载/缓存回收时避免“空白块”，给一个静态背景占位。
-                    Surface(
-                        modifier = Modifier.matchParentSize(),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                    ) {}
-                    AsyncImage(
-                        model = imageThumbRequests.first(),
-                        contentDescription = "图片预览",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                    if (moreImages > 0) {
-                        Surface(
-                            modifier = Modifier.matchParentSize(),
-                            color = Color.Black.copy(alpha = 0.35f),
-                            contentColor = Color.White,
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(text = "+$moreImages", style = MaterialTheme.typography.labelLarge)
-                            }
-                        }
-                    }
+        // 文本预览统一整行展示；图片区域独立于文本下方，按图片数量自适应排布。
+        if (enableRichPreview) {
+            val displayMarkdown =
+                remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
+                    if (showAutoTagLineInHome) memo.content else AutoTagLineHider.hideFast(memo.content, autoTagKeywords)
                 }
-
-                Box(modifier = Modifier.weight(1f)) {
-                    if (enableRichPreview) {
-                        val displayMarkdown =
-                            remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
-                                if (showAutoTagLineInHome) memo.content else AutoTagLineHider.hideFast(memo.content, autoTagKeywords)
-                            }
-                        MarkdownPreview(
-                            markdown = displayMarkdown,
-                            placeholder = contentPlaceholder,
-                            maxBlocks = 3,
-                            maxLines = 4,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        Text(
-                            text = plainPreview,
-                            style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 4,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-            }
+            MarkdownPreview(
+                markdown = displayMarkdown,
+                placeholder = contentPlaceholder,
+                maxBlocks = 4,
+                maxLines = 6,
+                modifier = Modifier.fillMaxWidth(),
+            )
         } else {
-            if (enableRichPreview) {
-                val displayMarkdown =
-                    remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
-                        if (showAutoTagLineInHome) memo.content else AutoTagLineHider.hideFast(memo.content, autoTagKeywords)
-                    }
-                MarkdownPreview(
-                    markdown = displayMarkdown,
-                    placeholder = contentPlaceholder,
-                    maxBlocks = 4,
-                    maxLines = 6,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                Text(
-                    text = plainPreview,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 6,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            Text(
+                text = plainPreview,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 6,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
-            if (imageThumbRequests.size >= 2) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    imageThumbRequests.forEach { request ->
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(88.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                        ) {
-                            Surface(
-                                modifier = Modifier.matchParentSize(),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                            ) {}
-                            AsyncImage(
-                                model = request,
-                                contentDescription = "图片预览",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                            )
-                        }
-                    }
-                    if (moreImages > 0) {
-                        Surface(
-                            modifier = Modifier.size(88.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(text = "+$moreImages", style = MaterialTheme.typography.titleMedium)
-                            }
-                        }
-                    }
-                }
-            }
+        if (allImageThumbModels.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(InkSpacing.X12))
+            MemoImageGrid(models = allImageThumbModels)
         }
 
         if (memo.attachments.isNotEmpty()) {
@@ -394,6 +276,149 @@ internal fun MemoItem(
                         contentDescription = "更多操作",
                         tint = MaterialTheme.colorScheme.outline,
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 图片宫格区域：按图片数量切换布局。
+ * - 1 图：通栏大图，默认 3:2 宽高比；
+ * - 2 图：等宽并排；
+ * - 3~4 图：2×2 宫格；
+ * - 5 图及以上：3 列宫格，最多展示 9 张，超出部分在最后一张叠 “+N” 角标。
+ */
+@Composable
+private fun MemoImageGrid(models: List<Any>) {
+    when (models.size) {
+        1 ->
+            MemoImageTile(
+                model = models.first(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(3f / 2f),
+            )
+
+        2 ->
+            Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X6)) {
+                models.forEach { model ->
+                    MemoImageTile(
+                        model = model,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .aspectRatio(1f),
+                    )
+                }
+            }
+
+        in 3..4 ->
+            Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X6)) {
+                models.chunked(2).forEach { rowModels ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X6)) {
+                        rowModels.forEach { model ->
+                            MemoImageTile(
+                                model = model,
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f),
+                            )
+                        }
+                        // 3 图时第二行缺一张，用空白占位保持 2×2 对齐。
+                        repeat(2 - rowModels.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
+        else -> {
+            val maxVisible = 9
+            val visible = models.take(maxVisible)
+            val overflow = models.size - visible.size
+            Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X6)) {
+                visible.chunked(3).forEachIndexed { rowIndex, rowModels ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X6)) {
+                        rowModels.forEachIndexed { columnIndex, model ->
+                            val tileIndex = rowIndex * 3 + columnIndex
+                            val isLastVisible = tileIndex == visible.lastIndex
+                            MemoImageTile(
+                                model = model,
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f),
+                                badge = if (isLastVisible && overflow > 0) "+$overflow" else null,
+                            )
+                        }
+                        repeat(3 - rowModels.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 单张图片瓦片：统一 InkShape.Card（14dp）圆角。
+ * 加载中/失败均回退到 surfaceVariant 主题色占位，避免白屏。
+ */
+@Composable
+private fun MemoImageTile(
+    model: Any,
+    modifier: Modifier = Modifier,
+    badge: String? = null,
+) {
+    val context = LocalContext.current
+    val request =
+        remember(model, context) {
+            // 不显式指定解码尺寸，交由 Coil 按瓦片实际布局约束解析；
+            // 首页滚动中大量缩略图出现时，crossfade 动画会带来额外合成成本，这里关闭。
+            ImageRequest.Builder(context)
+                .data(model)
+                .crossfade(false)
+                .build()
+        }
+    Box(modifier = modifier.clip(InkShape.Card)) {
+        // 加载中占位：主题化 surfaceVariant，避免“白屏”。
+        Surface(
+            modifier = Modifier.matchParentSize(),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {}
+        SubcomposeAsyncImage(
+            model = request,
+            contentDescription = "图片预览",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            error = {
+                // 加载失败：保留占位底色并叠加弱化图标，避免突兀空白。
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.BrokenImage,
+                            contentDescription = "图片加载失败",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                }
+            },
+        )
+        if (badge != null) {
+            Surface(
+                modifier = Modifier.matchParentSize(),
+                color = Color.Black.copy(alpha = 0.35f),
+                contentColor = Color.White,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(text = badge, style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
