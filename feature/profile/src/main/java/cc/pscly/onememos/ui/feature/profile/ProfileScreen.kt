@@ -59,6 +59,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.MarkdownPreview
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import java.time.LocalDate
@@ -111,12 +113,12 @@ fun ProfileScreen(
 
         LazyColumn(
             modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = InkSpacing.X16, vertical = InkSpacing.X14),
+            verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
         ) {
             item {
                 InkCard(onClick = null) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                         MonthHeader(
                             month = month,
                             onPrev = viewModel::prevMonth,
@@ -146,7 +148,7 @@ fun ProfileScreen(
 
             item {
                 InkCard(onClick = null) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X6)) {
                         Text(
                             text = "选中范围：${start} ～ ${end}",
                             style = MaterialTheme.typography.titleMedium,
@@ -225,13 +227,13 @@ private fun DaySection(
     section: ProfileDaySection,
     onOpenMemo: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
         Text(
             text = "${section.date}（周${section.date.dayOfWeek.toChinese()}）",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
             section.memos.forEach { memo ->
                 MemoRow(
                     memo = memo,
@@ -250,7 +252,7 @@ private fun MemoRow(
     InkCard(onClick = onClick) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X12),
             verticalAlignment = Alignment.Top,
         ) {
             Text(
@@ -268,7 +270,7 @@ private fun MemoRow(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (memo.attachments.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(InkSpacing.X6))
                     Text(
                         text = "附件：${memo.attachments.size} 个",
                         style = MaterialTheme.typography.bodySmall,
@@ -289,7 +291,7 @@ private fun HeatmapGrid(
     onDragUpdate: (LocalDate) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val rowGap = 6.dp
+        val rowGap = InkSpacing.X6
         // 让格子“像系统日历一样大”：按屏宽自适应，目标 44~56dp。
         val maxCell = 56.dp
         val minCell = 44.dp
@@ -326,7 +328,7 @@ private fun HeatmapGrid(
 
         Column(
             modifier = Modifier.width(gridWidth).align(Alignment.TopCenter),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
@@ -482,7 +484,7 @@ private fun HeatmapCell(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .padding(vertical = 8.dp)
+                        .padding(vertical = InkSpacing.X8)
                         .background(container, shape = rangeShape),
                 )
             } else {
@@ -497,14 +499,14 @@ private fun HeatmapCell(
                     modifier = Modifier
                         .matchParentSize()
                         .padding(vertical = 8.dp, horizontal = 2.dp)
-                        .background(bg, shape = RoundedCornerShape(14.dp)),
+                        .background(bg, shape = InkShape.Card),
                 )
             }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp),
+                    .padding(vertical = InkSpacing.X6),
             ) {
                 // 今天：描边圈（未选中时可见）
                 if (isToday && !selected) {
@@ -545,15 +547,15 @@ private fun HeatmapLegend(maxCount: Int) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(InkSpacing.X8))
         HeatLegendSquare(alpha = 0.22f)
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(InkSpacing.X6))
         HeatLegendSquare(alpha = 0.42f)
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(InkSpacing.X6))
         HeatLegendSquare(alpha = 0.62f)
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(InkSpacing.X6))
         HeatLegendSquare(alpha = 0.88f)
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(InkSpacing.X8))
         Text(
             text = "多",
             style = MaterialTheme.typography.bodySmall,
@@ -567,7 +569,7 @@ private fun HeatLegendSquare(alpha: Float) {
     val primary = MaterialTheme.colorScheme.primary
     Box(
         modifier = Modifier
-            .size(10.dp)
+            .size(InkSpacing.X10)
             .background(primary.copy(alpha = alpha.coerceIn(0f, 1f)), shape = RoundedCornerShape(3.dp)),
     )
 }
@@ -600,7 +602,7 @@ private fun MonthPickerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onPick(m) }
-                            .padding(vertical = 12.dp, horizontal = 4.dp),
+                            .padding(vertical = InkSpacing.X12, horizontal = 4.dp),
                         text = "${m.year}年${m.monthValue.toString().padStart(2, '0')}月",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
