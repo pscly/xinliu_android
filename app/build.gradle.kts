@@ -36,6 +36,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "FLOW_BACKEND_BASE_URL", "\"https://xl.pscly.cc/\"")
+
+        // 仅保留 arm64-v8a ABI，减小包体积
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     signingConfigs {
@@ -61,6 +64,12 @@ android {
     }
 
     buildTypes {
+        // debug 专用包名后缀：cc.pscly.onememos.dev，应用名"心流·内测"
+        getByName("debug") {
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "心流·内测")
+        }
+
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -80,6 +89,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
     }
 
     compileOptions {
