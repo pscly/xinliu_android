@@ -264,6 +264,7 @@ override suspend fun listRecentEditedActiveMemos(limit: Int): List<Memo> = empty
         override suspend fun getMemo(uuid: String): Memo? = null
         override suspend fun archiveMemo(uuid: String) = Unit
         override suspend fun unarchiveMemo(uuid: String) = Unit
+        override suspend fun setPinned(uuid: String, pinned: Boolean) = Unit
         override suspend fun updateMemoContent(uuid: String, content: String) = Unit
 
         override suspend fun createLocalMemo(content: String, resourceUris: List<String>): String {

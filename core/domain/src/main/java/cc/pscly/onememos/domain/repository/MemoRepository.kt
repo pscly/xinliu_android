@@ -37,6 +37,12 @@ interface MemoRepository {
 
     suspend fun unarchiveMemo(uuid: String)
 
+    /**
+     * 更新置顶状态（本地优先：先落库，再由统一同步推送）。
+     * memo 不存在时静默忽略。
+     */
+    suspend fun setPinned(uuid: String, pinned: Boolean)
+
     suspend fun updateMemoContent(uuid: String, content: String)
 
     suspend fun createLocalMemo(

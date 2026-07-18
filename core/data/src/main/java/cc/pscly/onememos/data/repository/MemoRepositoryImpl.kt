@@ -99,6 +99,21 @@ class MemoRepositoryImpl @Inject constructor(
         syncScheduler.requestSync()
     }
 
+    override suspend fun setPinned(uuid: String, pinned: Boolean) {
+        val existing = memoDao.getMemo(uuid)?.memo ?: return
+        if (existing.pinned == pinned) return
+        val now = System.currentTimeMillis()
+        memoDao.upsertMemo(
+            existing.copy(
+                pinned = pinned,
+                updatedAt = now,
+                syncStatus = nextSyncStatus(existing.serverId),
+                lastSyncError = null,
+            ),
+        )
+        syncScheduler.requestSync()
+    }
+
     override suspend fun updateMemoContent(uuid: String, content: String) {
         val existing = memoDao.getMemo(uuid)?.memo ?: return
         val now = System.currentTimeMillis()

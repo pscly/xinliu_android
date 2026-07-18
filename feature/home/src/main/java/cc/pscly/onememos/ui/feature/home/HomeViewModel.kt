@@ -9,23 +9,32 @@ import androidx.paging.cachedIn
 import androidx.paging.filter
 import cc.pscly.onememos.feature.home.BuildConfig
 import cc.pscly.onememos.core.network.MemosUrls
+import cc.pscly.onememos.domain.derived.MarkdownDeriver
 import cc.pscly.onememos.domain.model.AppSettings
+import cc.pscly.onememos.domain.model.CollectionItemType
 import cc.pscly.onememos.domain.model.GlobalSyncState
 import cc.pscly.onememos.domain.model.ListLayout
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoVisibility
+import cc.pscly.onememos.domain.model.SwipeAction
+import cc.pscly.onememos.domain.model.TodoItem
+import cc.pscly.onememos.domain.repository.CollectionsRepository
 import cc.pscly.onememos.domain.repository.MemoBrowseScope
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.domain.repository.TodoRepository
 import cc.pscly.onememos.domain.sync.SyncScheduler
 import cc.pscly.onememos.domain.sync.SyncStatusMonitor
+import cc.pscly.onememos.domain.sync.TodoReminderScheduler
+import cc.pscly.onememos.domain.sync.TodoSyncScheduler
 import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.domain.tag.TagStat
 import cc.pscly.onememos.domain.tag.TagStats
 import cc.pscly.onememos.ui.filter.MemoFilter
 import cc.pscly.onememos.ui.filter.MemoFilterStore
 import cc.pscly.onememos.ui.filter.TagMatchMode
+import cc.pscly.onememos.ui.util.AutoTagLineHider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -39,12 +48,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.ZoneId
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -62,6 +74,12 @@ data class HomeUiState(
     val searchError: String? = null,
     /** 列表形态设置（M2.4）：AUTO=宽屏自适应双列；SINGLE=强制单列；DOUBLE=强制双列。 */
     val listLayout: ListLayout = ListLayout.AUTO,
+    /** 滑动手势总开关（M2.5）：关闭后列表回退为纯长按多选。 */
+    val swipeEnabled: Boolean = true,
+    /** 右滑动作（默认加入待办）。 */
+    val swipeRightAction: SwipeAction = SwipeAction.ADD_TO_TODO,
+    /** 左滑动作（默认收藏）。 */
+    val swipeLeftAction: SwipeAction = SwipeAction.FAVORITE,
 ) {
     val isFiltering: Boolean get() = filter.query.isNotBlank() || filter.selectedTags.isNotEmpty()
 }
@@ -73,6 +91,10 @@ class HomeViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val filterStore: MemoFilterStore,
     private val syncScheduler: SyncScheduler,
+    private val todoRepository: TodoRepository,
+    private val todoSyncScheduler: TodoSyncScheduler,
+    private val todoReminderScheduler: TodoReminderScheduler,
+    private val collectionsRepository: CollectionsRepository,
     syncStatusMonitor: SyncStatusMonitor,
 ) : ViewModel() {
     private var creatorHintPushed: Boolean = false
@@ -205,6 +227,9 @@ class HomeViewModel @Inject constructor(
                 dev2ShowPublicWorkspaceMemos = showPublicWorkspace,
                 searchError = searchError,
                 listLayout = settings.listLayout,
+                swipeEnabled = settings.swipeEnabled,
+                swipeRightAction = settings.swipeRightAction,
+                swipeLeftAction = settings.swipeLeftAction,
             )
         }
             .stateIn(
@@ -336,6 +361,138 @@ class HomeViewModel @Inject constructor(
         filterStore.setQuery(query)
     }
 
+    /**
+     * 滑动归档撤销：把 memo 从已归档恢复回随笔列表。
+     */
+    fun unarchiveMemo(uuid: String) {
+        val id = uuid.trim()
+        if (id.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { memoRepository.unarchiveMemo(id) }
+                .onFailure { _events.tryEmit(HomeEvent.SwipeActionMessage("撤销失败，请稍后重试")) }
+        }
+    }
+
+    /**
+     * 执行一次滑动手势动作（M2.5）：
+     * - 归档：本地落库后发 [HomeEvent.SwipeArchived]，由 UI 弹“撤销” Snackbar。
+     * - 待办/收藏/置顶：执行后发 [HomeEvent.SwipeActionMessage] 轻量反馈。
+     * 动作池与术语边界见 ADR 0011（收藏=加入锦囊「收藏」文件夹；永不真删除）。
+     */
+    fun performSwipeAction(memo: Memo, action: SwipeAction) {
+        viewModelScope.launch {
+            runCatching {
+                when (action) {
+                    SwipeAction.ARCHIVE -> {
+                        withContext(Dispatchers.IO) { memoRepository.archiveMemo(memo.uuid) }
+                        _events.tryEmit(HomeEvent.SwipeArchived(memo.uuid))
+                    }
+                    SwipeAction.ADD_TO_TODO -> {
+                        addMemoToTodo(memo)
+                        _events.tryEmit(HomeEvent.SwipeActionMessage("已加入待办"))
+                    }
+                    SwipeAction.FAVORITE -> {
+                        favoriteMemo(memo)
+                        _events.tryEmit(HomeEvent.SwipeActionMessage("已收藏到「收藏」"))
+                    }
+                    SwipeAction.PIN -> {
+                        val target = !memo.pinned
+                        withContext(Dispatchers.IO) { memoRepository.setPinned(memo.uuid, target) }
+                        _events.tryEmit(
+                            HomeEvent.SwipeActionMessage(if (target) "已置顶" else "已取消置顶"),
+                        )
+                    }
+                }
+            }.onFailure { error ->
+                _events.tryEmit(
+                    HomeEvent.SwipeActionMessage(
+                        when (error) {
+                            is CollectionsUnavailableException -> "锦囊不可用，请先使用 Flow Backend 登录"
+                            else -> "操作失败，请稍后重试"
+                        },
+                    ),
+                )
+            }
+        }
+    }
+
+    /** 把 memo 的首行预览写入首个待办清单；没有清单时自动建一个默认清单。 */
+    private suspend fun addMemoToTodo(memo: Memo) {
+        val listId =
+            withContext(Dispatchers.IO) {
+                val existing =
+                    todoRepository.observeLists(includeArchived = false).first()
+                        .firstOrNull { it.deletedAt == null }
+                        ?.id
+                existing ?: todoRepository.createList(name = "待办")
+            }
+
+        val title =
+            memo.plainPreview.trim().ifBlank { memo.content.trim() }
+                .lineSequence().firstOrNull().orEmpty()
+                .take(40)
+                .ifBlank { "未命名任务" }
+
+        val tzid = runCatching { ZoneId.systemDefault().id }.getOrNull().orEmpty()
+        withContext(Dispatchers.IO) {
+            todoRepository.createItem(
+                TodoItem(
+                    id = UUID.randomUUID().toString(),
+                    listId = listId,
+                    title = title,
+                    tzid = tzid,
+                ),
+            )
+        }
+        todoSyncScheduler.requestSync()
+        todoReminderScheduler.requestReschedule()
+    }
+
+    /** 收藏=把 memo 收进锦囊内置「收藏」文件夹（找不到则创建）。 */
+    private suspend fun favoriteMemo(memo: Memo) {
+        val settings = settingsRepository.settings.first()
+        val collectionsAvailable = settings.loginMode == LoginMode.BACKEND && settings.token.isNotBlank()
+        if (!collectionsAvailable) throw CollectionsUnavailableException()
+
+        val folderId =
+            withContext(Dispatchers.IO) {
+                val existing =
+                    collectionsRepository.observeAll().first()
+                        .firstOrNull {
+                            it.itemType == CollectionItemType.FOLDER &&
+                                it.deletedAt == null &&
+                                !it.localOnly &&
+                                it.name.trim() == FAVORITE_FOLDER_NAME
+                        }
+                        ?.id
+                existing
+                    ?: collectionsRepository.createFolder(
+                        parentId = null,
+                        name = FAVORITE_FOLDER_NAME,
+                        color = null,
+                    )
+            }
+
+        val keywords = AutoTagLineHider.parseKeywords(settings.devAutoTagLineKeywords)
+        val displayName =
+            MarkdownDeriver.plainPreviewSkippingLinesEndingWithKeywords(
+                markdown = memo.content,
+                keywords = keywords,
+                maxChars = 80,
+            ).trim().ifBlank { "随笔" }
+
+        withContext(Dispatchers.IO) {
+            collectionsRepository.addMemoRef(
+                parentId = folderId,
+                memo = memo,
+                color = null,
+                displayName = displayName,
+            )
+        }
+    }
+
+    private class CollectionsUnavailableException : IllegalStateException("collections unavailable")
+
     fun toggleTag(tag: String) {
         filterStore.toggleTag(tag)
     }
@@ -364,6 +521,9 @@ class HomeViewModel @Inject constructor(
         listPositionStore.markRestored()
     }
 }
+
+/** 滑动「收藏」动作对应的锦囊内置文件夹名（ADR 0011）。 */
+private const val FAVORITE_FOLDER_NAME = "收藏"
 
 private fun computeBrowseScope(
     showPublicWorkspace: Boolean,

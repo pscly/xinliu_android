@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,12 +33,16 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddTask
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
@@ -50,6 +55,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
@@ -83,6 +95,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -108,6 +121,7 @@ import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.model.GlobalSyncState
 import cc.pscly.onememos.domain.model.ListLayout
+import cc.pscly.onememos.domain.model.SwipeAction
 import cc.pscly.onememos.domain.model.ThemeDensity
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -116,6 +130,7 @@ import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.OneMemosHaptics
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.LocalThemeDensity
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
@@ -143,6 +158,7 @@ fun HomeScreen(
     var showCollectionsDisabledDialog by remember { mutableStateOf(false) }
     var showBatchArchiveOrRestoreConfirm by remember { mutableStateOf(false) }
     var selectionState by remember { mutableStateOf(HomeSelectionState()) }
+    val snackbarHostState = remember { SnackbarHostState() }
     val (initialIndex, initialOffset) = viewModel.peekListPosition()
     val listState =
         rememberLazyListState(
@@ -183,6 +199,25 @@ fun HomeScreen(
                         toast("没有可用的分享方式")
                     }
                     selectionState = selectionState.exit()
+                }
+
+                is HomeEvent.SwipeArchived -> {
+                    // 归档撤销：单独起协程，避免 showSnackbar 挂起阻塞后续事件。
+                    launch {
+                        val result =
+                            snackbarHostState.showSnackbar(
+                                message = "已归档",
+                                actionLabel = "撤销",
+                                withDismissAction = true,
+                            )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            viewModel.unarchiveMemo(event.uuid)
+                        }
+                    }
+                }
+
+                is HomeEvent.SwipeActionMessage -> {
+                    toast(event.text)
                 }
             }
         }
@@ -288,6 +323,7 @@ fun HomeScreen(
     val isSyncing = globalSyncState.isSyncing
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Column {
                 TopAppBar(
@@ -744,6 +780,7 @@ fun HomeScreen(
                             GroupedItemContent(
                                 item = groupedItems[index],
                                 uiState = uiState,
+                                mode = mode,
                                 enableRichPreview = enableRichPreview,
                                 selectionMode = selectionMode,
                                 selectionState = selectionState,
@@ -798,6 +835,7 @@ fun HomeScreen(
                         GroupedItemContent(
                             item = groupedItems[index],
                             uiState = uiState,
+                            mode = mode,
                             enableRichPreview = enableRichPreview,
                             selectionMode = selectionMode,
                             selectionState = selectionState,
@@ -920,6 +958,7 @@ private fun HomeListAppendLoadingItem() {
 private fun GroupedItemContent(
     item: GroupedListItem,
     uiState: HomeUiState,
+    mode: HomeScreenMode,
     enableRichPreview: Boolean,
     selectionMode: Boolean,
     selectionState: HomeSelectionState,
@@ -945,6 +984,19 @@ private fun GroupedItemContent(
                     viewModel.markRichPreviewSticky(memo.uuid)
                 }
             }
+            val swipeGesturesEnabled =
+                SwipeActionPolicy.gesturesEnabled(
+                    swipeEnabled = uiState.swipeEnabled,
+                    selectionMode = selectionMode,
+                    mode = mode,
+                )
+            SwipeableMemoItem(
+                enabled = swipeGesturesEnabled,
+                rightAction = uiState.swipeRightAction,
+                leftAction = uiState.swipeLeftAction,
+                haptics = haptics,
+                onSwipeAction = { action -> viewModel.performSwipeAction(memo, action) },
+            ) {
             MemoItem(
                 memo = memo,
                 serverBase = uiState.serverBase,
@@ -982,9 +1034,146 @@ private fun GroupedItemContent(
                         }
                     },
             )
+            }
         }
     }
 }
+
+/**
+ * M2.5 滑动手势容器：右滑/左滑触发设置页自选的动作（动作池见 ADR 0011）。
+ * - enabled=false（总开关关闭/多选中/已归档页）时直接渲染内容，回退纯长按。
+ * - confirmValueChange 恒返回 false：卡片始终回弹；归档项由数据库变更驱动分页移除，
+ *   避免“动作失败但卡片已消失”的假删除。
+ */
+@Composable
+private fun SwipeableMemoItem(
+    enabled: Boolean,
+    rightAction: SwipeAction,
+    leftAction: SwipeAction,
+    haptics: OneMemosHaptics,
+    onSwipeAction: (SwipeAction) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    if (!enabled) {
+        content()
+        return
+    }
+
+    val dismissState =
+        rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                when (value) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        haptics.confirm()
+                        onSwipeAction(rightAction)
+                    }
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        haptics.confirm()
+                        onSwipeAction(leftAction)
+                    }
+                    SwipeToDismissBoxValue.Settled -> Unit
+                }
+                false
+            },
+            positionalThreshold = { distance -> distance * SwipeActionPolicy.THRESHOLD_FRACTION },
+        )
+
+    // 过阈值触感：拖动中 targetValue 越过位置阈值变为非 Settled 时 tick 一次。
+    LaunchedEffect(dismissState) {
+        snapshotFlow { dismissState.targetValue }
+            .distinctUntilChanged()
+            .collectLatest { value ->
+                if (value != SwipeToDismissBoxValue.Settled) haptics.tick()
+            }
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            SwipeActionBackground(
+                dismissState = dismissState,
+                rightAction = rightAction,
+                leftAction = leftAction,
+            )
+        },
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
+    ) {
+        content()
+    }
+}
+
+/** 滑动时卡片背后露出的动作区：令牌色底 + 动作图标与中文标签，对齐滑动起侧。 */
+@Composable
+private fun SwipeActionBackground(
+    dismissState: SwipeToDismissBoxState,
+    rightAction: SwipeAction,
+    leftAction: SwipeAction,
+) {
+    val direction = dismissState.dismissDirection
+    val action =
+        when (direction) {
+            SwipeToDismissBoxValue.StartToEnd -> rightAction
+            SwipeToDismissBoxValue.EndToStart -> leftAction
+            SwipeToDismissBoxValue.Settled -> null
+        }
+    val (containerColor, contentColor) = swipeActionColors(action)
+
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clip(InkShape.Card)
+                .background(containerColor)
+                .padding(horizontal = InkSpacing.X16),
+        contentAlignment =
+            if (direction == SwipeToDismissBoxValue.EndToStart) {
+                Alignment.CenterEnd
+            } else {
+                Alignment.CenterStart
+            },
+    ) {
+        if (action != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
+            ) {
+                Icon(
+                    imageVector = swipeActionIcon(action),
+                    contentDescription = null,
+                    tint = contentColor,
+                )
+                Text(
+                    text = SwipeActionPolicy.label(action),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = contentColor,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/** 动作 → 令牌底色/前景色（归档偏红、待办偏蓝、收藏偏黄、置顶偏次色，全部走 colorScheme）。 */
+@Composable
+private fun swipeActionColors(action: SwipeAction?): Pair<Color, Color> {
+    val scheme = MaterialTheme.colorScheme
+    return when (action) {
+        SwipeAction.ADD_TO_TODO -> scheme.primaryContainer to scheme.onPrimaryContainer
+        SwipeAction.FAVORITE -> scheme.tertiaryContainer to scheme.onTertiaryContainer
+        SwipeAction.ARCHIVE -> scheme.errorContainer to scheme.onErrorContainer
+        SwipeAction.PIN -> scheme.secondaryContainer to scheme.onSecondaryContainer
+        null -> scheme.surfaceVariant to scheme.onSurfaceVariant
+    }
+}
+
+private fun swipeActionIcon(action: SwipeAction): ImageVector =
+    when (action) {
+        SwipeAction.ADD_TO_TODO -> Icons.Filled.AddTask
+        SwipeAction.FAVORITE -> Icons.Filled.Star
+        SwipeAction.ARCHIVE -> Icons.Filled.Archive
+        SwipeAction.PIN -> Icons.Filled.PushPin
+    }
 
 @Composable
 private fun FilterStatusBanner(
