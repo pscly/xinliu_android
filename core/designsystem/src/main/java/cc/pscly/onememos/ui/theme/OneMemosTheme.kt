@@ -5,14 +5,34 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.foundation.isSystemInDarkTheme
+import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 
+/**
+ * 主题配置：描述符 + 明暗模式。
+ *
+ * [palette] 保留为便捷属性（从 descriptor 推导），兼容既有调用点
+ * `OneMemosThemeConfig(palette = ..., themeMode = ...)`。
+ */
 @Immutable
 data class OneMemosThemeConfig(
-    val palette: ThemePalette = ThemePalette.PAPER_INK,
+    val themeDescriptor: ThemeDescriptor = ThemeDescriptor.WENMO_ZHUSHA,
     val themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
-)
+) {
+    /** 兼容旧构造：只传色板时映射为完整描述符。 */
+    constructor(
+        palette: ThemePalette,
+        themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
+    ) : this(
+        themeDescriptor = ThemeDescriptor.fromLegacyPalette(palette),
+        themeMode = themeMode,
+    )
+
+    /** 色板轴便捷访问（与 [themeDescriptor.palette] 相同）。 */
+    val palette: ThemePalette
+        get() = themeDescriptor.palette
+}
 
 @Composable
 fun OneMemosTheme(

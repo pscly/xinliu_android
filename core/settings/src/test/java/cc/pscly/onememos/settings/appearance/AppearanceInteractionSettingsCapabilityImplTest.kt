@@ -5,6 +5,7 @@ import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
+import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
@@ -35,7 +36,7 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             val repo =
                 FakeSettingsRepository(
                     AppSettings(
-                        themePalette = ThemePalette.CYBER,
+                        themeDescriptor = ThemeDescriptor.fromLegacyPalette(ThemePalette.CYBER),
                         themeMode = ThemeMode.DARK,
                         quickCaptureOverlayEnabled = true,
                         sealStampDurationMs = 800,
@@ -233,7 +234,8 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             paletteCalls.incrementAndGet()
             maybeHold()
             maybeFail()
-            flow.value = flow.value.copy(themePalette = palette)
+            flow.value =
+                flow.value.copy(themeDescriptor = ThemeDescriptor.fromLegacyPalette(palette))
         }
 
         override suspend fun setThemeMode(mode: ThemeMode) {

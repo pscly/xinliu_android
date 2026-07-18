@@ -10,6 +10,7 @@ import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.SyncWorkState
+import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.domain.model.TodoReminderMode
@@ -63,7 +64,7 @@ class SettingsHubCapabilityImplTest {
                         calendarIntegrationCalendarId = 7L,
                         offlineImagePrefetchEnabled = true,
                         attachmentCacheMaxMb = 512,
-                        themePalette = ThemePalette.INDIGO,
+                        themeDescriptor = ThemeDescriptor.fromLegacyPalette(ThemePalette.INDIGO),
                         themeMode = ThemeMode.DARK,
                         lastSync = LastSyncState(lastSuccessAt = 1_700_000_000_000L),
                     ),
