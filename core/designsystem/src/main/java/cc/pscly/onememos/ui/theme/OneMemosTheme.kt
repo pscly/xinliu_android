@@ -1,10 +1,12 @@
 package cc.pscly.onememos.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.foundation.isSystemInDarkTheme
 import cc.pscly.onememos.domain.model.ThemeDescriptor
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
@@ -48,15 +50,20 @@ fun OneMemosTheme(
         ThemeMode.DARK -> true
     }
 
+    // DYNAMIC 色板需要 Context（API 31+ Material You）；预览无系统壁纸时回退 PAPER_INK
+    val context = if (isPreview) null else LocalContext.current
     val colorScheme = if (effectiveDark) {
-        oneMemosDarkColorScheme(config.palette)
+        oneMemosDarkColorScheme(config.palette, context)
     } else {
-        oneMemosLightColorScheme(config.palette)
+        oneMemosLightColorScheme(config.palette, context)
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = OneMemosTypography,
-        content = content,
-    )
+    // 质感轴下发：组件读取 LocalThemeTexture 按“文墨卷轴 / 清简”分支渲染
+    CompositionLocalProvider(LocalThemeTexture provides config.themeDescriptor.texture) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+                typography = oneMemosTypography(config.themeDescriptor.fontFamily),
+            content = content,
+        )
+    }
 }
