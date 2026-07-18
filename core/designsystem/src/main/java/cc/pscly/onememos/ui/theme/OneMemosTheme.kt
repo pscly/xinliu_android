@@ -64,9 +64,11 @@ fun OneMemosTheme(
         LocalThemeTexture provides config.themeDescriptor.texture,
         LocalThemeDensity provides config.themeDescriptor.density,
     ) {
+        // M2.10：shapes 轴同步纸墨圆角，AlertDialog/BottomSheet 等 M3 默认值随令牌落地
         MaterialTheme(
             colorScheme = colorScheme,
             typography = oneMemosTypography(config.themeDescriptor.fontFamily),
+            shapes = PaperInkShapes,
             content = content,
         )
     }
