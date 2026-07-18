@@ -5,6 +5,7 @@
     <string name="settings_about_version_format">%1$s (%2$d)</string>
     <string name="settings_about_build_type">构建类型 %1$s</string>
     <string name="settings_about_version_tap_hint">连续轻触版本号可解锁开发者选项</string>
+    <string name="settings_about_font_credit">标题字体：霞鹜文楷（LXGW WenKai），SIL Open Font License 1.1</string>
 
     <string name="settings_about_update_title">应用更新</string>
     <string name="settings_about_update_idle">更新空闲</string>

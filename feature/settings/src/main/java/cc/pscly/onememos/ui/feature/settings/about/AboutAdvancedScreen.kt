@@ -418,6 +418,12 @@ private fun VersionCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Text(
+            text = stringResource(R.string.settings_about_font_credit),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("settings_about_font_credit"),
+        )
         if (!unlocked) {
             Text(
                 text = stringResource(R.string.settings_about_version_tap_hint),
