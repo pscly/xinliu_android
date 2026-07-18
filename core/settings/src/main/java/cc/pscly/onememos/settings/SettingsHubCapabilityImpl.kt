@@ -233,6 +233,8 @@ class SettingsHubCapabilityImpl @Inject constructor(
                 ThemePalette.PAPER_INK -> "THEME_PAPER_INK"
                 ThemePalette.INDIGO -> "THEME_INDIGO"
                 ThemePalette.CYBER -> "THEME_CYBER"
+                ThemePalette.MOON_WHITE -> "THEME_MOON_WHITE"
+                ThemePalette.DYNAMIC -> "THEME_DYNAMIC"
             }
         val mode =
             when (settings.themeMode) {
