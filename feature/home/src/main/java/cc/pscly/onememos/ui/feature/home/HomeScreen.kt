@@ -1,12 +1,14 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 
 package cc.pscly.onememos.ui.feature.home
 
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -24,6 +26,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -101,11 +107,13 @@ import cc.pscly.onememos.ui.component.TagFilterBottomSheet
 import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.model.GlobalSyncState
+import cc.pscly.onememos.domain.model.ListLayout
 import cc.pscly.onememos.domain.model.ThemeDensity
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.AutoTagLineHider
+import cc.pscly.onememos.ui.util.OneMemosHaptics
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.theme.LocalThemeDensity
@@ -141,6 +149,8 @@ fun HomeScreen(
             initialFirstVisibleItemIndex = initialIndex,
             initialFirstVisibleItemScrollOffset = initialOffset,
         )
+    // 双列（宽屏/COMPACT）模式使用的瀑布流状态；与 listState 互不共享。
+    val gridState = rememberLazyStaggeredGridState()
     val scope = rememberCoroutineScope()
     val haptics = rememberOneMemosHaptics()
     val selectionMode = selectionState.selectionMode
@@ -183,9 +193,10 @@ fun HomeScreen(
     }
 
     // 1B：滚动中仅渲染纯文本预览，停稳 ~200ms 后再切回 Markdown 样式预览。
+    // 单列/双列各持有一份滚动状态，任一滚动都视为“滚动中”。
     var enableRichPreview by remember { mutableStateOf(false) }
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }
+    LaunchedEffect(listState, gridState) {
+        snapshotFlow { listState.isScrollInProgress || gridState.isScrollInProgress }
             .distinctUntilChanged()
             .collectLatest { scrolling ->
                 if (scrolling) {
@@ -198,7 +209,8 @@ fun HomeScreen(
     }
     val showScrollToTop by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 200
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 200 ||
+                gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 200
         }
     }
     val hasQuery = uiState.filter.query.trim().isNotBlank()
@@ -229,13 +241,42 @@ fun HomeScreen(
             HomeScreenMode.ARCHIVED -> archivedItems
         }
 
+    // 宽屏自适应（M2.4）：按可用宽度 + listLayout 设置决定单列/双列。
+    // AUTO=随宽度自适应；SINGLE=强制单列；DOUBLE=强制双列。
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    val useGrid =
+        when (uiState.listLayout) {
+            ListLayout.AUTO -> maxWidth >= TwoColumnMinWidth
+            ListLayout.SINGLE -> false
+            ListLayout.DOUBLE -> true
+        }
+
+    // 记录当前列表位置：从详情页返回时恢复到进入前的位置。
+    fun captureCurrentListPosition() {
+        if (useGrid) {
+            viewModel.captureListPosition(
+                index = gridState.firstVisibleItemIndex,
+                offset = gridState.firstVisibleItemScrollOffset,
+            )
+        } else {
+            viewModel.captureListPosition(
+                index = listState.firstVisibleItemIndex,
+                offset = listState.firstVisibleItemScrollOffset,
+            )
+        }
+    }
+
     // 从详情页返回时：恢复到进入前的列表位置（只在需要时触发一次）。
-    LaunchedEffect(pagingItems.itemCount) {
+    LaunchedEffect(pagingItems.itemCount, useGrid) {
         val pos = viewModel.pendingRestoreListPosition() ?: return@LaunchedEffect
         val (idx, off) = pos
         // Paging 可能先加载少量 item；只有当目标 index 已可用时才真正恢复，并清除 pending。
         if (idx >= 0 && pagingItems.itemCount > idx) {
-            listState.scrollToItem(idx, off)
+            if (useGrid) {
+                gridState.scrollToItem(idx, off)
+            } else {
+                listState.scrollToItem(idx, off)
+            }
             viewModel.markListPositionRestored()
         }
     }
@@ -431,7 +472,11 @@ fun HomeScreen(
                         contentDescription = "回到顶部",
                         onClick = {
                             scope.launch {
-                                listState.animateScrollToItem(0)
+                                if (useGrid) {
+                                    gridState.animateScrollToItem(0)
+                                } else {
+                                    listState.animateScrollToItem(0)
+                                }
                             }
                         },
                     )
@@ -439,10 +484,7 @@ fun HomeScreen(
                 SealButton(
                     text = "记",
                     onClick = {
-                        viewModel.captureListPosition(
-                            index = listState.firstVisibleItemIndex,
-                            offset = listState.firstVisibleItemScrollOffset,
-                        )
+                        captureCurrentListPosition()
                         onCreateMemo()
                     },
                 )
@@ -654,54 +696,95 @@ fun HomeScreen(
                         ThemeDensity.RELAXED -> Triple(InkSpacing.X24, InkSpacing.X20, InkSpacing.X20)
                     }
                 }
+            val isEmpty = !isRefreshing && refreshError == null && !hasItems
+
+            if (useGrid) {
+                // 双列瀑布流：DateHeader 跨整行（FullLine），memo 占单列。
+                // 令牌：列间距 InkSpacing.X12，项间距 InkSpacing.CardPadding。
+                LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    state = gridState,
+                    contentPadding = PaddingValues(horizontal = horizontalPad, vertical = verticalPad),
+                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X12),
+                    verticalItemSpacing = InkSpacing.CardPadding,
+                ) {
+                    if (isRefreshing && !hasItems) {
+                        item(key = "loading", span = StaggeredGridItemSpan.FullLine) {
+                            HomeListLoadingItem()
+                        }
+                    } else if (refreshError != null && !hasItems) {
+                        item(key = "loadError", span = StaggeredGridItemSpan.FullLine) {
+                            HomeListErrorItem(
+                                message = refreshError.message ?: "未知错误",
+                                onRetry = { pagingItems.retry() },
+                                onSync = viewModel::requestSync,
+                            )
+                        }
+                    } else if (isEmpty) {
+                        item(key = "empty", span = StaggeredGridItemSpan.FullLine) {
+                            HomeListEmptyItem(isFiltering = uiState.isFiltering)
+                        }
+                    } else {
+                        // 将 pagingItems 按日历日期分组，插入 DateHeader
+                        val groupedItems = buildGroupedItems(pagingItems)
+
+                        items(
+                            count = groupedItems.size,
+                            key = { index -> groupedItems[index].stableKey() },
+                            contentType = { index -> groupedItems[index].contentType() },
+                            span = { index ->
+                                if (groupedItems[index] is GroupedListItem.DateHeader) {
+                                    StaggeredGridItemSpan.FullLine
+                                } else {
+                                    StaggeredGridItemSpan.SingleLane
+                                }
+                            },
+                        ) { index ->
+                            GroupedItemContent(
+                                item = groupedItems[index],
+                                uiState = uiState,
+                                enableRichPreview = enableRichPreview,
+                                selectionMode = selectionMode,
+                                selectionState = selectionState,
+                                onSelectionStateChange = { selectionState = it },
+                                viewModel = viewModel,
+                                haptics = haptics,
+                                capturePosition = ::captureCurrentListPosition,
+                                onOpenMemo = onOpenMemo,
+                                onMoreActions = { moreActionsTarget = it },
+                            )
+                        }
+
+                        if (pagingItems.loadState.append is LoadState.Loading) {
+                            item(key = "appendLoading", span = StaggeredGridItemSpan.FullLine) {
+                                HomeListAppendLoadingItem()
+                            }
+                        }
+                    }
+                }
+            } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
                 contentPadding = PaddingValues(horizontal = horizontalPad, vertical = verticalPad),
                 verticalArrangement = Arrangement.spacedBy(itemGap),
             ) {
-                val isEmpty = !isRefreshing && refreshError == null && !hasItems
-
                 if (isRefreshing && !hasItems) {
                     item(key = "loading") {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator()
-                        }
+                        HomeListLoadingItem()
                     }
                 } else if (refreshError != null && !hasItems) {
                     item(key = "loadError") {
-                        InkCard {
-                            Text(
-                                text = "加载失败：${refreshError.message ?: "未知错误"}",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                TextButton(onClick = { pagingItems.retry() }) { Text("重试") }
-                                TextButton(onClick = viewModel::requestSync) { Text("同步") }
-                            }
-                        }
+                        HomeListErrorItem(
+                            message = refreshError.message ?: "未知错误",
+                            onRetry = { pagingItems.retry() },
+                            onSync = viewModel::requestSync,
+                        )
                     }
                 } else if (isEmpty) {
                     item(key = "empty") {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = if (uiState.isFiltering) "没有匹配的记录" else "还没有任何记录，点右下角“记”开始吧。",
-                                color = MaterialTheme.colorScheme.outline,
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
+                        HomeListEmptyItem(isFiltering = uiState.isFiltering)
                     }
                 } else {
                     // 将 pagingItems 按日历日期分组，插入 DateHeader
@@ -709,93 +792,31 @@ fun HomeScreen(
 
                     items(
                         count = groupedItems.size,
-                        key = { index ->
-                            when (val item = groupedItems[index]) {
-                                is GroupedListItem.DateHeader -> item.itemKey
-                                is GroupedListItem.MemoEntry -> item.memo.uuid
-                                is GroupedListItem.LoadingEntry -> item.itemKey
-                            }
-                        },
-                        contentType = { index ->
-                            when (groupedItems[index]) {
-                                is GroupedListItem.DateHeader -> "date_header"
-                                is GroupedListItem.MemoEntry -> "memo"
-                                is GroupedListItem.LoadingEntry -> "loading"
-                            }
-                        },
+                        key = { index -> groupedItems[index].stableKey() },
+                        contentType = { index -> groupedItems[index].contentType() },
                     ) { index ->
-                        when (val item = groupedItems[index]) {
-                            is GroupedListItem.DateHeader -> {
-                                DateHeader(dateKey = item.dateKey, epochMillis = item.epochMillis)
-                            }
-                            is GroupedListItem.LoadingEntry -> {
-                                MemoItemLoadingPlaceholder()
-                            }
-                            is GroupedListItem.MemoEntry -> {
-                                val memo = item.memo
-                                val renderRichPreview = enableRichPreview || viewModel.isRichPreviewSticky(memo.uuid)
-                                LaunchedEffect(memo.uuid, enableRichPreview) {
-                                    if (enableRichPreview) {
-                                        viewModel.markRichPreviewSticky(memo.uuid)
-                                    }
-                                }
-                                MemoItem(
-                                memo = memo,
-                                serverBase = uiState.serverBase,
-                                devKeywordsRaw = uiState.devAutoTagLineKeywords,
-                                showAutoTagLineInHome = uiState.devShowAutoTagLineInHome,
-                                enableRichPreview = renderRichPreview,
-                                selectionMode = selectionMode,
-                                selected = selectionState.selectedIds.contains(memo.uuid),
-                                onOpenMemo = {
-                                    if (selectionMode) {
-                                        haptics.tick()
-                                        selectionState = selectionState.toggle(memo.uuid)
-                                    } else {
-                                        viewModel.captureListPosition(
-                                            index = listState.firstVisibleItemIndex,
-                                            offset = listState.firstVisibleItemScrollOffset,
-                                        )
-                                        onOpenMemo(memo.uuid)
-                                    }
-                                },
-                                onLongShare = {
-                                    if (selectionMode) {
-                                        haptics.tick()
-                                        selectionState = selectionState.toggle(memo.uuid)
-                                    } else {
-                                        haptics.tick()
-                                        selectionState = selectionState.enter(memo.uuid)
-                                    }
-                                },
-                                onToggleTag = { tag -> if (!selectionMode) viewModel.toggleTag(tag) },
-                                onMoreActions =
-                                    if (selectionMode) {
-                                        null
-                                    } else {
-                                        {
-                                            haptics.tick()
-                                            moreActionsTarget = memo
-                                        }
-                                    },
-                            )
-                            }
-                        }
+                        GroupedItemContent(
+                            item = groupedItems[index],
+                            uiState = uiState,
+                            enableRichPreview = enableRichPreview,
+                            selectionMode = selectionMode,
+                            selectionState = selectionState,
+                            onSelectionStateChange = { selectionState = it },
+                            viewModel = viewModel,
+                            haptics = haptics,
+                            capturePosition = ::captureCurrentListPosition,
+                            onOpenMemo = onOpenMemo,
+                            onMoreActions = { moreActionsTarget = it },
+                        )
                     }
 
                     if (pagingItems.loadState.append is LoadState.Loading) {
                         item(key = "appendLoading") {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(strokeWidth = 2.dp)
-                            }
+                            HomeListAppendLoadingItem()
                         }
                     }
                 }
+            }
             }
 
             // Paging 在数据库变更时可能触发 refresh；不要用“全屏加载”把列表刷白，避免肉眼可见的闪烁。
@@ -806,6 +827,161 @@ fun HomeScreen(
                         .align(Alignment.TopCenter),
                 )
             }
+        }
+    }
+    }
+}
+
+/** 双列自适应触发的最小可用宽度（Material 窗口宽度档 Medium 边界）。 */
+private val TwoColumnMinWidth = 600.dp
+
+/** 列表项稳定 key：与单列/双列容器无关，保证切换形态时 item 状态可复用。 */
+private fun GroupedListItem.stableKey(): Any =
+    when (this) {
+        is GroupedListItem.DateHeader -> itemKey
+        is GroupedListItem.MemoEntry -> memo.uuid
+        is GroupedListItem.LoadingEntry -> itemKey
+    }
+
+/** 列表项 contentType：用于 Compose 复用池分桶。 */
+private fun GroupedListItem.contentType(): String =
+    when (this) {
+        is GroupedListItem.DateHeader -> "date_header"
+        is GroupedListItem.MemoEntry -> "memo"
+        is GroupedListItem.LoadingEntry -> "loading"
+    }
+
+/** 首屏加载占位（整行居中）。 */
+@Composable
+private fun HomeListLoadingItem() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+/** 首屏加载失败（整行卡片，可重试/同步）。 */
+@Composable
+private fun HomeListErrorItem(
+    message: String,
+    onRetry: () -> Unit,
+    onSync: () -> Unit,
+) {
+    InkCard {
+        Text(
+            text = "加载失败：$message",
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton(onClick = onRetry) { Text("重试") }
+            TextButton(onClick = onSync) { Text("同步") }
+        }
+    }
+}
+
+/** 空态文案（整行居中）。 */
+@Composable
+private fun HomeListEmptyItem(isFiltering: Boolean) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = if (isFiltering) "没有匹配的记录" else "还没有任何记录，点右下角“记”开始吧。",
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+/** 分页追加加载占位（整行居中）。 */
+@Composable
+private fun HomeListAppendLoadingItem() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(strokeWidth = 2.dp)
+    }
+}
+
+/** 单个分组项渲染：DateHeader / 加载占位 / memo 卡片。单列与双列容器共用。 */
+@Composable
+private fun GroupedItemContent(
+    item: GroupedListItem,
+    uiState: HomeUiState,
+    enableRichPreview: Boolean,
+    selectionMode: Boolean,
+    selectionState: HomeSelectionState,
+    onSelectionStateChange: (HomeSelectionState) -> Unit,
+    viewModel: HomeViewModel,
+    haptics: OneMemosHaptics,
+    capturePosition: () -> Unit,
+    onOpenMemo: (String) -> Unit,
+    onMoreActions: (Memo) -> Unit,
+) {
+    when (item) {
+        is GroupedListItem.DateHeader -> {
+            DateHeader(dateKey = item.dateKey, epochMillis = item.epochMillis)
+        }
+        is GroupedListItem.LoadingEntry -> {
+            MemoItemLoadingPlaceholder()
+        }
+        is GroupedListItem.MemoEntry -> {
+            val memo = item.memo
+            val renderRichPreview = enableRichPreview || viewModel.isRichPreviewSticky(memo.uuid)
+            LaunchedEffect(memo.uuid, enableRichPreview) {
+                if (enableRichPreview) {
+                    viewModel.markRichPreviewSticky(memo.uuid)
+                }
+            }
+            MemoItem(
+                memo = memo,
+                serverBase = uiState.serverBase,
+                devKeywordsRaw = uiState.devAutoTagLineKeywords,
+                showAutoTagLineInHome = uiState.devShowAutoTagLineInHome,
+                enableRichPreview = renderRichPreview,
+                selectionMode = selectionMode,
+                selected = selectionState.selectedIds.contains(memo.uuid),
+                onOpenMemo = {
+                    if (selectionMode) {
+                        haptics.tick()
+                        onSelectionStateChange(selectionState.toggle(memo.uuid))
+                    } else {
+                        capturePosition()
+                        onOpenMemo(memo.uuid)
+                    }
+                },
+                onLongShare = {
+                    if (selectionMode) {
+                        haptics.tick()
+                        onSelectionStateChange(selectionState.toggle(memo.uuid))
+                    } else {
+                        haptics.tick()
+                        onSelectionStateChange(selectionState.enter(memo.uuid))
+                    }
+                },
+                onToggleTag = { tag -> if (!selectionMode) viewModel.toggleTag(tag) },
+                onMoreActions =
+                    if (selectionMode) {
+                        null
+                    } else {
+                        {
+                            haptics.tick()
+                            onMoreActions(memo)
+                        }
+                    },
+            )
         }
     }
 }

@@ -11,6 +11,7 @@ import cc.pscly.onememos.feature.home.BuildConfig
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.domain.model.AppSettings
 import cc.pscly.onememos.domain.model.GlobalSyncState
+import cc.pscly.onememos.domain.model.ListLayout
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoVisibility
@@ -59,6 +60,8 @@ data class HomeUiState(
     val devShowAutoTagLineInHome: Boolean = false,
     val dev2ShowPublicWorkspaceMemos: Boolean = false,
     val searchError: String? = null,
+    /** 列表形态设置（M2.4）：AUTO=宽屏自适应双列；SINGLE=强制单列；DOUBLE=强制双列。 */
+    val listLayout: ListLayout = ListLayout.AUTO,
 ) {
     val isFiltering: Boolean get() = filter.query.isNotBlank() || filter.selectedTags.isNotEmpty()
 }
@@ -201,6 +204,7 @@ class HomeViewModel @Inject constructor(
                 devShowAutoTagLineInHome = settings.devShowAutoTagLineInHome,
                 dev2ShowPublicWorkspaceMemos = showPublicWorkspace,
                 searchError = searchError,
+                listLayout = settings.listLayout,
             )
         }
             .stateIn(
