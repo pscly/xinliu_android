@@ -66,6 +66,23 @@
 |---|---|---|
 | M2.0 | **转场 spike（0.5 天）**：验证当前 Navigation 版本共享元素转场可行性；不兼容则降级方案定为"淡入淡出 + 共享轴"并记录在 ADR 或计划批注 | spike 结论写入 `.omo/plans/` 本文件批注；期望：确定可行/降级二选一 |
 | M2.1 | 首页时间线重做：编辑式日期分组（文楷大字日期 + 细墨线分隔）；卡片流按密度轴留白；稳定 key + contentType；Paging 3 沿用（`HomeScreen.kt`/`MemoItem.kt` 起步） | Roborazzi 分组截图；真机滚动千条 memo 无明显掉帧（macrobenchmark 长列表用例） |
+
+> **M2.0 Spike 结论 (2026-07-18)**：`FEASIBLE` — 当前栈 Navigation3 **1.1.4** + Compose BOM **2026.06.00** 已具备 Home 卡片 → Editor 共享元素路径，**不必**降级为仅淡入淡出 + 共享轴。
+> 依据：
+> 1. 本仓 `gradle/libs.versions.toml`：`navigation3 = "1.1.4"`、`composeBom = "2026.06.00"`；主机 `AppNavigationHost` 现为 `NavDisplay(entries, onBack)`，**尚无** `transitionSpec` / `sharedTransitionScope`。
+> 2. 本机解析 `navigation3-ui` **1.1.4** 字节码：`NavDisplay(List<NavEntry<T>>, …, SharedTransitionScope?, SizeTransform?, transitionSpec, popTransitionSpec, predictivePopTransitionSpec, onBack)`；另有 `SharedEntryInSceneNavEntryDecorator(SharedTransitionScope)`、`LocalNavAnimatedContentScope`、metadata 键 `TransitionKey` / `PopTransitionKey` / `PredictivePopTransitionKey`。
+> 3. 官方发布说明 1.1.0（稳定，1.1.4 继承）：*Shared Elements between Scenes* — 向 `NavDisplay` 或 `rememberSceneState` 传入 `SharedTransitionScope`（https://developer.android.com/jetpack/androidx/releases/navigation3）。
+> 4. 官方指南 *Animate between destinations*：`SharedTransitionLayout { NavDisplay(sharedTransitionScope = this) }` + `transitionSpec` / `popTransitionSpec` / `predictivePopTransitionSpec`（https://developer.android.com/guide/navigation/navigation-3/animate-destinations，Last updated 2026-06-16）。
+> 5. Compose 共享元素：`Modifier.sharedElement` / `sharedBounds` 需 `SharedTransitionScope` + `AnimatedVisibilityScope`；Nav3 通过 `LocalNavAnimatedContentScope` 提供后者（https://developer.android.com/develop/ui/compose/animation/shared-elements）。
+>
+> **M2.9 实施路径（草图，本 spike 不改产品代码）**：
+> 1. `AppNavigationHost`：`SharedTransitionLayout { NavDisplay(entries=…, sharedTransitionScope=this, transitionSpec/pop/predictive=…, onBack=…) }`。
+> 2. 页面级默认：水平共享轴或 fade+slide 的 `ContentTransform`；共享元素用 `sharedBounds(rememberSharedContentState("memo/$uuid"), LocalNavAnimatedContentScope.current)` 挂在 Home `MemoItem` 与 Editor 根容器。
+> 3. `pageTransitionsEnabled` + `ReducedMotion.current`：规格返回 `EnterTransition.None togetherWith ExitTransition.None`，或对 shared content `isEnabled=false`。
+> 4. **范围**：仅 active 分区栈内（Home→Editor）；顶层分区切换替换整栈，不做跨分区共享元素。
+> 5. **进程死亡**：恢复后无配对源 bounds，直接显示目标屏（可接受）；不依赖动画状态持久化。
+>
+> 降级保留：若 M2.9 真机列表↔编辑器 bounds 抖动/掉帧，再退到「淡入淡出 + 共享轴」页面转场，共享元素可关。详见 `docs/adr/0012-navigation-transition-strategy.md`。
 | M2.2 | 图片图版：单图大图、双图并排、多图网格 +N；统一圆角令牌；Coil 占位/失败态（改 `MemoItem.kt` 缩略图区） | Roborazzi 1/2/4/9 图用例；期望圆角一致、占位非白屏 |
 | M2.3 | MemoItem 重构：时间/标签/操作次要色退后，交互时强化；选择模式视觉统一 | 截图 + TalkBack 遍历顺序人工过验 |
 | M2.4 | 宽屏自适应：WindowSizeClass Expanded 双列 `LazyVerticalStaggeredGrid`；设置"列表形态"三档（字段 M1 已备） | 折叠屏/平板模拟器（arm64 镜像）截图；设置三档切换即时生效 |
@@ -108,24 +125,24 @@
 ### P0 开工前
 
 - [x] 1. P0.1 规划纪要写入 `.ai_session.md` 顶部
-- [ ] 2. P0.2 提交规划文档（CONTEXT.md、ADR 0008–0011、本计划；纯文档，不触发 §8）
+- [x] 2. P0.2 提交规划文档（CONTEXT.md、ADR 0008–0011、本计划；纯文档，不触发 §8）
 
 ### 里程碑 1：设计系统地基
 
-- [ ] 3. M1.1 令牌收敛：InkSpacing/Shape/Border/Motion + 12 原语改取
-- [ ] 4. M1.2 ThemeDescriptor 领域模型 + DataStore 迁移与单测
-- [ ] 5. M1.3 质感轴：文墨卷轴 + 清简
-- [ ] 6. M1.4 TagChip 安静退后
-- [ ] 7. M1.5 霞鹜文楷入包 + Typography 字体档
-- [ ] 8. M1.6 色板数据化 + 月白 + 动态色
-- [ ] 9. M1.7 风格预设 + Appearance 能力页改版
-- [ ] 10. M1.8 ABI arm64-only + debug 双包名 `.dev`
-- [ ] 11. M1.9 Roborazzi 基建 + WCAG 对比度断言
-- [ ] 12. M1.R 里程碑 1 验收 + 发布 1.10.0 闭环
+- [x] 3. M1.1 令牌收敛：InkSpacing/Shape/Border/Motion + 12 原语改取
+- [x] 4. M1.2 ThemeDescriptor 领域模型 + DataStore 迁移与单测
+- [x] 5. M1.3 质感轴：文墨卷轴 + 清简
+- [x] 6. M1.4 TagChip 安静退后
+- [x] 7. M1.5 霞鹜文楷入包 + Typography 字体档
+- [x] 8. M1.6 色板数据化 + 月白 + 动态色
+- [x] 9. M1.7 风格预设 + Appearance 能力页改版
+- [x] 10. M1.8 ABI arm64-only + debug 双包名 `.dev`
+- [x] 11. M1.9 Roborazzi 基建 + WCAG 对比度断言
+- [x] 12. M1.R 里程碑 1 验收 + 发布 1.10.0 闭环
 
 ### 里程碑 2：样板屏 + 编辑器
 
-- [ ] 13. M2.0 共享元素转场 spike
+- [x] 13. M2.0 共享元素转场 spike
 - [ ] 14. M2.1 首页时间线重做（日期分组 + 密度留白）
 - [ ] 15. M2.2 图片图版
 - [ ] 16. M2.3 MemoItem 重构
