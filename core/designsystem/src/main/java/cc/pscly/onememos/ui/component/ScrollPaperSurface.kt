@@ -17,13 +17,20 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.TextUnit
+import cc.pscly.onememos.domain.model.ThemeTexture
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.LocalThemeTexture
 /**
  * 国漫风“信纸/奏折”背景（无滚动版）：
  * - 仅负责绘制宣纸底色、横线、左侧朱砂竖线与外边框
  * - 不包含 scroll 行为，便于与 LazyColumn 等虚拟列表组合使用
+ *
+ * 质感分支：
+ * - [ThemeTexture.SCROLL]：保持上述卷轴表现；
+ * - [ThemeTexture.MINIMAL]：清简风，不绘横线与朱砂竖线，仅保留发丝边框，
+ *   默认内边距改用 InkSpacing 的 Minimal 语义别名（更大留白）。
  *
  * @param scrollOffsetPx 用于驱动横线偏移的“累计滚动像素”。可通过 nestedScroll 记录滚动 delta 得到连续值。
  */
@@ -33,14 +40,24 @@ fun ScrollPaperSurface(
     lineHeight: TextUnit = InkSpacing.LinePitch,
     scrollOffsetPx: Float = 0f,
     contentPadding: PaddingValues =
-        PaddingValues(
-            start = InkSpacing.PaperPaddingStart,
-            end = InkSpacing.PaperPaddingEnd,
-            top = InkSpacing.PaperPaddingV,
-            bottom = InkSpacing.PaperPaddingV,
-        ),
+        if (LocalThemeTexture.current == ThemeTexture.MINIMAL) {
+            PaddingValues(
+                start = InkSpacing.PaperPaddingStartMinimal,
+                end = InkSpacing.PaperPaddingEndMinimal,
+                top = InkSpacing.PaperPaddingVMinimal,
+                bottom = InkSpacing.PaperPaddingVMinimal,
+            )
+        } else {
+            PaddingValues(
+                start = InkSpacing.PaperPaddingStart,
+                end = InkSpacing.PaperPaddingEnd,
+                top = InkSpacing.PaperPaddingV,
+                bottom = InkSpacing.PaperPaddingV,
+            )
+        },
     content: @Composable () -> Unit,
 ) {
+    val texture = LocalThemeTexture.current
     val shape = InkShape.Paper
     val density = LocalDensity.current
 
@@ -51,12 +68,10 @@ fun ScrollPaperSurface(
     val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineSoft)
     val marginColor = MaterialTheme.colorScheme.primary.copy(alpha = InkBorder.MarginLine)
 
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(width = InkBorder.Hairline, color = borderColor, shape = shape)
-            .drawWithCache {
+    // 清简质感：无横线、无朱砂竖线，跳过重绘缓存以省去每帧绘制
+    val textureModifier =
+        if (texture == ThemeTexture.SCROLL) {
+            Modifier.drawWithCache {
                 val strokeWidth = InkBorder.Hairline.toPx()
                 val linesPath = Path().apply {
                     var y = lineHeightPx
@@ -89,6 +104,16 @@ fun ScrollPaperSurface(
                     )
                 }
             }
+        } else {
+            Modifier
+        }
+
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(width = InkBorder.Hairline, color = borderColor, shape = shape)
+            .then(textureModifier)
             .padding(contentPadding),
     ) {
         content()

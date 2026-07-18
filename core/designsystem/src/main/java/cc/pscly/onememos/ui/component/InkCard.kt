@@ -24,9 +24,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import cc.pscly.onememos.domain.model.ThemeTexture
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.LocalThemeTexture
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
@@ -39,13 +41,17 @@ fun InkCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = InkShape.Card
+    val texture = LocalThemeTexture.current
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
     val clickable = onClick != null || onLongClick != null
+    // 清简质感：仅发丝细描边（更弱一级），聚焦只换描边色、不再叠第二层边框
+    val idleOutlineAlpha =
+        if (texture == ThemeTexture.MINIMAL) InkBorder.OutlineSoft else InkBorder.OutlineStrong
     val borderColor =
         when {
             focused && clickable -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineStrong)
+            else -> MaterialTheme.colorScheme.outline.copy(alpha = idleOutlineAlpha)
         }
     val border = BorderStroke(InkBorder.Hairline, borderColor)
 
@@ -96,7 +102,7 @@ fun InkCard(
                     }
                 }
                 .then(
-                    if (focused && clickable) {
+                    if (focused && clickable && texture != ThemeTexture.MINIMAL) {
                         Modifier.border(BorderStroke(InkBorder.Hairline, MaterialTheme.colorScheme.primary), shape)
                     } else {
                         Modifier

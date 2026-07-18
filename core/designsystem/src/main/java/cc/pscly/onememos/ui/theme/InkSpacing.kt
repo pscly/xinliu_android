@@ -38,6 +38,11 @@ object InkSpacing {
     val PaperPaddingV = X12
     val MarginLineX = X24
 
+    // ---------- 语义别名：纸面（清简 MINIMAL 质感，更大留白） ----------
+    val PaperPaddingStartMinimal = X20
+    val PaperPaddingEndMinimal = X20
+    val PaperPaddingVMinimal = X16
+
     // ---------- 语义别名：卡片 / Chip / 标签 ----------
     val CardPadding = X14
     val ChipPaddingH = X12
