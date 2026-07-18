@@ -17,11 +17,20 @@ import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.FullSyncState
 import cc.pscly.onememos.domain.model.FullSyncStatus
 import cc.pscly.onememos.domain.model.LastSyncState
+import cc.pscly.onememos.domain.model.ListLayout
 import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
+import cc.pscly.onememos.domain.model.ReadingFontScale
+import cc.pscly.onememos.domain.model.ReadingLineHeight
+import cc.pscly.onememos.domain.model.SwipeAction
+import cc.pscly.onememos.domain.model.ThemeDescriptor
+import cc.pscly.onememos.domain.model.ThemeDensity
+import cc.pscly.onememos.domain.model.ThemeFontFamily
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
+import cc.pscly.onememos.domain.model.ThemeTexture
+import cc.pscly.onememos.domain.model.ThemeTypeScale
 import cc.pscly.onememos.domain.model.TodoReminderMode
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,10 +43,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
+import org.json.JSONObject
 import java.security.MessageDigest
 import javax.inject.Inject
 
-private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
+/**
+ * 应用设置 DataStore（单文件）。internal 以便同模块单测可 seed 旧 key 验证迁移。
+ */
+internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "one_memos_settings",
 )
 
@@ -56,7 +69,10 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         val LEGACY_TOKEN = stringPreferencesKey("token")
         // 用于触发 settings flow 更新：token 实际存放于 EncryptedSharedPreferences
         val TOKEN_UPDATED_AT = longPreferencesKey("token_updated_at")
-        val THEME_PALETTE = stringPreferencesKey("theme_palette")
+        // 兼容迁移：历史版本只存 theme_palette 字符串枚举
+        val LEGACY_THEME_PALETTE = stringPreferencesKey("theme_palette")
+        /** 主题描述符 JSON：{palette, texture, density, typeScale, fontFamily} */
+        val THEME_DESCRIPTOR = stringPreferencesKey("theme_descriptor")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DEFAULT_VISIBILITY = stringPreferencesKey("default_visibility")
         val REGEX_SEARCH_ENABLED = booleanPreferencesKey("regex_search_enabled")
@@ -78,6 +94,15 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         val CALENDAR_INTEGRATION_ENABLED = booleanPreferencesKey("calendar_integration_enabled")
         val CALENDAR_INTEGRATION_CALENDAR_ID = longPreferencesKey("calendar_integration_calendar_id")
         val CALENDAR_INTEGRATION_SYNC_REMINDERS = booleanPreferencesKey("calendar_integration_sync_reminders")
+
+        // 外观交互（M2/M3 schema，M1 只写字段与默认）
+        val LIST_LAYOUT = stringPreferencesKey("list_layout")
+        val SWIPE_ENABLED = booleanPreferencesKey("swipe_enabled")
+        val SWIPE_RIGHT_ACTION = stringPreferencesKey("swipe_right_action")
+        val SWIPE_LEFT_ACTION = stringPreferencesKey("swipe_left_action")
+        val PAGE_TRANSITIONS_ENABLED = booleanPreferencesKey("page_transitions_enabled")
+        val READING_FONT_SCALE = stringPreferencesKey("reading_font_scale")
+        val LINE_HEIGHT = stringPreferencesKey("line_height")
 
         // 最近一次同步结果（轻量状态）
         val LAST_SYNC_SUCCESS_AT = longPreferencesKey("last_sync_success_at")
@@ -129,6 +154,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     init {
         migrateLegacyTokenIfNeeded()
         migrateLegacyFullSyncIfNeeded()
+        migrateLegacyThemePaletteIfNeeded()
     }
 
     private data class FullSyncPreferenceKeys(
@@ -275,7 +301,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     dev2ShowPublicWorkspaceMemos = dev2ShowPublicWorkspaceMemos,
                     dev2Unlocked = dev2Unlocked,
                     welcomeCompleted = welcomeCompleted,
-                    themePalette = parseThemePalette(prefs[Keys.THEME_PALETTE]),
+                    themeDescriptor = resolveThemeDescriptor(prefs),
                     themeMode = parseThemeMode(prefs[Keys.THEME_MODE]),
                     defaultVisibility = parseMemoVisibility(prefs[Keys.DEFAULT_VISIBILITY]),
                     regexSearchEnabled = prefs[Keys.REGEX_SEARCH_ENABLED] ?: false,
@@ -298,6 +324,13 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                     calendarIntegrationEnabled = prefs[Keys.CALENDAR_INTEGRATION_ENABLED] ?: false,
                     calendarIntegrationCalendarId = prefs[Keys.CALENDAR_INTEGRATION_CALENDAR_ID],
                     calendarIntegrationSyncReminders = prefs[Keys.CALENDAR_INTEGRATION_SYNC_REMINDERS] ?: true,
+                    listLayout = parseListLayout(prefs[Keys.LIST_LAYOUT]),
+                    swipeEnabled = prefs[Keys.SWIPE_ENABLED] ?: true,
+                    swipeRightAction = parseSwipeAction(prefs[Keys.SWIPE_RIGHT_ACTION], SwipeAction.ADD_TO_TODO),
+                    swipeLeftAction = parseSwipeAction(prefs[Keys.SWIPE_LEFT_ACTION], SwipeAction.FAVORITE),
+                    pageTransitionsEnabled = prefs[Keys.PAGE_TRANSITIONS_ENABLED] ?: true,
+                    readingFontScale = parseReadingFontScale(prefs[Keys.READING_FONT_SCALE]),
+                    lineHeight = parseReadingLineHeight(prefs[Keys.LINE_HEIGHT]),
                     lastSync = lastSync,
                     fullSync = effectiveFullSync,
                     devAutoTagLineKeywords = prefs[Keys.DEV_AUTO_TAG_LINE_KEYWORDS] ?: "__Atags",
@@ -358,8 +391,27 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     }
 
     override suspend fun setThemePalette(palette: ThemePalette) {
+        // 兼容旧 API：只改色板轴，其余轴沿用当前描述符（缺失时按旧枚举完整映射）。
         context.settingsDataStore.edit { prefs ->
-            prefs[Keys.THEME_PALETTE] = palette.name
+            val current = resolveThemeDescriptor(prefs)
+            val next =
+                if (prefs.contains(Keys.THEME_DESCRIPTOR)) {
+                    current.copy(palette = palette)
+                } else {
+                    ThemeDescriptor.fromLegacyPalette(palette)
+                }
+            prefs[Keys.THEME_DESCRIPTOR] = encodeThemeDescriptor(next)
+            prefs.remove(Keys.LEGACY_THEME_PALETTE)
+        }
+    }
+
+    /**
+     * 写入完整主题描述符（M1.7 预设切换将调用；当前先提供给迁移与单测）。
+     */
+    suspend fun setThemeDescriptor(descriptor: ThemeDescriptor) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.THEME_DESCRIPTOR] = encodeThemeDescriptor(descriptor)
+            prefs.remove(Keys.LEGACY_THEME_PALETTE)
         }
     }
 
@@ -644,15 +696,89 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
         }
     }
 
-    private fun parseThemePalette(raw: String?): ThemePalette =
-        runCatching { if (raw.isNullOrBlank()) null else ThemePalette.valueOf(raw) }
-            .getOrNull()
-            ?: ThemePalette.PAPER_INK
+    /**
+     * 解析主题描述符：优先 `theme_descriptor` JSON；否则从旧 `theme_palette` 映射；
+     * 缺失/未知一律回退文墨·朱砂。
+     *
+     * 注意：此方法只读不写；异步迁移见 [migrateLegacyThemePaletteIfNeeded]。
+     */
+    private fun resolveThemeDescriptor(prefs: Preferences): ThemeDescriptor {
+        val json = prefs[Keys.THEME_DESCRIPTOR]
+        if (!json.isNullOrBlank()) {
+            decodeThemeDescriptor(json)?.let { return it }
+            return ThemeDescriptor.WENMO_ZHUSHA
+        }
+        val legacy = prefs[Keys.LEGACY_THEME_PALETTE]
+        if (!legacy.isNullOrBlank()) {
+            val palette =
+                runCatching { ThemePalette.valueOf(legacy) }.getOrNull()
+                    ?: return ThemeDescriptor.WENMO_ZHUSHA
+            return ThemeDescriptor.fromLegacyPalette(palette)
+        }
+        return ThemeDescriptor.WENMO_ZHUSHA
+    }
+
+    private fun encodeThemeDescriptor(descriptor: ThemeDescriptor): String =
+        JSONObject()
+            .put("palette", descriptor.palette.name)
+            .put("texture", descriptor.texture.name)
+            .put("density", descriptor.density.name)
+            .put("typeScale", descriptor.typeScale.name)
+            .put("fontFamily", descriptor.fontFamily.name)
+            .toString()
+
+    private fun decodeThemeDescriptor(raw: String): ThemeDescriptor? {
+        return runCatching {
+            val obj = JSONObject(raw)
+            val palette =
+                runCatching { ThemePalette.valueOf(obj.getString("palette")) }.getOrNull()
+                    ?: return null
+            val texture =
+                runCatching { ThemeTexture.valueOf(obj.getString("texture")) }.getOrNull()
+                    ?: return null
+            val density =
+                runCatching { ThemeDensity.valueOf(obj.getString("density")) }.getOrNull()
+                    ?: return null
+            val typeScale =
+                runCatching { ThemeTypeScale.valueOf(obj.getString("typeScale")) }.getOrNull()
+                    ?: return null
+            val fontFamily =
+                runCatching { ThemeFontFamily.valueOf(obj.getString("fontFamily")) }.getOrNull()
+                    ?: return null
+            ThemeDescriptor(
+                palette = palette,
+                texture = texture,
+                density = density,
+                typeScale = typeScale,
+                fontFamily = fontFamily,
+            )
+        }.getOrNull()
+    }
 
     private fun parseThemeMode(raw: String?): ThemeMode =
         runCatching { if (raw.isNullOrBlank()) null else ThemeMode.valueOf(raw) }
             .getOrNull()
             ?: ThemeMode.FOLLOW_SYSTEM
+
+    private fun parseListLayout(raw: String?): ListLayout =
+        runCatching { if (raw.isNullOrBlank()) null else ListLayout.valueOf(raw) }
+            .getOrNull()
+            ?: ListLayout.AUTO
+
+    private fun parseSwipeAction(raw: String?, default: SwipeAction): SwipeAction =
+        runCatching { if (raw.isNullOrBlank()) null else SwipeAction.valueOf(raw) }
+            .getOrNull()
+            ?: default
+
+    private fun parseReadingFontScale(raw: String?): ReadingFontScale =
+        runCatching { if (raw.isNullOrBlank()) null else ReadingFontScale.valueOf(raw) }
+            .getOrNull()
+            ?: ReadingFontScale.STANDARD
+
+    private fun parseReadingLineHeight(raw: String?): ReadingLineHeight =
+        runCatching { if (raw.isNullOrBlank()) null else ReadingLineHeight.valueOf(raw) }
+            .getOrNull()
+            ?: ReadingLineHeight.STANDARD
 
     private fun parseTodoReminderMode(raw: String?): TodoReminderMode =
         runCatching { if (raw.isNullOrBlank()) null else TodoReminderMode.valueOf(raw) }
@@ -712,6 +838,48 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
                 context.settingsDataStore.edit { p ->
                     p.remove(Keys.LEGACY_TOKEN)
                     p[Keys.TOKEN_UPDATED_AT] = System.currentTimeMillis()
+                }
+            }
+        }
+    }
+
+    /**
+     * 将旧 key `theme_palette` 迁移为 `theme_descriptor` JSON，成功后清除旧 key。
+     * 未知枚举 → 文墨·朱砂；若已有有效 descriptor 则仅清旧 key。
+     */
+    private fun migrateLegacyThemePaletteIfNeeded() {
+        migrationScope.launch {
+            val prefs = context.settingsDataStore.data.first()
+            val hasLegacy = prefs.contains(Keys.LEGACY_THEME_PALETTE)
+            val hasDescriptor = prefs.contains(Keys.THEME_DESCRIPTOR)
+            if (!hasLegacy && hasDescriptor) return@launch
+            if (!hasLegacy && !hasDescriptor) return@launch
+
+            val descriptor =
+                if (hasDescriptor) {
+                    decodeThemeDescriptor(prefs[Keys.THEME_DESCRIPTOR].orEmpty())
+                        ?: ThemeDescriptor.WENMO_ZHUSHA
+                } else {
+                    val legacyRaw = prefs[Keys.LEGACY_THEME_PALETTE]
+                    val palette =
+                        runCatching {
+                            if (legacyRaw.isNullOrBlank()) null else ThemePalette.valueOf(legacyRaw)
+                        }.getOrNull()
+                    if (palette != null) {
+                        ThemeDescriptor.fromLegacyPalette(palette)
+                    } else {
+                        ThemeDescriptor.WENMO_ZHUSHA
+                    }
+                }
+
+            context.settingsDataStore.edit { p ->
+                if (!p.contains(Keys.THEME_DESCRIPTOR) ||
+                    decodeThemeDescriptor(p[Keys.THEME_DESCRIPTOR].orEmpty()) == null
+                ) {
+                    p[Keys.THEME_DESCRIPTOR] = encodeThemeDescriptor(descriptor)
+                }
+                if (p.contains(Keys.LEGACY_THEME_PALETTE)) {
+                    p.remove(Keys.LEGACY_THEME_PALETTE)
                 }
             }
         }
