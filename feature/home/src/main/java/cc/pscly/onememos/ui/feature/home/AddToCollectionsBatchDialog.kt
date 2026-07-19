@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.InkLoading
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.launch
 
@@ -71,8 +72,8 @@ internal fun AddToCollectionsBatchDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = InkSpacing.X20),
+            verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
         ) {
             Text(
                 text = "将 $totalSelectedCount 条记录放入锦囊",
@@ -85,14 +86,14 @@ internal fun AddToCollectionsBatchDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(InkSpacing.X12))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(onClick = onDismiss) { Text("关闭") }
                 }
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(InkSpacing.X10))
                 return@Column
             }
 
@@ -104,8 +105,9 @@ internal fun AddToCollectionsBatchDialog(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // 结构常量：文件夹列表最大高度，组件特有约束，非间距尺度
                     .heightIn(max = 320.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
             ) {
                 item(key = "root") {
                     BatchFolderPickCard(
@@ -161,7 +163,7 @@ internal fun AddToCollectionsBatchDialog(
                 ) {
                     Text("取消")
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(InkSpacing.X8))
                 TextButton(
                     enabled = !busy && newFolderName.trim().isNotBlank(),
                     onClick = {
@@ -200,7 +202,7 @@ internal fun AddToCollectionsBatchDialog(
                 ) {
                     Text("在此新建并放入")
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(InkSpacing.X8))
                 TextButton(
                     enabled = !busy,
                     onClick = {
@@ -233,7 +235,7 @@ internal fun AddToCollectionsBatchDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X10))
         }
     }
 }
@@ -260,7 +262,7 @@ private fun BatchFolderPickCard(
                 contentDescription = if (selected) "已选" else "未选",
                 tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
             )
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(InkSpacing.X10))
             Text(
                 text = prefix + title,
                 style = MaterialTheme.typography.bodyMedium,

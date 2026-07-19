@@ -363,6 +363,7 @@ fun HomeScreen(
                         if (selectionMode) return@TopAppBar
                         IconButton(onClick = viewModel::requestSync, enabled = !isSyncing) {
                             if (isSyncing) {
+                                // 顶栏同步按钮加载态：转圈尺寸为结构常量，非间距尺度（M4 豁免保留）
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             } else {
                                 Icon(imageVector = Icons.Filled.Refresh, contentDescription = "同步")
@@ -439,15 +440,15 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
-                shadowElevation = 8.dp,
+                tonalElevation = InkSpacing.X2,
+                shadowElevation = InkSpacing.X8,
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X10),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 ) {
                     Text(
                         text = "操作区",
@@ -512,7 +513,7 @@ fun HomeScreen(
             // 浏览→新建：FAB 组靠后朗读，回到顶部先于「记」
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 modifier =
                     Modifier
                         .testTag("home_fab_group")
@@ -559,8 +560,8 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                        .padding(horizontal = InkSpacing.X20),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 ) {
                     Text(
                         text = "更多操作",
@@ -630,7 +631,7 @@ fun HomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(InkSpacing.X10))
                 }
             }
         }
@@ -673,11 +674,12 @@ fun HomeScreen(
                 confirmButton = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (batchBusy) {
+                            // 批量确认按钮加载态：转圈尺寸为结构常量，非间距尺度（M4 豁免保留）
                             CircularProgressIndicator(
                                 strokeWidth = 2.dp,
                                 modifier = Modifier.size(18.dp),
                             )
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(InkSpacing.X10))
                         }
                         TextButton(
                             enabled = !batchBusy,
@@ -1197,15 +1199,16 @@ private fun FilterStatusBanner(
 ) {
     AnimatedVisibility(visible = visible) {
         Surface(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X8),
+            // 结构常量：筛选状态横幅圆角，无对应形状令牌
             shape = RoundedCornerShape(18.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp,
-            shadowElevation = 10.dp,
+            tonalElevation = InkSpacing.X2,
+            shadowElevation = InkSpacing.X10,
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = InkSpacing.X12, vertical = InkSpacing.X10),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X8),
             ) {
                 val q = query.trim()
                 val hasQuery = q.isNotBlank()
@@ -1234,12 +1237,12 @@ private fun FilterStatusBanner(
                 }
 
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                 ) {
                     if (q.isNotBlank()) {
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
+                            shape = InkShape.Tag,
                             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier =
@@ -1251,14 +1254,14 @@ private fun FilterStatusBanner(
                                 },
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = InkSpacing.X10, vertical = InkSpacing.X6),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8),
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Search,
                                     contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(InkSpacing.X16),
                                 )
                                 Text(
                                     text = q.take(24),
@@ -1275,11 +1278,13 @@ private fun FilterStatusBanner(
                                 }
                                 IconButton(
                                     onClick = onClearQuery,
+                                    // 结构常量：清除按钮尺寸，组件特有约束，非间距尺度
                                     modifier = Modifier.size(28.dp),
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Close,
                                         contentDescription = "清除关键词",
+                                        // 结构常量：清除图标尺寸，组件特有约束，非间距尺度
                                         modifier = Modifier.size(18.dp),
                             )
                             }
@@ -1382,15 +1387,17 @@ private fun SearchPopup(
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = topInset + 56.dp + 10.dp)
-                    .padding(horizontal = 16.dp)
+                    // 结构常量：56dp 为顶栏占位高度，组件特有约束，非间距尺度
+                    .padding(top = topInset + 56.dp + InkSpacing.X10)
+                    .padding(horizontal = InkSpacing.X16)
                     .fillMaxWidth(),
+                // 结构常量：搜索弹层圆角，无对应形状令牌
                 shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
-                shadowElevation = 8.dp,
+                tonalElevation = InkSpacing.X2,
+                shadowElevation = InkSpacing.X8,
             ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.padding(InkSpacing.X12), verticalArrangement = Arrangement.spacedBy(InkSpacing.X8)) {
                     TextField(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1414,7 +1421,7 @@ private fun SearchPopup(
                                         text = "正则",
                                         color = MaterialTheme.colorScheme.primary,
                                         style = MaterialTheme.typography.labelLarge,
-                                        modifier = Modifier.padding(end = 8.dp),
+                                        modifier = Modifier.padding(end = InkSpacing.X8),
                                     )
                                 }
                                 if (queryValue.text.isNotBlank()) {
@@ -1455,7 +1462,7 @@ private fun SearchPopup(
                                 unfocusedIndicatorColor = Color.Transparent,
                                 disabledIndicatorColor = Color.Transparent,
                             ),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(InkShape.RadiusL),
                     )
 
                     if (!errorText.isNullOrBlank()) {
@@ -1489,43 +1496,44 @@ private fun MemoItemLoadingPlaceholder() {
     InkCard {
         val blockColor = MaterialTheme.colorScheme.surfaceVariant
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
             repeat(3) {
                 Surface(
+                    // 结构常量：骨架屏标签块尺寸（28×64），一次性占位几何，非间距尺度
                     modifier = Modifier
                         .height(28.dp)
                         .width(64.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(InkShape.RadiusL),
                     color = blockColor,
                 ) {}
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X10))
 
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(18.dp),
-            shape = RoundedCornerShape(8.dp),
+                .height(18.dp), // 结构常量：骨架屏正文行高，一次性占位几何，非间距尺度
+            shape = RoundedCornerShape(8.dp), // 结构常量：骨架屏圆角，无对应形状令牌
             color = blockColor,
         ) {}
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X8))
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.82f)
-                .height(18.dp),
-            shape = RoundedCornerShape(8.dp),
+                .height(18.dp), // 结构常量：骨架屏正文行高，一次性占位几何，非间距尺度
+            shape = RoundedCornerShape(8.dp), // 结构常量：骨架屏圆角，无对应形状令牌
             color = blockColor,
         ) {}
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X10))
 
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.40f)
-                .height(14.dp),
-            shape = RoundedCornerShape(8.dp),
+                .height(InkSpacing.X14),
+            shape = RoundedCornerShape(8.dp), // 结构常量：骨架屏圆角，无对应形状令牌
             color = blockColor,
         ) {}
     }
