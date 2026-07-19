@@ -513,6 +513,92 @@ function Get-ReleaseStableReleases {
     )
 }
 
+function Get-ReleaseTargetSelection {
+    param(
+        [Parameter(Mandatory)] [object[]] $StableReleases,
+        [Parameter(Mandatory)] [hashtable] $RemoteTags,
+        [Parameter(Mandatory)] [object] $WorktreeVersion,
+        [Parameter(Mandatory)] [object] $HeadVersion,
+        [Parameter(Mandatory)] [object] $OriginVersion,
+        [Parameter(Mandatory)] [string] $HeadSha,
+        [Parameter(Mandatory)] [string] $OriginMainSha,
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [System.Collections.Generic.List[string]] $Conflicts,
+        [switch] $PinLatestStableTarget,
+        [scriptblock] $CommandRunner = ${function:Invoke-ReleaseCommand}
+    )
+
+    if ($StableReleases.Count -eq 0) {
+        throw '未找到可作为基线的完整稳定 Release'
+    }
+
+    $latestRelease = $StableReleases[-1]
+    $targetVersion = $null
+    $baselineRelease = $latestRelease
+    $versionsMatchLatest =
+        $WorktreeVersion.versionName -ceq $latestRelease.versionName -and
+        $HeadVersion.versionName -ceq $latestRelease.versionName -and
+        $OriginVersion.versionName -ceq $latestRelease.versionName
+    $completedLatest =
+        $HeadSha -ceq $latestRelease.peeledSha -and
+        $OriginMainSha -ceq $latestRelease.peeledSha -and
+        $versionsMatchLatest
+
+    if (-not $completedLatest -and $PinLatestStableTarget -and $versionsMatchLatest) {
+        $codesMatchLatest =
+            [int] $WorktreeVersion.versionCode -eq [int] $latestRelease.versionCode -and
+            [int] $HeadVersion.versionCode -eq [int] $latestRelease.versionCode -and
+            [int] $OriginVersion.versionCode -eq [int] $latestRelease.versionCode
+        if ($codesMatchLatest) {
+            $completedLatest =
+                (Test-ReleaseGitAncestor `
+                    -Ancestor $latestRelease.peeledSha `
+                    -Descendant $HeadSha `
+                    -CommandRunner $CommandRunner) -and
+                (Test-ReleaseGitAncestor `
+                    -Ancestor $latestRelease.peeledSha `
+                    -Descendant $OriginMainSha `
+                    -CommandRunner $CommandRunner)
+        }
+    }
+
+    if ($completedLatest) {
+        if ($StableReleases.Count -lt 2) {
+            throw '已完成目标 Release 但缺少前一稳定基线'
+        }
+        $targetVersion = $latestRelease.versionName
+        $baselineRelease = $StableReleases[-2]
+    } else {
+        $candidateVersions = [System.Collections.Generic.List[string]]::new()
+        foreach ($version in @(
+            $WorktreeVersion.versionName,
+            $HeadVersion.versionName,
+            $OriginVersion.versionName
+        )) {
+            if ((Compare-ReleaseVersion $version $latestRelease.versionName) -gt 0) {
+                $candidateVersions.Add($version)
+            }
+        }
+        foreach ($tagName in @($RemoteTags.Keys)) {
+            $version = $tagName.Substring(1)
+            if ((Compare-ReleaseVersion $version $latestRelease.versionName) -gt 0) {
+                $candidateVersions.Add($version)
+            }
+        }
+        $uniqueCandidates = @($candidateVersions | Sort-Object -Unique)
+        if ($uniqueCandidates.Count -gt 1) {
+            $Conflicts.Add("MULTIPLE_TARGET_VERSIONS:$($uniqueCandidates -join ',')")
+        }
+        if ($uniqueCandidates.Count -gt 0) {
+            $targetVersion = $uniqueCandidates[-1]
+        }
+    }
+
+    return [pscustomobject]@{
+        targetVersion = $targetVersion
+        baselineRelease = $baselineRelease
+    }
+}
+
 function Get-ReleaseEvidence {
     param(
         [Parameter(Mandatory)] [string] $ProjectDir,
@@ -660,6 +746,7 @@ function Get-ReleaseFacts {
     param(
         [Parameter(Mandatory)] [string] $ProjectDir,
         [switch] $DeepVerifyRelease,
+        [switch] $PinLatestStableTarget,
         [scriptblock] $CommandRunner = ${function:Invoke-ReleaseCommand}
     )
 
@@ -699,38 +786,19 @@ function Get-ReleaseFacts {
             throw '未找到可作为基线的完整稳定 Release'
         }
 
-        $latestRelease = $stableReleases[-1]
-        $targetVersion = $null
-        $baselineRelease = $latestRelease
-        $completedLatest =
-            $headSha -ceq $latestRelease.peeledSha -and
-            $originMainSha -ceq $latestRelease.peeledSha -and
-            $worktreeVersion.versionName -ceq $latestRelease.versionName -and
-            $headVersion.versionName -ceq $latestRelease.versionName -and
-            $originVersion.versionName -ceq $latestRelease.versionName
-        if ($completedLatest) {
-            if ($stableReleases.Count -lt 2) { throw '已完成目标 Release 但缺少前一稳定基线' }
-            $targetVersion = $latestRelease.versionName
-            $baselineRelease = $stableReleases[-2]
-        } else {
-            $candidateVersions = [System.Collections.Generic.List[string]]::new()
-            foreach ($version in @($worktreeVersion.versionName, $headVersion.versionName, $originVersion.versionName)) {
-                if ((Compare-ReleaseVersion $version $latestRelease.versionName) -gt 0) {
-                    $candidateVersions.Add($version)
-                }
-            }
-            foreach ($tagName in @($remoteTags.Keys)) {
-                $version = $tagName.Substring(1)
-                if ((Compare-ReleaseVersion $version $latestRelease.versionName) -gt 0) {
-                    $candidateVersions.Add($version)
-                }
-            }
-            $uniqueCandidates = @($candidateVersions | Sort-Object -Unique)
-            if ($uniqueCandidates.Count -gt 1) {
-                $conflicts.Add("MULTIPLE_TARGET_VERSIONS:$($uniqueCandidates -join ',')")
-            }
-            if ($uniqueCandidates.Count -gt 0) { $targetVersion = $uniqueCandidates[-1] }
-        }
+        $selection = Get-ReleaseTargetSelection `
+            -StableReleases $stableReleases `
+            -RemoteTags $remoteTags `
+            -WorktreeVersion $worktreeVersion `
+            -HeadVersion $headVersion `
+            -OriginVersion $originVersion `
+            -HeadSha $headSha `
+            -OriginMainSha $originMainSha `
+            -Conflicts $conflicts `
+            -PinLatestStableTarget:$PinLatestStableTarget `
+            -CommandRunner $CommandRunner
+        $targetVersion = $selection.targetVersion
+        $baselineRelease = $selection.baselineRelease
 
         $targetTag = if ($null -eq $targetVersion) { $null } else { "v$targetVersion" }
         $remoteTag = [pscustomobject]@{ exists = $false }
@@ -917,12 +985,14 @@ function Get-ResolvedReleaseState {
     param(
         [Parameter(Mandatory)] [string] $ProjectDir,
         [switch] $DeepVerifyRelease,
+        [switch] $PinLatestStableTarget,
         [scriptblock] $CommandRunner = ${function:Invoke-ReleaseCommand}
     )
 
     $facts = Get-ReleaseFacts `
         -ProjectDir $ProjectDir `
         -DeepVerifyRelease:$DeepVerifyRelease `
+        -PinLatestStableTarget:$PinLatestStableTarget `
         -CommandRunner $CommandRunner
     $state = Resolve-ReleaseState -Facts $facts
     if ($DeepVerifyRelease -and (Get-ReleaseProperty $facts.release 'exists' $false) -eq $true) {
@@ -953,6 +1023,33 @@ function Write-ReleaseOutputs {
     Write-ReleaseJsonAtomic `
         -Path (Join-Path $ProjectDir 'app/build/reports/release-context.json') `
         -Value $Output
+}
+
+function Remove-ReleaseTemporaryFiles {
+    param(
+        [Parameter(Mandatory)] [string] $ProjectDir,
+        [Parameter(Mandatory)] [string] $TargetTag
+    )
+
+    if ($TargetTag -cnotmatch '^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$') {
+        throw "Cleanup 的目标 Tag 无效：$TargetTag"
+    }
+
+    $artifactsRoot = Join-Path $ProjectDir 'app/build/reports/release-artifacts'
+    if (Test-Path -LiteralPath $artifactsRoot -PathType Container) {
+        foreach ($directory in @(Get-ChildItem -LiteralPath $artifactsRoot -Directory)) {
+            if ($directory.Name.StartsWith("$TargetTag-run", [System.StringComparison]::Ordinal)) {
+                Remove-Item -LiteralPath $directory.FullName -Recurse -Force
+            }
+        }
+    }
+
+    foreach ($path in @(
+        (Join-Path $ProjectDir "app/build/reports/release-assets/$TargetTag"),
+        (Join-Path $ProjectDir 'app/build/reports/release-notes.md')
+    )) {
+        Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function New-ReleaseNotes {
@@ -1245,7 +1342,8 @@ if ($MyInvocation.InvocationName -ne '.') {
     try {
         $stateResult = Get-ResolvedReleaseState `
             -ProjectDir $projectDir `
-            -DeepVerifyRelease:($Stage -in @('VerifyRelease', 'Cleanup'))
+            -DeepVerifyRelease:($Stage -in @('VerifyRelease', 'Cleanup')) `
+            -PinLatestStableTarget:($Stage -eq 'Cleanup')
         $message = "已从现场事实推导发布状态：$($stateResult.state)"
 
         switch ($Stage) {
@@ -1335,13 +1433,9 @@ if ($MyInvocation.InvocationName -ne '.') {
                 if ($stateResult.state -ne 'Completed') {
                     throw "Cleanup 只接受 Completed，实际为 $($stateResult.state)"
                 }
-                foreach ($path in @(
-                    (Join-Path $projectDir 'app/build/reports/release-artifacts'),
-                    (Join-Path $projectDir 'app/build/reports/release-assets'),
-                    (Join-Path $projectDir 'app/build/reports/release-notes.md')
-                )) {
-                    Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue
-                }
+                Remove-ReleaseTemporaryFiles `
+                    -ProjectDir $projectDir `
+                    -TargetTag $stateResult.targetTag
                 $message = '临时下载与 Release notes 已清理，状态仍为 Completed'
             }
         }

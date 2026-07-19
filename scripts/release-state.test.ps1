@@ -1144,5 +1144,195 @@ Invoke-ReleaseTest 'DefaultReleaseGateStep gradle 选用平台对应的 gradlew 
     }
 }
 
+# --- v1.13.0 Cleanup 目标选择与删除范围回归测试 ---
+
+Invoke-ReleaseTest 'Contract A：Cleanup Pin 选择最新稳定版 1.13.0 为目标、前一版 1.9.0 为基线且验证 HEAD/origin 为后代' {
+    $stableReleases = @(
+        [pscustomobject]@{
+            tagName = 'v1.9.0'
+            versionName = '1.9.0'
+            versionCode = 157
+            major = 1; minor = 9; patch = 0
+            objectId = ('b' * 40)
+            peeledSha = ('b' * 40)
+        },
+        [pscustomobject]@{
+            tagName = 'v1.13.0'
+            versionName = '1.13.0'
+            versionCode = 163
+            major = 1; minor = 13; patch = 0
+            objectId = ('d' * 40)
+            peeledSha = ('d' * 40)
+        }
+    )
+    $remoteTags = @{
+        'v1.9.0' = [pscustomobject]@{ objectId = ('b' * 40); peeledSha = ('b' * 40) }
+        'v1.13.0' = [pscustomobject]@{ objectId = ('d' * 40); peeledSha = ('d' * 40) }
+    }
+    $conflicts = [System.Collections.Generic.List[string]]::new()
+    $gitCalls = [System.Collections.Generic.List[object]]::new()
+    $runner = {
+        param([string] $FilePath, [string[]] $Arguments)
+        $gitCalls.Add([pscustomobject]@{ filePath = $FilePath; arguments = @($Arguments) })
+        if ($FilePath -eq 'git' -and $Arguments[0] -eq 'merge-base' -and $Arguments[1] -eq '--is-ancestor') {
+            return [pscustomobject]@{ exitCode = 0; output = '' }
+        }
+        return [pscustomobject]@{ exitCode = 0; output = '' }
+    }
+
+    $selection = Get-ReleaseTargetSelection `
+        -StableReleases $stableReleases `
+        -RemoteTags $remoteTags `
+        -WorktreeVersion (New-TestVersion '1.13.0' 163) `
+        -HeadVersion (New-TestVersion '1.13.0' 163) `
+        -OriginVersion (New-TestVersion '1.13.0' 163) `
+        -HeadSha ('e' * 40) `
+        -OriginMainSha ('e' * 40) `
+        -Conflicts $conflicts `
+        -PinLatestStableTarget `
+        -CommandRunner $runner
+
+    Assert-ReleaseEqual $selection.targetVersion '1.13.0'
+    Assert-ReleaseEqual $selection.baselineRelease.versionName '1.9.0'
+    Assert-ReleaseEqual $selection.baselineRelease.versionCode 157
+    Assert-ReleaseEqual $conflicts.Count 0
+
+    $mergeBaseCalls = @($gitCalls | Where-Object {
+        $_.filePath -eq 'git' -and $_.arguments[0] -eq 'merge-base' -and $_.arguments[1] -eq '--is-ancestor'
+    })
+    Assert-ReleaseEqual $mergeBaseCalls.Count 2 'merge-base --is-ancestor 应为 HEAD 和 origin 各检查一次'
+    foreach ($call in $mergeBaseCalls) {
+        Assert-ReleaseEqual $call.arguments[2] ('d' * 40) '祖先应为目标 Tag 提交'
+        Assert-ReleaseEqual $call.arguments[3] ('e' * 40) '后代应为 HEAD 或 origin'
+    }
+}
+
+Invoke-ReleaseTest 'Contract B：无 Pin 时保持通用选择语义、基线为最新稳定版 1.13.0、下一版为 1.14.0' {
+    $stableReleases = @(
+        [pscustomobject]@{
+            tagName = 'v1.9.0'
+            versionName = '1.9.0'
+            versionCode = 157
+            major = 1; minor = 9; patch = 0
+            objectId = ('b' * 40)
+            peeledSha = ('b' * 40)
+        },
+        [pscustomobject]@{
+            tagName = 'v1.13.0'
+            versionName = '1.13.0'
+            versionCode = 163
+            major = 1; minor = 13; patch = 0
+            objectId = ('d' * 40)
+            peeledSha = ('d' * 40)
+        }
+    )
+    $remoteTags = @{
+        'v1.9.0' = [pscustomobject]@{ objectId = ('b' * 40); peeledSha = ('b' * 40) }
+        'v1.13.0' = [pscustomobject]@{ objectId = ('d' * 40); peeledSha = ('d' * 40) }
+    }
+    $conflicts = [System.Collections.Generic.List[string]]::new()
+    $runner = {
+        param([string] $FilePath, [string[]] $Arguments)
+        return [pscustomobject]@{ exitCode = 0; output = '' }
+    }
+
+    $selection = Get-ReleaseTargetSelection `
+        -StableReleases $stableReleases `
+        -RemoteTags $remoteTags `
+        -WorktreeVersion (New-TestVersion '1.13.0' 163) `
+        -HeadVersion (New-TestVersion '1.13.0' 163) `
+        -OriginVersion (New-TestVersion '1.13.0' 163) `
+        -HeadSha ('e' * 40) `
+        -OriginMainSha ('e' * 40) `
+        -Conflicts $conflicts `
+        -CommandRunner $runner
+
+    Assert-ReleaseNull $selection.targetVersion
+    Assert-ReleaseEqual $selection.baselineRelease.versionName '1.13.0'
+    Assert-ReleaseEqual $selection.baselineRelease.versionCode 163
+    Assert-ReleaseEqual (Get-NextStableVersion $selection.baselineRelease.versionName) '1.14.0'
+}
+
+Invoke-ReleaseTest 'Contract C：当前版本已为 1.14.0 时 Cleanup Pin 不得固定到旧版 1.13.0' {
+    $stableReleases = @(
+        [pscustomobject]@{
+            tagName = 'v1.9.0'
+            versionName = '1.9.0'
+            versionCode = 157
+            major = 1; minor = 9; patch = 0
+            objectId = ('b' * 40)
+            peeledSha = ('b' * 40)
+        },
+        [pscustomobject]@{
+            tagName = 'v1.13.0'
+            versionName = '1.13.0'
+            versionCode = 163
+            major = 1; minor = 13; patch = 0
+            objectId = ('d' * 40)
+            peeledSha = ('d' * 40)
+        }
+    )
+    $remoteTags = @{
+        'v1.9.0' = [pscustomobject]@{ objectId = ('b' * 40); peeledSha = ('b' * 40) }
+        'v1.13.0' = [pscustomobject]@{ objectId = ('d' * 40); peeledSha = ('d' * 40) }
+    }
+    $conflicts = [System.Collections.Generic.List[string]]::new()
+    $runner = {
+        param([string] $FilePath, [string[]] $Arguments)
+        return [pscustomobject]@{ exitCode = 0; output = '' }
+    }
+
+    $selection = Get-ReleaseTargetSelection `
+        -StableReleases $stableReleases `
+        -RemoteTags $remoteTags `
+        -WorktreeVersion (New-TestVersion '1.14.0' 164) `
+        -HeadVersion (New-TestVersion '1.14.0' 164) `
+        -OriginVersion (New-TestVersion '1.14.0' 164) `
+        -HeadSha ('e' * 40) `
+        -OriginMainSha ('e' * 40) `
+        -Conflicts $conflicts `
+        -PinLatestStableTarget `
+        -CommandRunner $runner
+
+    Assert-ReleaseEqual $selection.targetVersion '1.14.0'
+    Assert-ReleaseEqual $selection.baselineRelease.versionName '1.13.0'
+    Assert-ReleaseEqual $selection.baselineRelease.versionCode 163
+}
+
+Invoke-ReleaseTest 'Contract D：Remove-ReleaseTemporaryFiles 只删除目标 Tag v1.13.0 的临时目录和 release-notes' {
+    $root = Join-Path ([System.IO.Path]::GetTempPath()) "1memos-cleanup-test-$([guid]::NewGuid())"
+    $artifactsRoot = Join-Path $root 'app/build/reports/release-artifacts'
+    $assetsRoot = Join-Path $root 'app/build/reports/release-assets'
+    $v13ArtifactDir = Join-Path $artifactsRoot 'v1.13.0-run42-attempt1'
+    $v14ArtifactDir = Join-Path $artifactsRoot 'v1.14.0-run43-attempt1'
+    $v13AssetDir = Join-Path $assetsRoot 'v1.13.0'
+    $v14AssetDir = Join-Path $assetsRoot 'v1.14.0'
+    $releaseNotesPath = Join-Path $root 'app/build/reports/release-notes.md'
+
+    New-Item -ItemType Directory -Path $v13ArtifactDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $v14ArtifactDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $v13AssetDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $v14AssetDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $v13ArtifactDir '2026-07-16T12-34-56.apk'), 'v13-apk', [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText((Join-Path $v14ArtifactDir '2026-07-20T12-34-56.apk'), 'v14-apk', [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText((Join-Path $v13AssetDir 'info.json'), 'v13-info', [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText((Join-Path $v14AssetDir 'info.json'), 'v14-info', [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText($releaseNotesPath, '# 1memos Release Notes', [System.Text.UTF8Encoding]::new($false))
+
+    try {
+        Remove-ReleaseTemporaryFiles -ProjectDir $root -TargetTag 'v1.13.0'
+
+        Assert-ReleaseEqual (Test-Path -LiteralPath $v13ArtifactDir -PathType Container) $false 'v1.13.0 artifact 目录应被删除'
+        Assert-ReleaseEqual (Test-Path -LiteralPath $v13AssetDir -PathType Container) $false 'v1.13.0 assets 目录应被删除'
+        Assert-ReleaseEqual (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf) $false 'release-notes.md 应被删除'
+        Assert-ReleaseEqual (Test-Path -LiteralPath $v14ArtifactDir -PathType Container) $true 'v1.14.0 artifact 目录应保留'
+        Assert-ReleaseEqual (Test-Path -LiteralPath $v14AssetDir -PathType Container) $true 'v1.14.0 assets 目录应保留'
+        Assert-ReleaseEqual (Test-Path -LiteralPath $artifactsRoot -PathType Container) $true 'release-artifacts 根目录应保留'
+        Assert-ReleaseEqual (Test-Path -LiteralPath $assetsRoot -PathType Container) $true 'release-assets 根目录应保留'
+    } finally {
+        Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Write-Host "RESULT passed=$script:Passed failed=$script:Failed"
 if ($script:Failed -ne 0) { exit 1 }
