@@ -82,6 +82,10 @@ class FlowTodoSyncWorker @AssistedInject constructor(
         val nowMs = System.currentTimeMillis()
         var cursor = startState.cursor.coerceAtLeast(0L)
         var lastError: String? = null
+        // 显式跟踪“非 retry 的终态成功”，避免检查受限的 Result.Success 实现类型。
+        // 语义与原先 `result is Result.Success` 一致：success→重排，retry→不重排；
+        // 启动同步前的 early return 不会走到这里。
+        var shouldRescheduleReminders = false
 
         val result =
             try {
@@ -91,12 +95,14 @@ class FlowTodoSyncWorker @AssistedInject constructor(
                         when (val pulled = pullChanges(ownerKey = ownerKey, token = token, cursor = cursor, runAttemptCount = runAttemptCount)) {
                             is StepResult.Ok -> {
                                 cursor = pulled.cursor
+                                shouldRescheduleReminders = true
                                 Result.success()
                             }
 
                             is StepResult.Stop -> {
                                 cursor = pulled.cursor
                                 lastError = pulled.decision.userMessage
+                                shouldRescheduleReminders = !pulled.decision.retry
                                 resultFromDecision(pulled.decision)
                             }
                         }
@@ -105,6 +111,7 @@ class FlowTodoSyncWorker @AssistedInject constructor(
                     is StepResult.Stop -> {
                         cursor = pushed.cursor
                         lastError = pushed.decision.userMessage
+                        shouldRescheduleReminders = !pushed.decision.retry
                         resultFromDecision(pushed.decision)
                     }
                 }
@@ -115,6 +122,7 @@ class FlowTodoSyncWorker @AssistedInject constructor(
                     WorkerRetryPolicy.Decision.PropagateCancellation -> throw e
                     is WorkerRetryPolicy.Decision.Classified -> {
                         lastError = d.userMessage
+                        shouldRescheduleReminders = !d.retry
                         resultFromDecision(d)
                     }
                 }
@@ -130,7 +138,7 @@ class FlowTodoSyncWorker @AssistedInject constructor(
             ),
         )
 
-        if (result is Result.Success) {
+        if (shouldRescheduleReminders) {
             // 同步完成后重排一次提醒，确保服务端下发的 reminders/due/rrule 能落到系统通知。
             todoReminderScheduler.requestReschedule()
         }

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- library 边界声明：本模块 NetworkMonitor / 提醒通知 API 实际使用的权限。
+         POST_NOTIFICATIONS 仍为危险权限，运行时授权检查保留在 Receiver/Worker 内。 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application>
 
         <receiver

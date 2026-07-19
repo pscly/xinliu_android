@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.first
 
 @Singleton
 class AndroidSyncWorkManager @Inject constructor(
@@ -22,9 +23,10 @@ class AndroidSyncWorkManager @Inject constructor(
     override suspend fun uniqueWorkSnapshot(
         uniqueWorkName: String,
     ): Map<UUID, SyncWorkInfo> =
+        // WorkManager 2.9.0 公开 API：Flow 一次性取样，避免受限的 ListenableFuture.await()
         workManager
-            .getWorkInfosForUniqueWork(uniqueWorkName)
-            .await()
+            .getWorkInfosForUniqueWorkFlow(uniqueWorkName)
+            .first()
             .associate { info ->
                 info.id to SyncWorkInfo(
                     id = info.id,
