@@ -156,6 +156,20 @@ class InkStatePrimitivesTest {
     }
 
     @Test
+    fun inkRetryBanner_withoutAction_rendersNoButton() {
+        composeRule.setContent {
+            OneMemosTheme(config = themeConfig(dark = false)) {
+                InkRetryBanner(
+                    message = "同步中…",
+                    modifier = Modifier.testTag(BANNER_TAG),
+                )
+            }
+        }
+        composeRule.onNodeWithText("同步中…").assertIsDisplayed()
+        composeRule.onNode(hasClickAction()).assertDoesNotExist()
+    }
+
+    @Test
     fun inkStatePrimitives_threeStates_light_captures() {
         composeRule.setContent {
             OneMemosTheme(config = themeConfig(dark = false)) {

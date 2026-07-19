@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import cc.pscly.onememos.ui.component.TagChip
 import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkShareCardPalette
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 
@@ -76,7 +77,7 @@ fun ShareCardCanvas(
                     val accentLine = accent.copy(alpha = 0.28f)
                     Modifier.drawWithCache {
                         val img = bgBitmap?.asImageBitmap()
-                        val lineColor = ShareCardPalette.CanvasBlack.copy(alpha = 0.05f)
+                        val lineColor = InkShareCardPalette.CanvasBlack.copy(alpha = 0.05f)
                         val stroke = InkSpacing.X1.toPx()
                         // 纸纹线节度量（marginX=22dp、lineGap=26dp）：画布导出一次性布局常量，与编辑器纸面不同尺度，不收敛令牌。
                         val marginX = 22.dp.toPx()
@@ -93,8 +94,8 @@ fun ShareCardCanvas(
                                     brush =
                                         Brush.verticalGradient(
                                             listOf(
-                                                ShareCardPalette.CanvasBlack.copy(alpha = 0.55f),
-                                                ShareCardPalette.CanvasBlack.copy(alpha = 0.35f),
+                                                InkShareCardPalette.CanvasBlack.copy(alpha = 0.55f),
+                                                InkShareCardPalette.CanvasBlack.copy(alpha = 0.35f),
                                             ),
                                         ),
                                 )
@@ -321,7 +322,7 @@ private fun SealMark(
         Text(
             modifier = Modifier.padding(horizontal = InkSpacing.X10, vertical = InkSpacing.X6),
             text = text,
-            color = ShareCardPalette.PaperSuLv,
+            color = InkShareCardPalette.PaperSuLv,
             fontWeight = FontWeight.SemiBold,
             style = MaterialTheme.typography.labelLarge,
         )
@@ -348,7 +349,7 @@ private fun PaperLines(
                     Modifier
                         .fillMaxWidth()
                         .height(InkSpacing.X1)
-                        .background(ShareCardPalette.CanvasBlack.copy(alpha = 0.05f)),
+                        .background(InkShareCardPalette.CanvasBlack.copy(alpha = 0.05f)),
             )
         }
     }
@@ -398,8 +399,8 @@ private fun ShareCardImageBackground(
                     .background(
                         Brush.verticalGradient(
                             listOf(
-                                ShareCardPalette.CanvasBlack.copy(alpha = 0.55f),
-                                ShareCardPalette.CanvasBlack.copy(alpha = 0.35f),
+                                InkShareCardPalette.CanvasBlack.copy(alpha = 0.55f),
+                                InkShareCardPalette.CanvasBlack.copy(alpha = 0.35f),
                             ),
                         ),
                     ),
@@ -409,22 +410,22 @@ private fun ShareCardImageBackground(
 
 private fun themeBackground(theme: ShareCardTheme): Color =
     when (theme) {
-        ShareCardTheme.SU_LV -> ShareCardPalette.PaperSuLv
-        ShareCardTheme.MO_RAN -> ShareCardPalette.PaperMoRan
-        ShareCardTheme.XUAN_ZHI -> ShareCardPalette.PaperXuanZhi
-        ShareCardTheme.GUANG_YING -> ShareCardPalette.PaperGuangYing
+        ShareCardTheme.SU_LV -> InkShareCardPalette.PaperSuLv
+        ShareCardTheme.MO_RAN -> InkShareCardPalette.PaperMoRan
+        ShareCardTheme.XUAN_ZHI -> InkShareCardPalette.PaperXuanZhi
+        ShareCardTheme.GUANG_YING -> InkShareCardPalette.PaperGuangYing
     }
 
 private fun themeTextColor(theme: ShareCardTheme): Color =
     when (theme) {
-        ShareCardTheme.MO_RAN, ShareCardTheme.GUANG_YING -> ShareCardPalette.InkOnDark
-        else -> ShareCardPalette.InkOnLight
+        ShareCardTheme.MO_RAN, ShareCardTheme.GUANG_YING -> InkShareCardPalette.InkOnDark
+        else -> InkShareCardPalette.InkOnLight
     }
 
 private fun themeAccentColor(theme: ShareCardTheme): Color =
     when (theme) {
-        ShareCardTheme.MO_RAN -> ShareCardPalette.AccentMoRan
-        else -> ShareCardPalette.Vermilion // 朱砂红
+        ShareCardTheme.MO_RAN -> InkShareCardPalette.AccentMoRan
+        else -> InkShareCardPalette.Vermilion // 朱砂红
     }
 
 private fun maxLinesByHeight(heightPx: Int?): Int {
@@ -453,7 +454,7 @@ private fun PhotoPolaroid(
         tonalElevation = InkSpacing.X2,
         // 拍立得投影 4dp：画布导出一次性深度常量（InkSpacing 无 4dp 档）。
         shadowElevation = 4.dp,
-        color = ShareCardPalette.PolaroidPaper,
+        color = InkShareCardPalette.PolaroidPaper,
         shape = RoundedCornerShape(InkShape.RadiusM),
     ) {
         Column(
@@ -488,9 +489,9 @@ private fun QrBlock(
     val img = bitmap.asImageBitmap()
     val bg =
         if (theme == ShareCardTheme.MO_RAN || theme == ShareCardTheme.GUANG_YING) {
-            ShareCardPalette.InkOnDark
+            InkShareCardPalette.InkOnDark
         } else {
-            ShareCardPalette.QrPaperLight
+            InkShareCardPalette.QrPaperLight
         }
     Surface(
         color = bg.copy(alpha = 0.95f),

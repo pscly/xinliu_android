@@ -227,7 +227,7 @@ fun InkError(
 @Composable
 fun InkRetryBanner(
     message: String,
-    onRetry: () -> Unit,
+    onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     retryLabel: String = "重试",
 ) {
@@ -258,8 +258,10 @@ fun InkRetryBanner(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
             )
-            TextButton(onClick = onRetry) {
-                Text(text = retryLabel)
+            if (onRetry != null) {
+                TextButton(onClick = onRetry) {
+                    Text(text = retryLabel)
+                }
             }
         }
     }

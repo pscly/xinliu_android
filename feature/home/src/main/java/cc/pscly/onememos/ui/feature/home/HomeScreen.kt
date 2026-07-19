@@ -1331,19 +1331,19 @@ private fun SyncStatusBanner(
                     else -> "同步状态"
                 }
 
-            // 动作映射沿用原实现：鉴权失败→去登录（onOpenAuth）；出错→重试；其余→同步（均复用原回调）。
-            val retryLabel =
-                when {
-                    state.authInvalid -> "去登录"
-                    state.hasError -> "重试"
-                    else -> "同步"
+            val action = SyncBannerPolicy.actionFor(state)
+            val onAction =
+                when (action) {
+                    SyncBannerAction.OPEN_AUTH -> onOpenAuth
+                    SyncBannerAction.RETRY_SYNC -> onRetrySync
+                    SyncBannerAction.SYNC_PENDING -> onRetrySync
+                    SyncBannerAction.NONE -> null
                 }
-            val onRetry = if (state.authInvalid) onOpenAuth else onRetrySync
 
             InkRetryBanner(
                 message = "$message\n$pendingText",
-                onRetry = onRetry,
-                retryLabel = retryLabel,
+                onRetry = onAction,
+                retryLabel = SyncBannerPolicy.label(action),
             )
         }
     }
