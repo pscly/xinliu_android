@@ -233,7 +233,7 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 | `titleLarge` | SemiBold | `20.sp` | `26.sp` | 区块标题 |
 | `bodyLarge` | Normal | `16.sp` | `24.sp` | 默认正文 |
 
-其余 Material 角色沿用 M3 默认。`ScrollTextField` / 旧 `MarkdownPaper` / `MikepenzMarkdown` 长文行高对齐 `InkSpacing.LinePitch`（`30.sp`）。
+其余 Material 角色沿用 M3 默认。`ScrollTextField` / `MikepenzMarkdown` 长文行高对齐 `InkSpacing.LinePitch`（`30.sp`）。
 
 ### 4.3 阅读模式（`ReadingConfig` / `LocalReadingConfig`）
 
@@ -278,8 +278,8 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 
 ### 5.4 `InkChip` / `TagChip`
 
-- `InkChip`：克制筛选片；选中 `primary@ChipFillSelected` + 强描边 + primary 文字；已接 `paperInkFocusBorder`；禁用时文字/描边用 `LocalInkDisabledColors.content`。
-- `TagChip`：固定 `#` 前缀；文墨下可有稳定哈希色块，清简下退后为细描边次要色；`TagChip` 已接焦点环。
+- `InkChip`：克制筛选片；选中 `primary@ChipFillSelected` + 强描边 + primary 文字。M4-A2 已核销焦点环与禁用视觉：仅 `enabled` 时叠加 `paperInkFocusBorder`（`focused && enabled`）；禁用时文字/描边取 `LocalInkDisabledColors.content`（`onSurface×0.38`），语义 `disabled()`。
+- `TagChip`：固定 `#` 前缀；文墨下可有稳定哈希色块，清简下退后为细描边次要色；已接焦点环（仅可点击时 `focused && clickable`）。无独立 `enabled` 参数，不走 `LocalInkDisabledColors`。
 - **约束**：标签语义不得只靠色块；`#` 与文本必须可读。
 
 ### 5.5 `ScrollTextField`
@@ -287,11 +287,13 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 - `ScrollPaper` + `BasicTextField` / 只读可选文本；行高 `LinePitch`；占位用 `outline`。
 - 无统一校验错误 / 加载原语外观。
 
-### 5.6 Markdown：`MikepenzMarkdown` 与 `MarkdownPaper`
+### 5.6 Markdown：全量阅读 `MikepenzMarkdown` 与列表预览 `MarkdownPreview`
 
-- **现状（ADR 0010）**：新引擎 `markdown2/MikepenzMarkdown`（mikepenz multiplatform-markdown-renderer M3），纸墨皮肤全量映射 colorScheme + Ink* 令牌；功能开关 `useNewMarkdownEngine`（默认 true）。编辑器只读态按开关分派。
-- 旧 `MarkdownPaper`（commonmark）与列表侧 `MarkdownPreview` 仍保留；列表预览未强制切新引擎。
-- 解析失败降级原文可见；空内容显示调用方占位。
+- **编辑器完整阅读（现状，M4-C1）**：唯一实现为 `markdown2/MikepenzMarkdown`（mikepenz multiplatform-markdown-renderer M3）。覆盖单栏阅览、双栏右栏、只读查看；纸墨令牌映射 `colorScheme` + `Ink*`；正文行高对齐 `InkSpacing.LinePitch`；最内层 `SelectionContainer` 支持选择复制。空内容显示调用方 `placeholder`（outline 色）。
+- **列表/卡片预览（现状）**：继续使用 `MarkdownPreview`（commonmark 轻量预览），调用方为 home / profile / collections。
+- **纯文本（现状）**：`markdownToPlainText` / `markdownToPlainPreview`（与 Preview 同源 commonmark 扩展集）。
+- **双引擎开关退役（M4-C1）**：全量 `MarkdownPaper` 与 `useNewMarkdownEngine` 的 model / DataStore / ViewModel / UI 分支已删除；无用户设置开关；历史磁盘 key 不再读取且不迁移。
+- **依赖职责**：commonmark 服务 Preview / plain；mikepenz 服务编辑器全量阅读，两套依赖独立。
 
 ### 5.7 `SealStampOverlay`
 
@@ -312,7 +314,7 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 | `InkError` | error 图标/文案 + 重试；`LiveRegionMode.Assertive` |
 | `InkRetryBanner` | 内联重试横幅；`surfaceVariant` 底 + Hairline；`LiveRegionMode.Polite` |
 
-源码头注释含 feature 迁移清单；**原语已就绪，部分业务屏尚未替换**（见 §8.2）。
+M4-A 已接入范围（提交 `3ca78a7` / `caecf83` / `4457877` / `b00afbb`）：home 列表加载/错误/空态/追加加载与同步横幅、home 收藏对话框 busy、settings 记录编辑与提醒日历加载、sharecard 加载/错误/导出进度。Auth 与 Home 按钮内 `CircularProgressIndicator` 为明确按钮加载态豁免，不迁入状态原语。其余 feature 未宣称全量迁移。
 
 ### 5.10 M3 系统组件纸墨化（`PaperInkComponents`）
 
@@ -379,10 +381,11 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 | 债务 | 原位置 | 核销结论 | 依据 / 保留理由 |
 | --- | --- | --- | --- |
 | 紧凑控件不足 `48.dp` | `SealIconButton` 默认 `44.dp`；Chip 无最小高度 | **已核销（印章）**；Chip **部分保留** | `SealIconButton` 外层 `minimumInteractiveComponentSize` + `defaultMinSize(TouchTargetMin)`。`InkCard` 可点击路径同样兜底。`InkChip`/`TagChip` 视觉仍可 &lt;48.dp，依赖 Material 最小触控与调用方 `modifier`；未在 Chip 内强制 `defaultMinSize`。 |
-| 自定义焦点态缺失 | 取消 ripple 的共享原语 | **已核销** | `PaperInkFocusIndicator.paperInkFocusBorder` 已接入 `InkCard`、`SealButton`、`SealIconButton`、`TagChip`、`InkChip`（shape=`InkShape.Chip`）。 |
+| 自定义焦点态缺失 | 取消 ripple 的共享原语 | **已核销** | `PaperInkFocusIndicator.paperInkFocusBorder` 已接入 `InkCard`、`SealButton`、`SealIconButton`、`TagChip`、`InkChip`（shape=`InkShape.Chip`）。M4-A2（`caecf83`）：`InkChip` 仅 enabled 时显示焦点环；`TagChip` 仅可点击时显示。 |
 | reduced-motion 未统一 | 印章按压 / 盖章 / 转场 | **已核销** | `ReducedMotion` 读系统动画缩放 + `providesFromPageTransitions`；`SealButton`/`SealIconButton`/`SealStampOverlay`/`AppNavigationHost` 已门控。 |
-| 禁用视觉不完整 | 印章与 `InkChip` | **已核销** | `LocalInkDisabledColors`（`inkDisabledColorsOf`：`onSurface×0.12` 容器 / `×0.38` 内容）由 `OneMemosTheme` 下发；`SealButton`/`SealIconButton`/`InkChip` 已接入；语义 `disabled()` 保留。禁用态对比度享 WCAG inactive 豁免。 |
-| 通用状态原语缺失 | 设计系统 | **已核销（原语层）**；业务迁移 **部分保留** | `InkLoading`/`InkEmpty`/`InkError`/`InkRetryBanner` 已落地并测。feature 屏替换清单仍在 `InkStatePrimitives.kt` 头注释中，未全部完成。 |
+| 禁用视觉不完整 | 印章与 `InkChip` | **已核销** | `LocalInkDisabledColors`（`inkDisabledColorsOf`：`onSurface×0.12` 容器 / `×0.38` 内容）由 `OneMemosTheme` 下发；`SealButton`/`SealIconButton`/`InkChip` 已接入（M4-A2 / `caecf83`）；语义 `disabled()` 保留。`TagChip` 无独立禁用参数，不在此项。禁用态对比度享 WCAG inactive 豁免。 |
+| 通用状态原语缺失 | 设计系统 / 业务屏 | **已核销（M4-A 范围）** | 原语 `InkLoading`/`InkEmpty`/`InkError`/`InkRetryBanner` 已落地并测（`3ca78a7`）。M4-A 业务接入：home 列表与同步横幅、home 收藏对话框、settings 记录编辑与提醒日历、sharecard（`4457877`/`b00afbb` 等）。Auth/Home 按钮内 CPI 为加载态豁免。未宣称全应用所有 loading 已迁移。 |
+| Markdown 全量双引擎并存 | 编辑器 / 设计系统 | **已核销（M4-C1）** | 提交 `4273387`：编辑器完整阅读唯一实现 `MikepenzMarkdown`；`MarkdownPreview` / plain 保留；`MarkdownPaper` 与 `useNewMarkdownEngine` 全链路删除；无设置 UI；历史磁盘 key 不读不迁。 |
 | 字体放大适配未形成契约 | 固定印章、单行 Chip、表格 | **保留** | 无组件级字体缩放验收契约与金图矩阵；文楷印章在大字体下仍需人工验证。 |
 | TalkBack 遍历与动态播报未系统化 | 卡片 / Chip / 盖章 / 弹层 | **部分核销** | 状态原语 live region；首页 `MemoItemTalkBack` 合并朗读；设置矩阵测有部分覆盖。关键路径（浏览→编辑→保存→归档）全流程焦点恢复规范仍未系统化。 |
 | 选择与结果偏重颜色或触感 | Chip / 盖章 | **部分保留** | 选中仍主要靠 primary 色与描边；标签保留 `#` 文本。盖章为短暂视觉仪式，成功路径依赖业务文案/Snackbar（如归档撤销）。关闭颜色后 Chip 可读性仍弱。 |
