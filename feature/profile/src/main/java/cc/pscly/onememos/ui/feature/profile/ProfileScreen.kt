@@ -259,6 +259,7 @@ private fun MemoRow(
                 text = DateTimeFormatter.formatHm(memo.createdAt),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline,
+                // 结构常量：时间列固定宽，列表对齐用几何，非间距尺度
                 modifier = Modifier.width(44.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -292,7 +293,7 @@ private fun HeatmapGrid(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val rowGap = InkSpacing.X6
-        // 让格子“像系统日历一样大”：按屏宽自适应，目标 44~56dp。
+        // 结构常量：热力图单元格自适应上下界（44~56dp），组件特有几何，非间距尺度
         val maxCell = 56.dp
         val minCell = 44.dp
         val computed = maxWidth / 7
@@ -330,6 +331,7 @@ private fun HeatmapGrid(
             modifier = Modifier.width(gridWidth).align(Alignment.TopCenter),
             verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
         ) {
+            // 结构常量：热力图表头/网格零间距贴合，命中与对齐依赖 0dp（禁止令牌化 0/1）
             Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
                     Box(
@@ -392,6 +394,7 @@ private fun HeatmapGrid(
                 verticalArrangement = Arrangement.spacedBy(rowGap),
             ) {
                 for (r in 0 until model.rows) {
+                    // 结构常量：热力图行内零间距贴合，范围高亮连片依赖 0dp（禁止令牌化 0/1）
                     Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                         for (c in 0..6) {
                             val date = model.gridStart.plusDays((r * 7L) + c.toLong())
@@ -473,6 +476,7 @@ private fun HeatmapCell(
             val dayColor = if (selected) onContainer else MaterialTheme.colorScheme.onSurface
 
             // MIUI 风格：范围选中时，背景连成片（按左右是否相邻决定“圆角端点”）。
+            // 结构常量：999dp 胶囊端点/整 pill 圆角，热力选中几何，无对应形状令牌
             if (selected) {
                 val rangeShape =
                     when {
@@ -498,7 +502,7 @@ private fun HeatmapCell(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .padding(vertical = 8.dp, horizontal = 2.dp)
+                        .padding(vertical = InkSpacing.X8, horizontal = InkSpacing.X2)
                         .background(bg, shape = InkShape.Card),
                 )
             }
@@ -509,6 +513,7 @@ private fun HeatmapCell(
                     .padding(vertical = InkSpacing.X6),
             ) {
                 // 今天：描边圈（未选中时可见）
+                // 结构常量：34dp 今日圈径、1.6dp 描边、999dp pill，热力图专用几何
                 if (isToday && !selected) {
                     Box(
                         modifier = Modifier
@@ -570,6 +575,7 @@ private fun HeatLegendSquare(alpha: Float) {
     Box(
         modifier = Modifier
             .size(InkSpacing.X10)
+            // 结构常量：3dp 图例方块微圆角，无等值形状令牌
             .background(primary.copy(alpha = alpha.coerceIn(0f, 1f)), shape = RoundedCornerShape(3.dp)),
     )
 }
@@ -594,6 +600,7 @@ private fun MonthPickerDialog(
         title = { Text(text = "跳转月份") },
         text = {
             LazyColumn(
+                // 结构常量：月份选择列表可视高度，对话框专用几何，非间距尺度
                 modifier = Modifier.height(380.dp),
             ) {
                 itemsIndexed(months, key = { _, m -> "${m.year}-${m.monthValue}" }) { _, m ->
@@ -602,7 +609,7 @@ private fun MonthPickerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onPick(m) }
-                            .padding(vertical = InkSpacing.X12, horizontal = 4.dp),
+                            .padding(vertical = InkSpacing.X12, horizontal = InkSpacing.X4),
                         text = "${m.year}年${m.monthValue.toString().padStart(2, '0')}月",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,

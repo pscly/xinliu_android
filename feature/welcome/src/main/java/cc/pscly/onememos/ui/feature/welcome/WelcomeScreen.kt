@@ -19,9 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 fun WelcomeScreen(
@@ -43,13 +43,13 @@ fun WelcomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12),
+            verticalArrangement = Arrangement.spacedBy(InkSpacing.X16),
         ) {
             InkCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X14),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 ) {
                     Text(
                         text = "先离线记录，再登录同步",
@@ -63,7 +63,7 @@ fun WelcomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X4))
 
             Button(
                 modifier = Modifier.fillMaxWidth(),

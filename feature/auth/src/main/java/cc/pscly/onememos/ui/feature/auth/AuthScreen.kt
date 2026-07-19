@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.theme.InkSpacing
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -79,8 +80,8 @@ fun AuthScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12),
+            verticalArrangement = Arrangement.spacedBy(InkSpacing.X14),
         ) {
             TabRow(selectedTabIndex = if (uiState.tab == AuthTab.BACKEND) 0 else 1) {
                 Tab(
@@ -109,7 +110,7 @@ private fun BackendPane(
     viewModel: AuthViewModel,
 ) {
     InkCard(modifier = Modifier.fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
             Text(
                 text = if (uiState.backendForm == BackendForm.LOGIN) "登录账号" else "注册账号",
                 style = MaterialTheme.typography.titleMedium,
@@ -120,7 +121,7 @@ private fun BackendPane(
                 color = MaterialTheme.colorScheme.outline,
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X4))
 
             OutlinedTextField(
                 value = uiState.username,
@@ -175,11 +176,11 @@ private fun BackendPane(
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X4))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(
@@ -188,11 +189,12 @@ private fun BackendPane(
                     onClick = viewModel::submitBackend,
                 ) {
                     if (uiState.loading) {
+                        // 按钮内加载态：豁免状态原语；尺寸为结构常量
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                         )
-                        Spacer(modifier = Modifier.size(10.dp))
+                        Spacer(modifier = Modifier.size(InkSpacing.X10))
                     }
                     Text(if (uiState.backendForm == BackendForm.LOGIN) "登录" else "注册并登录")
                 }
@@ -231,13 +233,13 @@ private fun CustomPane(
     viewModel: AuthViewModel,
 ) {
     InkCard(modifier = Modifier.fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
             Text(
                 text = "访问令牌（Token）",
                 style = MaterialTheme.typography.titleMedium,
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X4))
 
             if (uiState.dev2Unlocked) {
                 OutlinedTextField(
@@ -281,7 +283,7 @@ private fun CustomPane(
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X4))
 
             Button(
                 modifier = Modifier.fillMaxWidth(),
@@ -289,11 +291,12 @@ private fun CustomPane(
                 onClick = viewModel::saveCustom,
             ) {
                 if (uiState.loading) {
+                    // 按钮内加载态：豁免状态原语；尺寸为结构常量
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
                     )
-                    Spacer(modifier = Modifier.size(10.dp))
+                    Spacer(modifier = Modifier.size(InkSpacing.X10))
                 }
                 Text("保存并进入")
             }
