@@ -146,6 +146,8 @@ class EditorViewModel @Inject constructor(
                     createdAt = memo.createdAt,
                     updatedAt = memo.updatedAt,
                     attachments = attachmentsUi,
+                    canEdit = isInitiallyEditable(memo),
+                    attachmentsEditable = isInitiallyEditable(memo),
                     lastSyncError = memo.lastSyncError,
                     loadError = null,
                 )
@@ -155,6 +157,12 @@ class EditorViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 初始可编辑性判定（bind 与 uuidArg init 两条路径共用）：
+     * serverId 为空（本地未上传）时必须可编辑；远端 SYNCED/SYNCING 后禁止编辑，避免竞态覆盖。
+     */
+    private fun isInitiallyEditable(memo: Memo): Boolean =
+        memo.serverId.isNullOrBlank() || (memo.syncStatus != SyncStatus.SYNCED && memo.syncStatus != SyncStatus.SYNCING)
 
     private val cachingRemoteNames = mutableSetOf<String>()
     private var creatorHintPushed: Boolean = false
@@ -286,8 +294,7 @@ class EditorViewModel @Inject constructor(
                 val split = AutoTagLineHider.split(text, keywords)
                 _uiState.update {
                     // 只要 serverId 为空，就说明仍未上传到服务端：必须允许离线反复编辑（避免 syncStatus 误标导致只读）。
-                    val localOnly = memo.serverId.isNullOrBlank()
-                    val canEdit = localOnly || (memo.syncStatus != SyncStatus.SYNCED && memo.syncStatus != SyncStatus.SYNCING)
+                    val canEdit = isInitiallyEditable(memo)
                     val showLine =
                         if (canEdit) {
                             it.devShowAutoTagLineInEdit
