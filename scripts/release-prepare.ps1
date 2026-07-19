@@ -214,7 +214,8 @@ function Invoke-DefaultReleaseGateStep {
             }
         }
         'gradle' {
-            $gradlew = Join-Path $projectDir (if ($IsWindows) { 'gradlew.bat' } else { 'gradlew' })
+            $wrapper = if ($IsWindows) { 'gradlew.bat' } else { 'gradlew' }
+            $gradlew = Join-Path $projectDir $wrapper
             Invoke-ReleaseGateCommand `
                 -FilePath $gradlew `
                 -Arguments @(

@@ -1102,6 +1102,47 @@ Invoke-ReleaseTest '恢复证据门禁步骤 ID 完整且唯一' {
     )
     Assert-ReleaseEqual (@($ids | Sort-Object -Unique).Count) 8
 }
+Invoke-ReleaseTest 'DefaultReleaseGateStep gradle 选用平台对应的 gradlew 且参数完整' {
+    $root = Join-Path ([System.IO.Path]::GetTempPath()) "1memos-gradle-gate-$([guid]::NewGuid())"
+    New-Item -ItemType Directory -Path $root -Force | Out-Null
+    $script:defaultGradleGateCalls = [System.Collections.Generic.List[object]]::new()
+    try {
+        $runner = {
+            param([string] $FilePath, [string[]] $Arguments)
+            $script:defaultGradleGateCalls.Add([pscustomobject]@{
+                filePath = $FilePath
+                arguments = @($Arguments)
+            })
+            return [pscustomobject]@{ exitCode = 0; output = '' }
+        }
+        $definition = [pscustomobject]@{
+            id = 'testDebugUnitTest'
+            kind = 'gradle'
+            task = 'testDebugUnitTest'
+        }
+        $context = [pscustomobject]@{
+            projectDir = $root
+            commandRunner = $runner
+            targetVersion = '1.9.0'
+            targetVersionCode = 157
+        }
+
+        $result = Invoke-DefaultReleaseGateStep -Definition $definition -Context $context
+        $wrapper = if ($IsWindows) { 'gradlew.bat' } else { 'gradlew' }
+
+        Assert-ReleaseEqual $result.id 'testDebugUnitTest'
+        Assert-ReleaseEqual $result.exitCode 0
+        Assert-ReleaseEqual $result.status 'PASSED'
+        Assert-ReleaseEqual $script:defaultGradleGateCalls.Count 1
+        Assert-ReleaseEqual $script:defaultGradleGateCalls[0].filePath (Join-Path $root $wrapper)
+        Assert-ReleaseEqual (
+            $script:defaultGradleGateCalls[0].arguments -join ' '
+        ) 'testDebugUnitTest -Pkotlin.compiler.execution.strategy=in-process --stacktrace'
+    } finally {
+        Remove-Variable -Name defaultGradleGateCalls -Scope Script -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 
 Write-Host "RESULT passed=$script:Passed failed=$script:Failed"
 if ($script:Failed -ne 0) { exit 1 }
