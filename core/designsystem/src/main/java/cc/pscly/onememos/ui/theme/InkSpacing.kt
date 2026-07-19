@@ -15,6 +15,7 @@ object InkSpacing {
     // ---------- 数值尺度（DESIGN.md §4.1） ----------
     val X1 = 1.dp // 发丝线：外框、纸面横线、朱砂竖线线宽
     val X2 = 2.dp // TagChip 垂直内边距（紧凑）
+    val X4 = 4.dp // 紧凑间距（列表/图标间隙等值映射）
     val X6 = 6.dp // 底部弹层标题间距 / 朱砂细线框内缩
     val X8 = 8.dp // InkChip / 表格单元格垂直内边距
     val X10 = 10.dp // TagChip 水平内边距、引用间隔
@@ -92,4 +93,5 @@ object InkSpacing {
 
     // ---------- 触控 ----------
     val TouchTargetMin = 48.dp // 最小触控目标（minimumInteractiveComponentSize 兜底）
+    val ContentMaxWidth = 720.dp // 宽屏内容最大宽度（设置等页）
 }
