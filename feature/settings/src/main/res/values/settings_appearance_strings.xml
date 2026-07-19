@@ -56,6 +56,10 @@
     <string name="settings_appearance_reading_line_standard">行距·标准</string>
     <string name="settings_appearance_reading_line_relaxed">行距·宽松</string>
 
+    <string name="settings_appearance_tag_color_title">标签彩色</string>
+    <string name="settings_appearance_tag_color_description">开启后每个标签按名称生成柔和粉彩色；关闭后标签统一为安静灰色。</string>
+    <string name="settings_appearance_tag_color_semantics">标签彩色，%1$s，点击切换</string>
+
     <string name="settings_appearance_overlay_title">悬浮记录</string>
     <string name="settings_appearance_overlay_description">开启时按系统流程完成“在其他应用上层显示”授权；关闭时使用应用内极速记录。</string>
     <string name="settings_appearance_overlay_semantics">悬浮记录，%1$s，点击切换并在需要时授权</string>

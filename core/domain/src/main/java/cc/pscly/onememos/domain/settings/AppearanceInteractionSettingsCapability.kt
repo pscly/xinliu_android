@@ -25,6 +25,7 @@ data class AppearanceInteractionSettingsSnapshot(
     val sealStampDurationMs: Int,
     val readingFontScale: ReadingFontScale = ReadingFontScale.STANDARD,
     val lineHeight: ReadingLineHeight = ReadingLineHeight.STANDARD,
+    val tagChipColorful: Boolean = true,
     val commandInFlight: AppearanceInteractionSettingsCommand? = null,
 ) {
     val themePalette: ThemePalette
@@ -45,6 +46,8 @@ sealed interface AppearanceInteractionSettingsCommand {
     data class SetReadingFontScale(val scale: ReadingFontScale) : AppearanceInteractionSettingsCommand
 
     data class SetReadingLineHeight(val lineHeight: ReadingLineHeight) : AppearanceInteractionSettingsCommand
+
+    data class SetTagChipColorful(val enabled: Boolean) : AppearanceInteractionSettingsCommand
 }
 
 sealed interface AppearanceInteractionSettingsResult {

@@ -60,7 +60,31 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             assertEquals(800, snap.sealStampDurationMs)
             assertEquals(ReadingFontScale.LARGE, snap.readingFontScale)
             assertEquals(ReadingLineHeight.RELAXED, snap.lineHeight)
+            assertEquals(true, snap.tagChipColorful)
             assertEquals(null, snap.commandInFlight)
+        }
+
+    @Test
+    fun tagChipColorful_defaultsTrue_andSetRoundTrips() =
+        runBlocking {
+            val repo = FakeSettingsRepository(AppSettings())
+            val cap = AppearanceInteractionSettingsCapabilityImpl(repo, FakeOverlayGateway(granted = true))
+
+            assertEquals(true, cap.observe().first().tagChipColorful)
+
+            assertEquals(
+                AppearanceInteractionSettingsResult.Success,
+                cap.execute(AppearanceInteractionSettingsCommand.SetTagChipColorful(false)),
+            )
+            assertEquals(1, repo.tagChipColorfulCalls.get())
+            assertEquals(false, repo.flow.value.tagChipColorful)
+            assertEquals(false, cap.observe().first().tagChipColorful)
+
+            assertEquals(
+                AppearanceInteractionSettingsResult.Success,
+                cap.execute(AppearanceInteractionSettingsCommand.SetTagChipColorful(true)),
+            )
+            assertEquals(true, cap.observe().first().tagChipColorful)
         }
 
     @Test
@@ -251,6 +275,7 @@ class AppearanceInteractionSettingsCapabilityImplTest {
         val sealCalls = AtomicInteger(0)
         val readingFontCalls = AtomicInteger(0)
         val readingLineCalls = AtomicInteger(0)
+        val tagChipColorfulCalls = AtomicInteger(0)
 
         override val settings: Flow<AppSettings> = flow
 
@@ -325,6 +350,13 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             maybeHold()
             maybeFail()
             flow.value = flow.value.copy(lineHeight = lineHeight)
+        }
+
+        override suspend fun setTagChipColorful(enabled: Boolean) {
+            tagChipColorfulCalls.incrementAndGet()
+            maybeHold()
+            maybeFail()
+            flow.value = flow.value.copy(tagChipColorful = enabled)
         }
 
         override suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean) = Unit

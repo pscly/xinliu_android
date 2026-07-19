@@ -41,6 +41,12 @@ interface SettingsRepository {
 
     suspend fun setShowTagCountsInFilter(enabled: Boolean)
 
+    /**
+     * 标签 chip 彩色开关。
+     * 默认空实现：既有测试 Fake 无需逐一覆写；正式实现见 SettingsRepositoryImpl。
+     */
+    suspend fun setTagChipColorful(enabled: Boolean) = Unit
+
     suspend fun setQuickCaptureOverlayEnabled(enabled: Boolean)
 
     suspend fun setQuickInsertTimeEnabled(enabled: Boolean)

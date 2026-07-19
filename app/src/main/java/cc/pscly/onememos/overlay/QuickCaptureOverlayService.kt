@@ -721,6 +721,7 @@ class QuickCaptureOverlayService : Service() {
                     themeMode = s.themeMode,
                     readingFontScale = s.readingFontScale,
                     readingLineHeight = s.lineHeight,
+                    tagChipColorful = s.tagChipColorful,
                 )
         }
 

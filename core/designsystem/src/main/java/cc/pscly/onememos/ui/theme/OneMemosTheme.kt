@@ -25,6 +25,7 @@ data class OneMemosThemeConfig(
     val themeMode: ThemeMode = ThemeMode.FOLLOW_SYSTEM,
     val readingFontScale: ReadingFontScale = ReadingFontScale.STANDARD,
     val readingLineHeight: ReadingLineHeight = ReadingLineHeight.STANDARD,
+    val tagChipColorful: Boolean = true,
 ) {
     /** 兼容旧构造：只传色板时映射为完整描述符。 */
     constructor(
@@ -81,6 +82,7 @@ fun OneMemosTheme(
         LocalThemeTexture provides config.themeDescriptor.texture,
         LocalThemeDensity provides config.themeDescriptor.density,
         LocalReadingConfig provides config.readingConfig,
+        LocalTagChipColorful provides config.tagChipColorful,
     ) {
         // M2.10：shapes 轴同步纸墨圆角，AlertDialog/BottomSheet 等 M3 默认值随令牌落地
         MaterialTheme(

@@ -77,6 +77,7 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
         val DEFAULT_VISIBILITY = stringPreferencesKey("default_visibility")
         val REGEX_SEARCH_ENABLED = booleanPreferencesKey("regex_search_enabled")
         val SHOW_TAG_COUNTS_IN_FILTER = booleanPreferencesKey("show_tag_counts_in_filter")
+        val TAG_CHIP_COLORFUL = booleanPreferencesKey("tag_chip_colorful")
         val QUICK_CAPTURE_OVERLAY_ENABLED = booleanPreferencesKey("quick_capture_overlay_enabled")
         val QUICK_INSERT_TIME_ENABLED = booleanPreferencesKey("quick_insert_time_enabled")
         val QUICK_INSERT_TIME_FORMAT = stringPreferencesKey("quick_insert_time_format")
@@ -307,6 +308,7 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
                     defaultVisibility = parseMemoVisibility(prefs[Keys.DEFAULT_VISIBILITY]),
                     regexSearchEnabled = prefs[Keys.REGEX_SEARCH_ENABLED] ?: false,
                     showTagCountsInFilter = prefs[Keys.SHOW_TAG_COUNTS_IN_FILTER] ?: true,
+                    tagChipColorful = prefs[Keys.TAG_CHIP_COLORFUL] ?: true,
                     quickCaptureOverlayEnabled = prefs[Keys.QUICK_CAPTURE_OVERLAY_ENABLED] ?: false,
                     quickInsertTimeEnabled = prefs[Keys.QUICK_INSERT_TIME_ENABLED] ?: false,
                     quickInsertTimeFormat = QuickInsertTimeFormat.fromStorage(prefs[Keys.QUICK_INSERT_TIME_FORMAT]),
@@ -435,6 +437,12 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
     override suspend fun setShowTagCountsInFilter(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.SHOW_TAG_COUNTS_IN_FILTER] = enabled
+        }
+    }
+
+    override suspend fun setTagChipColorful(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.TAG_CHIP_COLORFUL] = enabled
         }
     }
 

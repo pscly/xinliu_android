@@ -39,6 +39,8 @@ class AppearanceInteractionViewModelTest {
                 ReadingLineHeight.entries.map(AppearanceInteractionSettingsCommand::SetReadingLineHeight) +
                 listOf(
                     AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled(false),
+                    AppearanceInteractionSettingsCommand.SetTagChipColorful(true),
+                    AppearanceInteractionSettingsCommand.SetTagChipColorful(false),
                     AppearanceInteractionSettingsCommand.SetSealStampDurationMs(200),
                     AppearanceInteractionSettingsCommand.SetSealStampDurationMs(600),
                     AppearanceInteractionSettingsCommand.SetSealStampDurationMs(2_000),
@@ -253,6 +255,8 @@ class AppearanceInteractionViewModelTest {
             AppearanceInteractionUserIntent.SetReadingFontScale(scale)
         is AppearanceInteractionSettingsCommand.SetReadingLineHeight ->
             AppearanceInteractionUserIntent.SetReadingLineHeight(lineHeight)
+        is AppearanceInteractionSettingsCommand.SetTagChipColorful ->
+            AppearanceInteractionUserIntent.SetTagChipColorful(enabled)
     }
 
     private suspend fun await(condition: () -> Boolean) = withTimeout(2_000) { while (!condition()) delay(10) }

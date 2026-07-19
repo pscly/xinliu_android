@@ -31,6 +31,7 @@ class AppViewModel @Inject constructor(
                     themeMode = settings.themeMode,
                     readingFontScale = settings.readingFontScale,
                     readingLineHeight = settings.lineHeight,
+                    tagChipColorful = settings.tagChipColorful,
                 )
             }
             .stateIn(

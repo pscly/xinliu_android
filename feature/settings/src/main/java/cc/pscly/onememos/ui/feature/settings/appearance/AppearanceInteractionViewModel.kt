@@ -58,6 +58,8 @@ sealed interface AppearanceInteractionUserIntent {
 
     data class SetReadingLineHeight(val lineHeight: ReadingLineHeight) : AppearanceInteractionUserIntent
 
+    data class SetTagChipColorful(val enabled: Boolean) : AppearanceInteractionUserIntent
+
     data class ApplyPlatformResult(val result: SettingsPlatformResult) : AppearanceInteractionUserIntent
 }
 
@@ -112,6 +114,8 @@ class AppearanceInteractionViewModel @Inject constructor(
                 submit(AppearanceInteractionSettingsCommand.SetReadingFontScale(intent.scale))
             is AppearanceInteractionUserIntent.SetReadingLineHeight ->
                 submit(AppearanceInteractionSettingsCommand.SetReadingLineHeight(intent.lineHeight))
+            is AppearanceInteractionUserIntent.SetTagChipColorful ->
+                submit(AppearanceInteractionSettingsCommand.SetTagChipColorful(intent.enabled))
             is AppearanceInteractionUserIntent.ApplyPlatformResult ->
                 applyPlatformResult(intent.result)
         }

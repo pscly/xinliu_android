@@ -42,6 +42,7 @@ class AppearanceInteractionScreenTest {
             "字体", "霞鹜文楷", "系统字体",
             "阅读模式", "正文字号", "字号·小", "字号·标准", "字号·大", "字号·特大",
             "行距", "行距·紧凑", "行距·标准", "行距·宽松",
+            "标签彩色", "已开启",
             "悬浮记录", "已关闭", "盖章反馈时长", "600 毫秒",
         ).forEach { text ->
             composeRule.onNodeWithText(text, substring = false, useUnmergedTree = true).assertExists()
@@ -58,6 +59,7 @@ class AppearanceInteractionScreenTest {
         tag("settings_appearance_reading_line_standard").assertIsSelected()
         tag("settings_appearance_duration_slider").assertHeightIsAtLeast(48.dp)
         assertEquals("已关闭", tag("settings_appearance_overlay").stateDescription())
+        assertEquals("已开启", tag("settings_appearance_tag_color").stateDescription())
     }
 
     @Test
@@ -74,6 +76,7 @@ class AppearanceInteractionScreenTest {
             "settings_appearance_font_system",
             "settings_appearance_reading_font_large",
             "settings_appearance_reading_line_relaxed",
+            "settings_appearance_tag_color",
             "settings_appearance_overlay",
         ).forEach { tag(it).performScrollTo().performClick() }
         assertEquals(
@@ -94,6 +97,7 @@ class AppearanceInteractionScreenTest {
                 ),
                 AppearanceInteractionUserIntent.SetReadingFontScale(ReadingFontScale.LARGE),
                 AppearanceInteractionUserIntent.SetReadingLineHeight(ReadingLineHeight.RELAXED),
+                AppearanceInteractionUserIntent.SetTagChipColorful(false),
                 AppearanceInteractionUserIntent.SetQuickCaptureOverlayEnabled(true),
             ),
             intents,
@@ -268,6 +272,7 @@ class AppearanceInteractionScreenTest {
             "settings_appearance_reading_line_compact",
             "settings_appearance_reading_line_standard",
             "settings_appearance_reading_line_relaxed",
+            "settings_appearance_tag_color",
             "settings_appearance_overlay",
         )
 

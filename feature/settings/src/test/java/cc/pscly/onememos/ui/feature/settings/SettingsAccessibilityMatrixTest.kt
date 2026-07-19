@@ -314,6 +314,7 @@ class SettingsAccessibilityMatrixTest {
             "settings_appearance_density_standard",
             "settings_appearance_font_wenkai",
             "settings_appearance_overlay",
+            "settings_appearance_tag_color",
             "settings_appearance_duration_slider",
         ).forEach { tag ->
             val node = composeRule.onNodeWithTag(tag, useUnmergedTree = true)

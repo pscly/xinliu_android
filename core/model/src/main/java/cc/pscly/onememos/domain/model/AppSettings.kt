@@ -24,6 +24,8 @@ data class AppSettings(
     val regexSearchEnabled: Boolean = false,
     // 标签筛选面板里是否展示每个标签的数量（例如：#读书 (12)）。
     val showTagCountsInFilter: Boolean = true,
+    // 标签 chip 是否按名称生成柔和粉彩色；关闭后统一为安静灰色（默认开启）。
+    val tagChipColorful: Boolean = true,
     // 极速记录是否使用“悬浮窗”模式（不跳转当前应用界面）。需要系统授予“在其他应用上层显示”权限。
     val quickCaptureOverlayEnabled: Boolean = false,
     // 编辑页/悬浮极速记录：是否显示“一键插入当前时间”按钮（默认关闭）。

@@ -38,6 +38,7 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
                 sealStampDurationMs = settings.sealStampDurationMs,
                 readingFontScale = settings.readingFontScale,
                 lineHeight = settings.lineHeight,
+                tagChipColorful = settings.tagChipColorful,
                 commandInFlight = inFlight,
             )
         }
@@ -92,6 +93,10 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
                     settingsRepository.setReadingLineHeight(command.lineHeight)
                     AppearanceInteractionSettingsResult.Success
                 }
+                is AppearanceInteractionSettingsCommand.SetTagChipColorful -> {
+                    settingsRepository.setTagChipColorful(command.enabled)
+                    AppearanceInteractionSettingsResult.Success
+                }
             }
         } catch (t: Throwable) {
             val mapped = SettingsCapabilityErrorMapper.map(t)
@@ -119,5 +124,6 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
                 "SetSealStampDurationMs"
             is AppearanceInteractionSettingsCommand.SetReadingFontScale -> "SetReadingFontScale"
             is AppearanceInteractionSettingsCommand.SetReadingLineHeight -> "SetReadingLineHeight"
+            is AppearanceInteractionSettingsCommand.SetTagChipColorful -> "SetTagChipColorful"
         }
 }
