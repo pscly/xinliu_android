@@ -26,13 +26,13 @@ import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
 
 /**
- * M2.7 新引擎：mikepenz multiplatform-markdown-renderer 的纸墨皮肤封装。
+ * 编辑页唯一全量 Markdown 阅读渲染器：mikepenz multiplatform-markdown-renderer 的纸墨皮肤封装。
  *
- * 与旧 [cc.pscly.onememos.ui.component.MarkdownPaper] 并存；由 AppSettings.useNewMarkdownEngine
- *（默认 true）在调用点分发。渲染矩阵（标题/粗斜体/链接/代码/待办/表格/图片/嵌套引用）
- * 全绿后可退役旧实现。
+ * 列表/卡片预览仍由 [cc.pscly.onememos.ui.component.MarkdownPreview]（commonmark）承担；
+ * 本组件仅服务编辑页阅读态（单栏阅览 / 双栏右栏 / 只读查看）。
  *
  * 颜色全部取自 MaterialTheme.colorScheme；正文行高对齐 InkSpacing.LinePitch（30sp）。
+ * 正文可选中复制：最内层以 SelectionContainer 包裹 Mikepenz Markdown 内容。
  */
 @Composable
 fun MikepenzMarkdown(

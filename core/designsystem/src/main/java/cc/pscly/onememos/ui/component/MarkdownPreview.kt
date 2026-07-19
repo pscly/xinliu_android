@@ -1,5 +1,6 @@
 package cc.pscly.onememos.ui.component
 
+import android.util.LruCache
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -7,15 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -37,10 +35,9 @@ import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.theme.InkTone
-import androidx.compose.ui.platform.LocalContext
-import android.content.Intent
-import android.net.Uri
-import android.util.LruCache
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.withContext
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.gfm.strikethrough.Strikethrough
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
@@ -49,10 +46,10 @@ import org.commonmark.ext.gfm.tables.TableCell
 import org.commonmark.ext.gfm.tables.TableHead
 import org.commonmark.ext.gfm.tables.TableRow
 import org.commonmark.ext.gfm.tables.TablesExtension
-import org.commonmark.node.AbstractVisitor
 import org.commonmark.node.BlockQuote
 import org.commonmark.node.BulletList
 import org.commonmark.node.Code
+import org.commonmark.node.Emphasis
 import org.commonmark.node.FencedCodeBlock
 import org.commonmark.node.HardLineBreak
 import org.commonmark.node.Heading
@@ -65,80 +62,9 @@ import org.commonmark.node.OrderedList
 import org.commonmark.node.Paragraph
 import org.commonmark.node.SoftLineBreak
 import org.commonmark.node.StrongEmphasis
-import org.commonmark.node.Emphasis
 import org.commonmark.node.ThematicBreak
 import org.commonmark.node.Text as MdText
 import org.commonmark.parser.Parser
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.withContext
-
-/**
- * 轻量 Markdown 渲染（专为 memos 的阅读体验服务）：
- * - 解析：commonmark（稳定、维护成本低）
- * - 渲染：Compose Text + 少量样式（标题/粗斜体/引用/列表/代码块/链接）
- *
- * 目标：读起来舒服 + 结构清晰；不是追求 100% 还原所有 Markdown 语法。
- */
-@Composable
-fun MarkdownPaper(
-    markdown: String,
-    modifier: Modifier = Modifier,
-    placeholder: String = "",
-) {
-    val context = LocalContext.current
-    val blocksState by
-        produceState<List<MarkdownBlock>?>(initialValue = null, key1 = markdown) {
-            val cached = MarkdownBlocksCache.getFull(markdown)
-            if (cached != null) {
-                value = cached
-                return@produceState
-            }
-
-            value =
-                withContext(markdownParseDispatcher) {
-                    val parsed = parseMarkdownBlocks(markdown)
-                    MarkdownBlocksCache.putFull(markdown, parsed)
-                    parsed
-                }
-        }
-    val fallbackText = remember(markdown) { fastPreviewText(markdown, maxChars = 2_000) }
-
-    ScrollPaper(
-        modifier = modifier,
-        lineHeight = InkSpacing.LinePitch,
-    ) { contentModifier ->
-        if (markdown.isBlank()) {
-            Text(
-                text = placeholder,
-                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = InkSpacing.LinePitch),
-                color = MaterialTheme.colorScheme.outline,
-                modifier = contentModifier,
-            )
-            return@ScrollPaper
-        }
-
-        val blocks = blocksState
-        if (blocks == null) {
-            // 解析中：先展示快速预览，避免主线程解析导致的卡顿/白屏。
-            Text(
-                text = fallbackText,
-                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = InkSpacing.LinePitch),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = InkBorder.PreviewText),
-                modifier = contentModifier,
-            )
-            return@ScrollPaper
-        }
-
-        SelectionContainer {
-            MarkdownBlocks(
-                blocks = blocks,
-                modifier = contentModifier,
-                onOpenUrl = { url -> openUrlSafely(context, url) },
-            )
-        }
-    }
-}
 
 /**
  * 列表/卡片场景的 Markdown 预览：
@@ -285,38 +211,6 @@ fun MarkdownPreview(
     }
 }
 
-@Composable
-private fun AnnotatedClickableText(
-    text: AnnotatedString,
-    style: TextStyle,
-    onOpenUrl: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ClickableText(
-        text = text,
-        style = style,
-        modifier = modifier,
-        onClick = { offset ->
-            text.getStringAnnotations(tag = "URL", start = offset, end = offset)
-                .firstOrNull()
-                ?.item
-                ?.takeIf { it.isNotBlank() }
-                ?.let(onOpenUrl)
-        },
-    )
-}
-
-private fun openUrlSafely(context: android.content.Context, url: String) {
-    val parsed = runCatching { Uri.parse(url) }.getOrNull() ?: return
-    val scheme = parsed.scheme?.lowercase()
-    if (scheme != "http" && scheme != "https") return
-    val intent =
-        Intent(Intent.ACTION_VIEW, parsed).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-    runCatching { context.startActivity(intent) }
-}
-
 private fun fastPreviewText(markdown: String, maxChars: Int): String {
     if (markdown.isBlank()) return ""
     val sb = StringBuilder(minOf(maxChars, markdown.length))
@@ -342,46 +236,7 @@ private fun fastPreviewText(markdown: String, maxChars: Int): String {
     return sb.toString().trim()
 }
 
-fun markdownToPlainPreview(markdown: String, maxChars: Int = 320): String {
-    val raw = markdownToPlainText(markdown)
-    val normalized = raw.replace(Regex("\\s+"), " ").trim()
-    if (normalized.length <= maxChars) return normalized
-    return normalized.take(maxChars).trimEnd() + "…"
-}
-
-fun markdownToPlainText(markdown: String): String {
-    if (markdown.isBlank()) return ""
-    return runCatching {
-        val doc = markdownParser.parse(markdown)
-        val sb = StringBuilder()
-
-        doc.accept(
-            object : AbstractVisitor() {
-                override fun visit(text: MdText) {
-                    sb.append(text.literal)
-                }
-
-                override fun visit(code: Code) {
-                    sb.append(code.literal)
-                }
-
-                override fun visit(softLineBreak: SoftLineBreak) {
-                    sb.append('\n')
-                }
-
-                override fun visit(hardLineBreak: HardLineBreak) {
-                    sb.append('\n')
-                }
-            },
-        )
-        sb.toString()
-    }.getOrElse {
-        // 稳定性兜底：解析失败时退回原文，避免列表/详情因为极端内容直接崩溃。
-        markdown
-    }
-}
-
-sealed interface MarkdownBlock {
+private sealed interface MarkdownBlock {
     data class Heading(val level: Int, val text: AnnotatedString) : MarkdownBlock
     data class Paragraph(val text: AnnotatedString) : MarkdownBlock
     data class Quote(val text: AnnotatedString) : MarkdownBlock
@@ -397,19 +252,7 @@ sealed interface MarkdownBlock {
 private val markdownParseDispatcher = Dispatchers.Default.limitedParallelism(2)
 
 private object MarkdownBlocksCache {
-    private val fullCache = LruCache<String, List<MarkdownBlock>>(32)
     private val previewCache = LruCache<PreviewCacheKey, List<MarkdownBlock>>(96)
-
-    fun getFull(markdown: String): List<MarkdownBlock>? =
-        synchronized(fullCache) {
-            fullCache.get(markdown)
-        }
-
-    fun putFull(markdown: String, blocks: List<MarkdownBlock>) {
-        synchronized(fullCache) {
-            fullCache.put(markdown, blocks)
-        }
-    }
 
     fun getPreview(markdown: String, maxBlocks: Int): List<MarkdownBlock>? =
         synchronized(previewCache) {
@@ -750,101 +593,6 @@ private fun tableRowCells(row: TableRow): List<AnnotatedString> {
         c = c.next
     }
     return out
-}
-
-@Composable
-private fun MarkdownBlocks(
-    blocks: List<MarkdownBlock>,
-    modifier: Modifier,
-    onOpenUrl: (String) -> Unit,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(InkSpacing.MarkdownBlockGap),
-    ) {
-        blocks.forEach { block ->
-            when (block) {
-                is MarkdownBlock.Heading -> {
-                    val style =
-                        when (block.level) {
-                            1 -> MaterialTheme.typography.headlineSmall
-                            2 -> MaterialTheme.typography.titleLarge
-                            3 -> MaterialTheme.typography.titleMedium
-                            else -> MaterialTheme.typography.titleSmall
-                        }
-                    AnnotatedClickableText(
-                        text = block.text,
-                        style = style,
-                        onOpenUrl = onOpenUrl,
-                    )
-                }
-
-                is MarkdownBlock.Paragraph -> {
-                    AnnotatedClickableText(
-                        text = block.text,
-                        style = MaterialTheme.typography.bodyLarge.copy(lineHeight = InkSpacing.LinePitch),
-                        onOpenUrl = onOpenUrl,
-                    )
-                }
-
-                is MarkdownBlock.Quote -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(InkSpacing.QuoteBarWidth)
-                                .heightIn(min = InkSpacing.QuoteBarMinHeight)
-                                .clip(InkShape.QuoteBar)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = InkBorder.QuoteBar)),
-                        )
-                        Spacer(modifier = Modifier.width(InkSpacing.QuoteGap))
-                        AnnotatedClickableText(
-                            text = block.text,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                lineHeight = InkSpacing.LinePitch,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = InkBorder.QuoteText),
-                            ),
-                            onOpenUrl = onOpenUrl,
-                        )
-                    }
-                }
-
-                is MarkdownBlock.CodeBlock -> {
-                    val shape = InkShape.MarkdownSub
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(shape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(InkSpacing.CodeBlockPadding),
-                    ) {
-                        Text(
-                            text = block.code.trimEnd(),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = FontFamily.Monospace,
-                                lineHeight = InkSpacing.CodeLineHeight,
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                is MarkdownBlock.ThematicBreak -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = InkBorder.Hairline)
-                            .background(MaterialTheme.colorScheme.outline.copy(alpha = InkBorder.OutlineSoft)),
-                    )
-                }
-
-                is MarkdownBlock.Table -> {
-                    MarkdownTable(block = block, maxRows = Int.MAX_VALUE)
-                }
-            }
-        }
-    }
 }
 
 @Composable

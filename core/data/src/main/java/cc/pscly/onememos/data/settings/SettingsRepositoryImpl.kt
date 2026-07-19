@@ -104,7 +104,6 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
         val PAGE_TRANSITIONS_ENABLED = booleanPreferencesKey("page_transitions_enabled")
         val READING_FONT_SCALE = stringPreferencesKey("reading_font_scale")
         val LINE_HEIGHT = stringPreferencesKey("line_height")
-        val USE_NEW_MARKDOWN_ENGINE = booleanPreferencesKey("use_new_markdown_engine")
 
         // 最近一次同步结果（轻量状态）
         val LAST_SYNC_SUCCESS_AT = longPreferencesKey("last_sync_success_at")
@@ -334,7 +333,6 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
                     pageTransitionsEnabled = prefs[Keys.PAGE_TRANSITIONS_ENABLED] ?: true,
                     readingFontScale = parseReadingFontScale(prefs[Keys.READING_FONT_SCALE]),
                     lineHeight = parseReadingLineHeight(prefs[Keys.LINE_HEIGHT]),
-                    useNewMarkdownEngine = prefs[Keys.USE_NEW_MARKDOWN_ENGINE] ?: true,
                     lastSync = lastSync,
                     fullSync = effectiveFullSync,
                     devAutoTagLineKeywords = prefs[Keys.DEV_AUTO_TAG_LINE_KEYWORDS] ?: "__Atags",

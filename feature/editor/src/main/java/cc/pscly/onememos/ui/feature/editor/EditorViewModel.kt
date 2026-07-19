@@ -77,8 +77,6 @@ data class EditorUiState(
     val devAutoTagLineKeywords: String = "__Atags",
     val devShowAutoTagLineInView: Boolean = false,
     val devShowAutoTagLineInEdit: Boolean = false,
-    /** M2.7：是否使用新 Markdown 引擎（mikepenz）。默认 true；关闭后回退旧 commonmark 实现。 */
-    val useNewMarkdownEngine: Boolean = true,
 )
 
 sealed interface EditorEvent {
@@ -196,7 +194,6 @@ class EditorViewModel @Inject constructor(
                         devAutoTagLineKeywords = keywordsRaw,
                         devShowAutoTagLineInView = showInView,
                         devShowAutoTagLineInEdit = showInEdit,
-                        useNewMarkdownEngine = settings.useNewMarkdownEngine,
                     )
                 }
                 // 设置变更时尽量“就地切换”显示策略：

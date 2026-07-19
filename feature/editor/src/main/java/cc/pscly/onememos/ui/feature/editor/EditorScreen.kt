@@ -90,7 +90,6 @@ import cc.pscly.onememos.domain.tag.TagExtractor
 import cc.pscly.onememos.domain.tag.TagStat
 import cc.pscly.onememos.ui.component.ImageViewerDialog
 import cc.pscly.onememos.ui.component.InkCard
-import cc.pscly.onememos.ui.component.MarkdownPaper
 import cc.pscly.onememos.ui.component.ScrollPaper
 import cc.pscly.onememos.ui.markdown2.MikepenzMarkdown
 import cc.pscly.onememos.ui.component.SealButton
@@ -485,17 +484,15 @@ fun EditorScreen(
                                     )
                                     EditorMarkdownPreview(
                                         content = uiState.content.text,
-                                        useNewEngine = uiState.useNewMarkdownEngine,
                                         modifier = Modifier.weight(1f).fillMaxSize(),
                                     )
                                 }
                             }
 
-                            // 单栏阅览：复用 M2.7 渲染引擎
+                            // 单栏阅览：全量 Markdown 阅读渲染
                             previewEnabled -> {
                                 EditorMarkdownPreview(
                                     content = uiState.content.text,
-                                    useNewEngine = uiState.useNewMarkdownEngine,
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             }
@@ -523,10 +520,9 @@ fun EditorScreen(
                         )
                     }
                 } else {
-                    // M2.7：功能开关控制新旧引擎并存（默认 mikepenz；关闭后回退旧 MarkdownPaper）
+                    // 只读查看：唯一全量 Markdown 阅读渲染
                     EditorMarkdownPreview(
                         content = uiState.content.text,
-                        useNewEngine = uiState.useNewMarkdownEngine,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = true),
@@ -806,28 +802,19 @@ private fun TagSuggestionPanel(
 }
 
 /**
- * M2.8 预览承载：按功能开关分发新（mikepenz）/旧（MarkdownPaper）引擎。
- * 供“单栏阅览 / 双栏右栏 / 只读查看”三处复用，行为与 M2.7 保持一致。
+ * 编辑页阅读预览承载：统一走 MikepenzMarkdown（唯一全量阅读渲染器）。
+ * 供“单栏阅览 / 双栏右栏 / 只读查看”三处复用。
  */
 @Composable
 private fun EditorMarkdownPreview(
     content: String,
-    useNewEngine: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (useNewEngine) {
-        MikepenzMarkdown(
-            markdownText = content,
-            placeholder = "写点什么…",
-            modifier = modifier,
-        )
-    } else {
-        MarkdownPaper(
-            markdown = content,
-            placeholder = "写点什么…",
-            modifier = modifier,
-        )
-    }
+    MikepenzMarkdown(
+        markdownText = content,
+        placeholder = "写点什么…",
+        modifier = modifier,
+    )
 }
 
 /**
