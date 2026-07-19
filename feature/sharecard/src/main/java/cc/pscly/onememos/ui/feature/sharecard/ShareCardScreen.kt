@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -23,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,7 +49,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.component.InkError
+import cc.pscly.onememos.ui.component.InkLoading
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 import kotlin.math.max
 import kotlin.math.min
 
@@ -159,21 +161,22 @@ fun ShareCardScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12),
+            verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
         ) {
             if (uiState.loading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    InkLoading()
                 }
                 return@Column
             }
 
             if (!uiState.error.isNullOrBlank()) {
-                Text(
-                    text = uiState.error.orEmpty(),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyLarge,
+                // 错误在本屏为终态（记录不存在/参数错误），唯一可行动作是返回上一页。
+                InkError(
+                    message = uiState.error.orEmpty(),
+                    onRetry = onBack,
+                    retryLabel = "返回",
                 )
                 return@Column
             }
@@ -189,8 +192,9 @@ fun ShareCardScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
+                            // 一次性布局常量：预览区固定高度（屏幕预览专用，与导出位图尺寸无关）。
                             .height(360.dp)
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                            .clip(InkShape.Card)
                             .transformable(transformState),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -203,7 +207,7 @@ fun ShareCardScreen(
                         ShareCardCanvas(state = uiState)
                     }
                 }
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(InkSpacing.X10))
                 Text(
                     text = "双指缩放预览 · 点右上角可保存/分享",
                     style = MaterialTheme.typography.bodySmall,
@@ -240,10 +244,10 @@ private fun ThemesPanel(
 ) {
     InkCard {
         Text(text = "主题", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X10))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
         ) {
             ShareCardTheme.entries.forEach { t ->
                 TagChip(
@@ -254,7 +258,7 @@ private fun ThemesPanel(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X8))
         Text(
             text = "提示：有图时推荐用「光影」。",
             style = MaterialTheme.typography.bodySmall,
@@ -270,11 +274,11 @@ private fun StylesPanel(
     onSize: (ShareCardFontSize) -> Unit,
     onAlign: (ShareCardAlign) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X12)) {
         InkCard {
             Text(text = "画布比例", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Spacer(modifier = Modifier.height(InkSpacing.X10))
+            Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                 ShareCardRatio.entries.forEach { r ->
                     TagChip(
                         tag = r.name,
@@ -288,8 +292,8 @@ private fun StylesPanel(
 
         InkCard {
             Text(text = "字体大小", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Spacer(modifier = Modifier.height(InkSpacing.X10))
+            Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                 ShareCardFontSize.entries.forEach { s ->
                     TagChip(
                         tag = s.name,
@@ -303,8 +307,8 @@ private fun StylesPanel(
 
         InkCard {
             Text(text = "对齐方式", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Spacer(modifier = Modifier.height(InkSpacing.X10))
+            Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                 ShareCardAlign.entries.forEach { a ->
                     TagChip(
                         tag = a.name,
@@ -329,14 +333,10 @@ private fun MorePanel(
 ) {
     InkCard {
         Text(text = "更多", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X10))
 
         if (state.saving) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(modifier = Modifier.size(10.dp))
-                Text(text = state.exportProgressText ?: "正在生成图片…", style = MaterialTheme.typography.bodyMedium)
-            }
+            InkLoading(message = state.exportProgressText ?: "正在生成图片…")
         } else {
             Text(
                 text = "导出说明：默认截断长文；开启“长文模式”会导出长图（过长会自动分页）。",
@@ -344,7 +344,7 @@ private fun MorePanel(
                 color = MaterialTheme.colorScheme.outline,
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X12))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -364,13 +364,13 @@ private fun MorePanel(
             )
 
             if (state.longMode && state.ratio == ShareCardRatio.AUTO) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(InkSpacing.X10))
                 Text(
                     text = "长图导出方式",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Spacer(modifier = Modifier.height(InkSpacing.X8))
+                Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                     ShareCardLongExportMode.entries.forEach { m ->
                         TagChip(
                             tag = m.name,
@@ -380,7 +380,7 @@ private fun MorePanel(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(InkSpacing.X8))
                 Text(
                     text = if (state.longExportMode == ShareCardLongExportMode.SINGLE) "提示：内容过长时会自动回退为分页导出。" else "提示：分页最稳，适合超长清单。",
                     style = MaterialTheme.typography.bodySmall,
@@ -388,7 +388,7 @@ private fun MorePanel(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X12))
             OutlinedTextField(
                 value = state.authorName,
                 onValueChange = onAuthorName,
@@ -398,7 +398,7 @@ private fun MorePanel(
                 placeholder = { Text("例如：小陈 / pscly") },
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X12))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -420,7 +420,7 @@ private fun MorePanel(
                     placeholder = { Text("https://...") },
                 )
                 if (state.qrText.isNotBlank() && state.qrBitmap == null) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(InkSpacing.X6))
                     Text(
                         text = "二维码生成中…",
                         style = MaterialTheme.typography.bodySmall,
@@ -430,7 +430,7 @@ private fun MorePanel(
             }
 
             if (!state.lastSavedPath.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(InkSpacing.X8))
                 Text(
                     text = "最近导出：${state.lastSavedPath}",
                     style = MaterialTheme.typography.bodySmall,
