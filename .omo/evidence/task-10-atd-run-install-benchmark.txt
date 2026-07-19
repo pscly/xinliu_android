@@ -1,0 +1,5 @@
+[1] package:com.android.providers.media.module
+app/build/outputs/apk/benchmark/app-benchmark.apk: 1 file pushed, 0 skipped. 25.5 MB/s (54089075 bytes in 2.023s)
+Performing Push Install
+Success
+97:package:cc.pscly.onememos

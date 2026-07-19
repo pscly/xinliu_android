@@ -1,0 +1,9 @@
+[2026-02-22T19-17-38] unlock attempt
+set stayon
+wake + dismiss keyguard
+dumpsys window keyguard:
+380:  mCurrentFocus=Window{c7c1c54 u0 com.autonavi.minimap/com.autonavi.map.activity.SplashActivity}
+588:    isKeyguardShowing=false
+screencap
+/sdcard/_qa_unlock.png: 1 file pulled, 0 skipped. 1.5 MB/s (3304845 bytes in 2.074s)
+-rw-r--r-- 1 root root 3304845  2月 22 19:17 .sisyphus/evidence/_qa_unlock-2026-02-22T19-17-38.png

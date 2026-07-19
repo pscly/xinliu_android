@@ -1,0 +1,20 @@
+2026-02-22T18:44:03+08:00
+ensure_onememos attempt 1
+WARN: uix not onememos
+ensure_onememos attempt 2
+WARN: uix not onememos
+ensure_onememos attempt 3
+WARN: uix not onememos
+ensure_onememos attempt 4
+WARN: uix not onememos
+ensure_onememos attempt 5
+OK: uix shows cc.pscly.onememos
+OK: found long-clickable nodes
+card_xy=720 751
+long-press at 720,751
+WARN: enter xml lacks 已选
+cancel_xy=
+OK: exit no 已选
+more_xy=
+WARN: cannot find 更多操作
+DONE

@@ -128,7 +128,10 @@ class SettingsPrimitivesAccessibilityTest {
     }
 
     @Test
-    fun tagChip_clickable_hasMin48TouchTarget_andTagContentDescription() {
+    fun tagChip_compact_keepsTagContentDescription() {
+        // 紧凑视觉契约：memo 卡内标签为次要交互，整卡可点进详情，
+        // 产品决策视觉高度≈文字行高（不再断言 48dp 最小触控目标）；
+        // 无障碍语义 contentDescription/stateDescription 必须保留。
         composeRule.setContent {
             OneMemosTheme {
                 TagChip(
@@ -141,8 +144,6 @@ class SettingsPrimitivesAccessibilityTest {
         }
         val node = composeRule.onNodeWithTag("tag_chip")
         node.assertIsDisplayed()
-        node.assertHeightIsAtLeast(48.dp)
-        node.assertWidthIsAtLeast(48.dp)
         val desc = node.contentDescription()
         assertNotNull(desc)
         assertTrue(desc!!.contains("工作"))

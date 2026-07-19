@@ -1,0 +1,361 @@
+On branch main
+Your branch is ahead of 'origin/main' by 2 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   .sisyphus/boulder.json
+	modified:   .sisyphus/plans/jinnang-home-ux.md
+	modified:   feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt
+	modified:   feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt
+	modified:   feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/AddToCollectionsViewModel.kt
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.sisyphus/notepads/jinnang-auto-tag-hide/
+	.sisyphus/plans/jinnang-auto-tag-hide.md
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+diff --git a/.sisyphus/boulder.json b/.sisyphus/boulder.json
+index 92df277..4274846 100644
+--- a/.sisyphus/boulder.json
++++ b/.sisyphus/boulder.json
+@@ -1,14 +1,15 @@
+ {
+-  "active_plan": "/root/1codes/xinliu_android/.sisyphus/plans/jinnang-home-ux.md",
+-  "started_at": "2026-02-21T21:29:18+08:00",
++  "active_plan": "/root/1codes/xinliu_android/.sisyphus/plans/jinnang-auto-tag-hide.md",
++  "started_at": "2026-02-23T03:32:28.684Z",
+   "session_ids": [
+     "ses_384897d56ffeGfGBzuHPJz4QrE",
+     "ses_38016fe86ffe9QK3Tav2l0xhVs",
+     "ses_37fce4cabffevuYUI7UseBBIh4",
+     "ses_37c60c70effebnaP1jyd9fAJSk",
+     "ses_37a7bb052ffeB7QuK5F3gzHqdR",
+-    "ses_37a1b502fffeJmdX4jc5b8L9uv"
++    "ses_37a1b502fffeJmdX4jc5b8L9uv",
++    "ses_37804c0d4ffeUK2byUZsADtZVL"
+   ],
+-  "plan_name": "jinnang-home-ux",
++  "plan_name": "jinnang-auto-tag-hide",
+   "agent": "atlas"
+ }
+diff --git a/.sisyphus/plans/jinnang-home-ux.md b/.sisyphus/plans/jinnang-home-ux.md
+index 417ea34..7f3bad4 100644
+--- a/.sisyphus/plans/jinnang-home-ux.md
++++ b/.sisyphus/plans/jinnang-home-ux.md
+@@ -109,7 +109,7 @@ Wave 3（集成 + 验证 + 交付）
+ 
+ ## TODOs
+ 
+-- [ ] 1. Home/Archived：长按直接进入多选 + “…”保留单条更多操作
++- [x] 1. Home/Archived：长按直接进入多选 + “...”保留单条更多操作
+ 
+   **What to do**:
+   - 调整主页与已归档列表的长按逻辑：长按任意随笔卡片 → 直接进入 selectionMode，并默认选中该条。
+@@ -140,9 +140,9 @@ Wave 3（集成 + 验证 + 交付）
+   - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/MemoItem.kt` - 主页卡片的 InkCard 与 onLongClick 绑定点；适合加入“…”按钮并在 selectionMode 下禁用。
+ 
+   **Acceptance Criteria**:
+-  - [ ] 长按任意随笔卡片后，立即进入多选态：TopAppBar 标题显示“已选 1”，底部批量操作栏出现。
+-  - [ ] 点击任意卡片右侧/底部的“…”按钮，可打开“更多操作”面板，且包含“墨迹卡片”等原有入口。
+-  - [ ] 进入多选态后，“…”按钮不再可用（隐藏或 disabled）。
++- [x] 长按任意随笔卡片后，立即进入多选态：TopAppBar 标题显示“已选 1”，底部批量操作栏出现。
++- [x] 点击任意卡片右侧/底部的“…”按钮，可打开“更多操作”面板，且包含“墨迹卡片”等原有入口。
++- [x] 进入多选态后，“…”按钮不再可用（隐藏或 disabled）。
+ 
+   **QA Scenarios**:
+   ```
+@@ -186,7 +186,7 @@ Wave 3（集成 + 验证 + 交付）
+     Evidence: .sisyphus/evidence/task-1-home-exit-multiselect.xml
+   ```
+ 
+-- [ ] 2. Collections：当前文件夹内标签筛选（多标签 OR）+ 筛选条 UI
++- [x] 2. Collections：当前文件夹内标签筛选（多标签 OR）+ 筛选条 UI
+ 
+   **What to do**:
+   - 在 Collections 页面增加 `selectedTags` 状态（Set<String>）。
+@@ -217,9 +217,9 @@ Wave 3（集成 + 验证 + 交付）
+   - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt` - 主页筛选状态条/标签交互可借鉴（但不要跨 feature 依赖）。
+ 
+   **Acceptance Criteria**:
+-  - [ ] 点击任意 NOTE_REF 卡片上的 tag chip，会把该 tag 加入筛选集合，并在面包屑下方出现筛选条。
+-  - [ ] 多个 tag 同时选中时，列表按 OR 过滤 NOTE_REF；文件夹条目始终可见。
+-  - [ ] 切换到其它文件夹（进入/返回）后，筛选自动清空。
++- [x] 点击任意 NOTE_REF 卡片上的 tag chip，会把该 tag 加入筛选集合，并在面包屑下方出现筛选条。
++- [x] 多个 tag 同时选中时，列表按 OR 过滤 NOTE_REF；文件夹条目始终可见。
++- [x] 切换到其它文件夹（进入/返回）后，筛选自动清空。
+ 
+   **QA Scenarios**:
+   ```
+@@ -243,7 +243,7 @@ Wave 3（集成 + 验证 + 交付）
+     Evidence: .sisyphus/evidence/task-2-collections-filter-reset.xml
+   ```
+ 
+-- [ ] 3. Collections：NOTE_REF 同主页预览卡片（标签/图片/富预览/状态/时间）+ 手动命名标题行
++- [x] 3. Collections：NOTE_REF 同主页预览卡片（标签/图片/富预览/状态/时间）+ 手动命名标题行
+ 
+   **What to do**:
+   - 仅针对 NOTE_REF（`refType == MEMOS_MEMO`）且 `noteRefMemo` 可用时：把卡片渲染升级为“主页同款信息结构”。
+@@ -278,10 +278,10 @@ Wave 3（集成 + 验证 + 交付）
+   - `feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt` - `memoByRefTargetId` 加载策略；如需图片远程 URL，可从 settings 补充 serverBase（避免写死）。
+ 
+   **Acceptance Criteria**:
+-  - [ ] NOTE_REF 卡片在“可预览”时展示：tag chips + 正文预览 +（如有）图片缩略图 + 状态/时间。
+-  - [ ] 未手动命名的 NOTE_REF 不显示“（无标题）”标题行。
+-  - [ ] 点击 tag chip 会触发当前文件夹筛选（与 Task 2 逻辑一致）。
+-  - [ ] selectionMode/reorderMode 下不会出现“点标签却触发筛选/点图片却打开预览”等误交互（优先按当前模式执行）。
++- [x] NOTE_REF 卡片在“可预览”时展示：tag chips + 正文预览 +（如有）图片缩略图 + 状态/时间。
++- [x] 未手动命名的 NOTE_REF 不显示“（无标题）”标题行。
++- [x] 点击 tag chip 会触发当前文件夹筛选（与 Task 2 逻辑一致）。
++- [x] selectionMode/reorderMode 下不会出现“点标签却触发筛选/点图片却打开预览”等误交互（优先按当前模式执行）。
+ 
+   **QA Scenarios**:
+   ```
+@@ -307,7 +307,7 @@ Wave 3（集成 + 验证 + 交付）
+     Evidence: .sisyphus/evidence/task-3-collections-note-ref-fallback.xml
+   ```
+ 
+-- [ ] 4. 集成验证：verify 门禁 + benchmark APK + 证据归档
++- [x] 4. 集成验证：verify 门禁 + benchmark APK + 证据归档
+ 
+   **What to do**:
+   - 运行门禁：`./scripts/verify.sh`。
+@@ -329,8 +329,8 @@ Wave 3（集成 + 验证 + 交付）
+   - `scripts/build-benchmark-apk.sh` - 构建 benchmark 并生成时间戳 APK 副本。
+ 
+   **Acceptance Criteria**:
+-  - [ ] `./scripts/verify.sh` 输出 `verify.sh: OK`
+-  - [ ] `./scripts/build-benchmark-apk.sh` 输出时间戳 APK 路径，且文件存在
++- [x] `./scripts/verify.sh` 输出 `verify.sh: OK`
++- [x] `./scripts/build-benchmark-apk.sh` 输出时间戳 APK 路径，且文件存在
+ 
+   **QA Scenarios**:
+   ```
+@@ -356,7 +356,7 @@ Wave 3（集成 + 验证 + 交付）
+     Evidence: .sisyphus/evidence/task-4-adb-devices.txt
+   ```
+ 
+-- [ ] 5. Git 提交 + 交付信息汇总
++- [x] 5. Git 提交 + 交付信息汇总
+ 
+   **What to do**:
+   - 确认仅包含本次相关改动文件；避免提交敏感信息/本地配置。
+@@ -378,9 +378,9 @@ Wave 3（集成 + 验证 + 交付）
+   - `scripts/copy-benchmark-apk.sh` - 时间戳 APK 命名规则（`YYYY-MM-DDTHH-MM-SS.apk`）。
+ 
+   **Acceptance Criteria**:
+-  - [ ] 工作区干净（除非有用户指定保留的未提交变更）
+-  - [ ] commit message 符合 Conventional Commits
+-  - [ ] 交付信息包含 benchmark APK 路径
++- [x] 工作区干净（除非有用户指定保留的未提交变更）
++- [x] commit message 符合 Conventional Commits
++- [x] 交付信息包含 benchmark APK 路径
+ 
+   **QA Scenarios**:
+   ```
+@@ -409,10 +409,10 @@ Wave 3（集成 + 验证 + 交付）
+ 
+ ## Final Verification Wave
+ 
+-- [ ] F1. 计划符合性审计（oracle）
+-- [ ] F2. 代码质量审查（unspecified-high）
+-- [ ] F3. QA 场景复跑与证据核对（unspecified-high）
+-- [ ] F4. 范围/污染检查（deep）
++- [x] F1. 计划符合性审计（oracle）
++- [x] F2. 代码质量审查（unspecified-high）
++- [x] F3. QA 场景复跑与证据核对（unspecified-high）
++- [x] F4. 范围/污染检查（deep）
+ 
+ ---
+ 
+@@ -433,7 +433,7 @@ Wave 3（集成 + 验证 + 交付）
+ ```
+ 
+ ### Final Checklist
+-- [ ] Home/Archived：长按进入多选，且“…”可打开更多操作
+-- [ ] Collections：NOTE_REF 具备主页同款预览信息结构 + 标签筛选条可用
+-- [ ] verify.sh 通过
+-- [ ] benchmark APK 已生成并记录路径
++- [x] Home/Archived：长按进入多选，且“...”可打开更多操作
++- [x] Collections：NOTE_REF 具备主页同款预览信息结构 + 标签筛选条可用
++- [x] verify.sh 通过
++- [x] benchmark APK 已生成并记录路径
+diff --git a/feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt b/feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt
+index ccacb27..164c8c9 100644
+--- a/feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt
++++ b/feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt
+@@ -94,6 +94,7 @@ import cc.pscly.onememos.ui.component.MarkdownPreview
+ import cc.pscly.onememos.ui.component.ScrollPaperSurface
+ import cc.pscly.onememos.ui.component.SealButton
+ import cc.pscly.onememos.ui.component.TagChip
++import cc.pscly.onememos.ui.util.AutoTagLineHider
+ import cc.pscly.onememos.ui.util.DateTimeFormatter
+ import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
+ import kotlinx.coroutines.Dispatchers
+@@ -130,6 +131,12 @@ fun CollectionsScreen(
+     val scope = rememberCoroutineScope()
+     val haptics = rememberOneMemosHaptics()
+ 
++    val autoTagKeywords =
++        remember(uiState.devAutoTagLineKeywordsRaw) {
++            AutoTagLineHider.parseKeywords(uiState.devAutoTagLineKeywordsRaw)
++        }
++    val showAutoTagLineInHome = uiState.devShowAutoTagLineInHome
++
+     var busy by remember { mutableStateOf(false) }
+ 
+     var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+@@ -511,6 +518,8 @@ fun CollectionsScreen(
+                             noteRefTargetId = noteRefTargetId,
+                             noteRefMemo = noteRefMemo,
+                             enableRichPreview = enableRichPreview,
++                            showAutoTagLineInHome = showAutoTagLineInHome,
++                            autoTagKeywords = autoTagKeywords,
+                             selectedTags = selectedTags,
+                             onToggleTag =
+                                 if (selectionMode || reorderMode) {
+@@ -758,6 +767,8 @@ private fun CollectionItemCard(
+     noteRefTargetId: String?,
+     noteRefMemo: Memo?,
+     enableRichPreview: Boolean,
++    showAutoTagLineInHome: Boolean,
++    autoTagKeywords: List<String>,
+     selectedTags: Set<String>,
+     onToggleTag: ((String) -> Unit)?,
+     selected: Boolean,
+@@ -917,8 +928,25 @@ private fun CollectionItemCard(
+                                 memo.plainPreview.ifBlank { MarkdownDeriver.plainPreview(memo.content, maxChars = 320) }
+                             }
+                         val plainPreview =
+-                            remember(basePlainPreview, contentPlaceholder) {
+-                                basePlainPreview.ifBlank { contentPlaceholder }
++                            remember(basePlainPreview, memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords, contentPlaceholder) {
++                                val p =
++                                    if (showAutoTagLineInHome) {
++                                        basePlainPreview
++                                    } else {
++                                        val keys = autoTagKeywords
++                                        when {
++                                            keys.isEmpty() || basePlainPreview.isBlank() -> basePlainPreview
++                                            keys.any { basePlainPreview.contains(it) } ->
++                                                MarkdownDeriver.plainPreviewSkippingLinesEndingWithKeywords(
++                                                    markdown = memo.content,
++                                                    keywords = keys,
++                                                    maxChars = 320,
++                                                )
++
++                                            else -> basePlainPreview
++                                        }
++                                    }
++                                p.ifBlank { contentPlaceholder }
+                             }
+ 
+                         if (hasOneImage) {
+@@ -954,8 +982,12 @@ private fun CollectionItemCard(
+ 
+                                 Box(modifier = Modifier.weight(1f)) {
+                                     if (showRichPreview) {
++                                        val displayMarkdown =
++                                            remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
++                                                if (showAutoTagLineInHome) memo.content else AutoTagLineHider.hideFast(memo.content, autoTagKeywords)
++                                            }
+                                         MarkdownPreview(
+-                                            markdown = memo.content,
++                                            markdown = displayMarkdown,
+                                             placeholder = contentPlaceholder,
+                                             maxBlocks = 3,
+                                             maxLines = 4,
+@@ -974,8 +1006,12 @@ private fun CollectionItemCard(
+                             }
+                         } else {
+                             if (showRichPreview) {
++                                val displayMarkdown =
++                                    remember(memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords) {
++                                        if (showAutoTagLineInHome) memo.content else AutoTagLineHider.hideFast(memo.content, autoTagKeywords)
++                                    }
+                                 MarkdownPreview(
+-                                    markdown = memo.content,
++                                    markdown = displayMarkdown,
+                                     placeholder = contentPlaceholder,
+                                     maxBlocks = 4,
+                                     maxLines = 6,
+diff --git a/feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt b/feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt
+index 38701d2..204edab 100644
+--- a/feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt
++++ b/feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt
+@@ -43,6 +43,8 @@ data class CollectionsUiState(
+     val currentParentId: String? = null,
+     val breadcrumb: List<BreadcrumbSegment> = listOf(BreadcrumbSegment(id = null, label = "根目录")),
+     val items: List<CollectionItem> = emptyList(),
++    val devAutoTagLineKeywordsRaw: String = "__Atags",
++    val devShowAutoTagLineInHome: Boolean = false,
+     // NOTE_REF 引用的目标 Memo：key 为 targetId（与 UI 点击规则一致：refId ?: refLocalUuid）。
+     // 只在 ViewModel 层集中加载/缓存，避免在 LazyColumn item 内对每个条目单独 collect Flow（N+1 Flow）。
+     val memoByRefTargetId: Map<String, Memo> = emptyMap(),
+@@ -61,6 +63,11 @@ class CollectionsViewModel @Inject constructor(
+             .map { s -> s.loginMode == LoginMode.BACKEND && s.token.isNotBlank() }
+             .distinctUntilChanged()
+ 
++    private val devAutoTagLineConfigFlow =
++        settingsRepository.settings
++            .map { s -> s.devAutoTagLineKeywords to s.devShowAutoTagLineInHome }
++            .distinctUntilChanged()
++
+     private val _currentParentId = MutableStateFlow<String?>(null)
+     val currentParentId: StateFlow<String?> = _currentParentId.asStateFlow()
+ 
+@@ -129,8 +136,13 @@ class CollectionsViewModel @Inject constructor(
+                 )
+             },
+             memoByRefTargetId,
+-        ) { base, memosByTargetId ->
+-            base.copy(memoByRefTargetId = memosByTargetId)
++            devAutoTagLineConfigFlow,
++        ) { base, memosByTargetId, (keywordsRaw, showInHome) ->
++            base.copy(
++                memoByRefTargetId = memosByTargetId,
++                devAutoTagLineKeywordsRaw = keywordsRaw,
++                devShowAutoTagLineInHome = showInHome,
++            )
+         }
+             .stateIn(
+                 scope = viewModelScope,
+diff --git a/feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/AddToCollectionsViewModel.kt b/feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/AddToCollectionsViewModel.kt
+index 36ee707..c55bb6a 100644
+--- a/feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/AddToCollectionsViewModel.kt
++++ b/feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/AddToCollectionsViewModel.kt
+@@ -29,7 +29,21 @@ class AddToCollectionsViewModel @Inject constructor(
+     settingsRepository: SettingsRepository,
+     private val collectionsRepository: CollectionsRepository,
+ ) : ViewModel() {
+-    private val defaultAutoTagKeywords: List<String> = AutoTagLineHider.parseKeywords(null)
++    /**
++     * 关键字来源必须来自 settings（而不是固定默认值），同时做等价缓存：
++     * - 避免每次 buildDisplayName() 都重复 parse
++     * - 使用 SharingStarted.Eagerly，避免无人 collect 时 value 永远停留在 initialValue
++     */
++    private val autoTagLineKeywords: StateFlow<List<String>> =
++        settingsRepository.settings
++            .map { s -> s.devAutoTagLineKeywords }
++            .distinctUntilChanged()
++            .map { raw -> AutoTagLineHider.parseKeywords(raw) }
++            .stateIn(
++                scope = viewModelScope,
++                started = SharingStarted.Eagerly,
++                initialValue = AutoTagLineHider.parseKeywords(null),
++            )
+ 
+     val enabled: StateFlow<Boolean> =
+         settingsRepository.settings
+@@ -95,7 +109,7 @@ class AddToCollectionsViewModel @Inject constructor(
+         val candidate =
+             MarkdownDeriver.plainPreviewSkippingLinesEndingWithKeywords(
+                 markdown = memo.content,
+-                keywords = defaultAutoTagKeywords,
++                keywords = autoTagLineKeywords.value,
+                 maxChars = 80,
+             )
+                 .trim()

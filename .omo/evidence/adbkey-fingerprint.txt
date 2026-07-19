@@ -1,0 +1,2 @@
+fingerprint=23:13:ea:77:b3:cd:6a:4f:5b:2b:4d:8a:9c:d0:68:0b
+pubkey=/root/.android/adbkey.pub

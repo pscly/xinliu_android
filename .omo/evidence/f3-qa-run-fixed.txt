@@ -1,0 +1,19 @@
+2026-02-22T18:37:29+08:00
+List of devices attached
+192.168.12.101:5555    device product:ishtar model:2304FPN6DC device:ishtar transport_id:2
+
+--- Home: enter multiselect via long-press ---
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=9ms (0ms mobile, 0ms wifi, 9ms not connected)
+1:Physical size: 1440x3200
+center=720,1600 w=1440 h=3200
+WARN: cannot find '已选' in uix
+--- Home: exit multiselect via BACK ---
+--- Home: tap '...'(更多操作) and verify bottomsheet ---
+FAIL: no '更多操作' node; cannot auto-tap overflow
+--- Collections: open drawer and navigate to 锦囊 ---
+WARN: cannot find drawer item '锦囊'
+DONE

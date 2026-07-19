@@ -1,0 +1,19 @@
+[2026-02-22T18-55-51] F3 QA 场景复跑开始
+adb version:
+Android Debug Bridge version 1.0.41
+Version 34.0.4-debian
+Installed as /usr/lib/android-sdk/platform-tools/adb
+Running on Linux 6.8.0-100-generic (x86_64)
+adb devices -l:
+List of devices attached
+192.168.12.101:5555    device product:ishtar model:2304FPN6DC device:ishtar transport_id:2
+
+
+启动 app: monkey -p cc.pscly.onememos 1
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=13ms (0ms mobile, 0ms wifi, 13ms not connected)
+
+[Task1] 进入多选：定位第一个 long-clickable 节点并长按

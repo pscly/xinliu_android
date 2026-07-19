@@ -1,0 +1,7 @@
+ts=2026-02-22T17:43:37+08:00
+serial=192.168.12.101:5555
+== pm path ==
+package:/data/app/~~hXelwEuczgx-G5bc90SZKQ==/cc.pscly.onememos-5pZKCfALprKu-aL5fiUb2w==/base.apk
+
+== remote apk ==
+-rw-rw---- 1 u0_a242 media_rw 54072691 2026-02-22 14:38 /sdcard/Download/1memos-benchmark-2026-02-22T14-38-27.apk

@@ -1,0 +1,2 @@
+932 1291
+picked_bounds=[864,1228][1001,1354] checked=false dist=45

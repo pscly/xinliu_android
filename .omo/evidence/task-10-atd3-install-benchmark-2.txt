@@ -1,0 +1,23 @@
+app/build/outputs/apk/benchmark/app-benchmark.apk: 1 file pushed, 0 skipped. 22.6 MB/s (54089075 bytes in 2.285s)
+
+Exception occurred while executing 'install':
+java.lang.NullPointerException: Attempt to invoke virtual method 'java.util.List android.os.storage.StorageManager.getVolumes()' on a null object reference
+	at com.android.internal.content.InstallLocationUtils.resolveInstallVolume(InstallLocationUtils.java:203)
+	at com.android.internal.content.InstallLocationUtils.resolveInstallVolume(InstallLocationUtils.java:153)
+	at com.android.internal.content.InstallLocationUtils.resolveInstallVolume(InstallLocationUtils.java:168)
+	at com.android.server.pm.PackageInstallerService.createSessionInternal(PackageInstallerService.java:873)
+	at com.android.server.pm.PackageInstallerService.createSession(PackageInstallerService.java:626)
+	at com.android.server.pm.PackageManagerShellCommand.doCreateSession(PackageManagerShellCommand.java:3691)
+	at com.android.server.pm.PackageManagerShellCommand.doRunInstall(PackageManagerShellCommand.java:1561)
+	at com.android.server.pm.PackageManagerShellCommand.runInstall(PackageManagerShellCommand.java:1523)
+	at com.android.server.pm.PackageManagerShellCommand.onCommand(PackageManagerShellCommand.java:236)
+	at com.android.modules.utils.BasicShellCommandHandler.exec(BasicShellCommandHandler.java:97)
+	at android.os.ShellCommand.exec(ShellCommand.java:38)
+	at com.android.server.pm.PackageManagerService$IPackageManagerImpl.onShellCommand(PackageManagerService.java:6350)
+	at android.os.Binder.shellCommand(Binder.java:1068)
+	at android.os.Binder.onTransact(Binder.java:888)
+	at android.content.pm.IPackageManager$Stub.onTransact(IPackageManager.java:4352)
+	at com.android.server.pm.PackageManagerService$IPackageManagerImpl.onTransact(PackageManagerService.java:6334)
+	at android.os.Binder.execTransactInternal(Binder.java:1344)
+	at android.os.Binder.execTransact(Binder.java:1275)
+Performing Push Install

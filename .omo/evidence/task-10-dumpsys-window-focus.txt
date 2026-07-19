@@ -1,0 +1,4 @@
+93:  mCurrentFocus=Window{a967fd0 u0 Application Not Responding: system}
+94:  mFocusedApp=ActivityRecord{2ef2838 u0 com.android.fakesystemapp/.launcher.EmptyHomeActivity t4}
+354:  mCurrentFocus=Window{f8f0421 u0 Application Not Responding: cc.pscly.onememos}
+355:  mFocusedApp=ActivityRecord{63c37e0 u0 cc.pscly.onememos/.MainActivity t5}

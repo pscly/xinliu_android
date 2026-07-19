@@ -1,0 +1,12 @@
++   eth0 IPv4 PCHY (OpenClaw)                               _openclaw-gw._tcp    local
+=   eth0 IPv4 PCHY (OpenClaw)                               _openclaw-gw._tcp    local
+   hostname = [openclaw.local]
+   address = [192.168.3.10]
+   port = [18790]
+   txt = ["transport=gateway" "displayName=PCHY" "lanHost=openclaw.local" "gatewayPort=18790" "role=gateway"]
++   eth0 IPv4 Books in calibre (on PCHY port 34201)         _calibre._tcp        local
+=   eth0 IPv4 Books in calibre (on PCHY port 34201)         _calibre._tcp        local
+   hostname = [PCHY.local]
+   address = [192.168.3.10]
+   port = [34201]
+   txt = ["path=/opds"]

@@ -1,0 +1,4 @@
+start 2026-02-22T15:46:01+08:00
+== _adb-tls-connect._tcp ==
+== _adb-tls-pairing._tcp ==
+end 2026-02-22T15:46:03+08:00

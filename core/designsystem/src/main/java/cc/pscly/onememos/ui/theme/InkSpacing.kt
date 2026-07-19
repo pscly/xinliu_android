@@ -14,7 +14,8 @@ import androidx.compose.ui.unit.sp
 object InkSpacing {
     // ---------- 数值尺度（DESIGN.md §4.1） ----------
     val X1 = 1.dp // 发丝线：外框、纸面横线、朱砂竖线线宽
-    val X6 = 6.dp // TagChip 垂直内边距
+    val X2 = 2.dp // TagChip 垂直内边距（紧凑）
+    val X6 = 6.dp // 底部弹层标题间距 / 朱砂细线框内缩
     val X8 = 8.dp // InkChip / 表格单元格垂直内边距
     val X10 = 10.dp // TagChip 水平内边距、引用间隔
     val X12 = 12.dp // 纸面上下内边距、Markdown 块间距与代码块内边距
@@ -48,7 +49,7 @@ object InkSpacing {
     val ChipPaddingH = X12
     val ChipPaddingV = X8
     val TagPaddingH = X10
-    val TagPaddingV = X6
+    val TagPaddingV = X2
 
     // ---------- 语义别名：印章控件 ----------
     val SealButtonSize = X56

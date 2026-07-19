@@ -1,0 +1,10 @@
+start 2026-02-22T15:52:52+08:00
+== server 2.pscly.cn adb version ==
+retry_start 2026-02-22T15:55:21+08:00
+Android Debug Bridge version 1.0.41
+Version 34.0.4-debian
+Installed as /usr/lib/android-sdk/platform-tools/adb
+Running on Linux 6.8.0-100-generic (x86_64)
+List of devices attached
+
+retry_end 2026-02-22T15:55:22+08:00

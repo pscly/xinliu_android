@@ -1,0 +1,38 @@
+=== 192.168.12.3
+failed to connect to 192.168.12.3:5555
+List of devices attached
+192.168.12.101:5555    offline transport_id:2
+192.168.12.3:5555      offline transport_id:3
+
+=== 192.168.12.51
+failed to connect to 192.168.12.51:5555
+List of devices attached
+192.168.12.101:5555    offline transport_id:2
+192.168.12.3:5555      offline transport_id:3
+192.168.12.51:5555     offline transport_id:4
+
+=== 192.168.12.52
+failed to connect to 192.168.12.52:5555
+List of devices attached
+192.168.12.101:5555    offline transport_id:2
+192.168.12.3:5555      offline transport_id:3
+192.168.12.51:5555     offline transport_id:4
+192.168.12.52:5555     offline transport_id:5
+
+=== 192.168.12.101
+already connected to 192.168.12.101:5555
+List of devices attached
+192.168.12.101:5555    offline transport_id:2
+192.168.12.3:5555      offline transport_id:3
+192.168.12.51:5555     offline transport_id:4
+192.168.12.52:5555     offline transport_id:5
+
+=== 192.168.12.171
+failed to connect to 192.168.12.171:5555
+List of devices attached
+192.168.12.101:5555    offline transport_id:2
+192.168.12.171:5555    offline transport_id:7
+192.168.12.3:5555      offline transport_id:3
+192.168.12.51:5555     offline transport_id:4
+192.168.12.52:5555     offline transport_id:5
+

@@ -1,0 +1,2 @@
+adb: failed to install /root/1codes/xinliu_android/app/build/outputs/apk/benchmark/onememos-benchmark-2026-02-27T12-23-01.apk: Failure [INSTALL_FAILED_OLDER_SDK: Failed parse during installPackageLI: /data/app/vmdl979733823.tmp/base.apk (at Binary XML file line #7): Requires newer sdk version #33 (current version is #28)]
+Performing Streamed Install

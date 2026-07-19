@@ -1,0 +1,17 @@
+[2026-02-22T19-17-58] post-unlock dump check
+start onememos
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=31ms (0ms mobile, 0ms wifi, 31ms not connected)
+dump#1 package=com.android.systemui
+dump#2 package=com.android.systemui
+dump#3 package=com.android.systemui
+dump#4 package=com.android.systemui
+dump#5 package=com.android.systemui
+dump#6 package=com.android.systemui
+dump#7 package=com.android.systemui
+dump#8 package=com.android.systemui
+dump#9 package=com.android.systemui
+dump#10 package=com.android.systemui

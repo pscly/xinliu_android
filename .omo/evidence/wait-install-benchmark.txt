@@ -1,0 +1,542 @@
+wait_install_start 2026-02-22T15:00:31+08:00 apk=/root/1codes/xinliu_android/app/build/outputs/apk/benchmark/2026-02-22T14-38-27.apk
+--- poll 1 2026-02-22T15:00:31+08:00
+List of devices attached
+
+--- poll 2 2026-02-22T15:00:33+08:00
+List of devices attached
+
+--- poll 3 2026-02-22T15:00:35+08:00
+List of devices attached
+
+--- poll 4 2026-02-22T15:00:37+08:00
+List of devices attached
+
+--- poll 5 2026-02-22T15:00:39+08:00
+List of devices attached
+
+--- poll 6 2026-02-22T15:00:41+08:00
+List of devices attached
+
+--- poll 7 2026-02-22T15:00:43+08:00
+List of devices attached
+
+--- poll 8 2026-02-22T15:00:45+08:00
+List of devices attached
+
+--- poll 9 2026-02-22T15:00:47+08:00
+List of devices attached
+
+--- poll 10 2026-02-22T15:00:50+08:00
+List of devices attached
+
+--- poll 11 2026-02-22T15:00:52+08:00
+List of devices attached
+
+--- poll 12 2026-02-22T15:00:54+08:00
+List of devices attached
+
+--- poll 13 2026-02-22T15:00:56+08:00
+List of devices attached
+
+--- poll 14 2026-02-22T15:00:58+08:00
+List of devices attached
+
+--- poll 15 2026-02-22T15:01:00+08:00
+List of devices attached
+
+--- poll 16 2026-02-22T15:01:02+08:00
+List of devices attached
+
+--- poll 17 2026-02-22T15:01:04+08:00
+List of devices attached
+
+--- poll 18 2026-02-22T15:01:06+08:00
+List of devices attached
+
+--- poll 19 2026-02-22T15:01:08+08:00
+List of devices attached
+
+--- poll 20 2026-02-22T15:01:10+08:00
+List of devices attached
+
+--- poll 21 2026-02-22T15:01:12+08:00
+List of devices attached
+
+--- poll 22 2026-02-22T15:01:14+08:00
+List of devices attached
+
+--- poll 23 2026-02-22T15:01:16+08:00
+List of devices attached
+
+--- poll 24 2026-02-22T15:01:18+08:00
+List of devices attached
+
+--- poll 25 2026-02-22T15:01:20+08:00
+List of devices attached
+
+--- poll 26 2026-02-22T15:01:22+08:00
+List of devices attached
+
+--- poll 27 2026-02-22T15:01:24+08:00
+List of devices attached
+
+--- poll 28 2026-02-22T15:01:26+08:00
+List of devices attached
+
+--- poll 29 2026-02-22T15:01:28+08:00
+List of devices attached
+
+--- poll 30 2026-02-22T15:01:30+08:00
+List of devices attached
+
+--- poll 31 2026-02-22T15:01:32+08:00
+List of devices attached
+
+--- poll 32 2026-02-22T15:01:34+08:00
+List of devices attached
+
+--- poll 33 2026-02-22T15:01:36+08:00
+List of devices attached
+
+--- poll 34 2026-02-22T15:01:38+08:00
+List of devices attached
+
+--- poll 35 2026-02-22T15:01:40+08:00
+List of devices attached
+
+--- poll 36 2026-02-22T15:01:42+08:00
+List of devices attached
+
+--- poll 37 2026-02-22T15:01:44+08:00
+List of devices attached
+
+--- poll 38 2026-02-22T15:01:46+08:00
+List of devices attached
+
+--- poll 39 2026-02-22T15:01:48+08:00
+List of devices attached
+
+--- poll 40 2026-02-22T15:01:50+08:00
+List of devices attached
+
+--- poll 41 2026-02-22T15:01:52+08:00
+List of devices attached
+
+--- poll 42 2026-02-22T15:01:54+08:00
+List of devices attached
+
+--- poll 43 2026-02-22T15:01:56+08:00
+List of devices attached
+
+--- poll 44 2026-02-22T15:01:58+08:00
+List of devices attached
+
+--- poll 45 2026-02-22T15:02:00+08:00
+List of devices attached
+
+--- poll 46 2026-02-22T15:02:02+08:00
+List of devices attached
+
+--- poll 47 2026-02-22T15:02:04+08:00
+List of devices attached
+
+--- poll 48 2026-02-22T15:02:06+08:00
+List of devices attached
+
+--- poll 49 2026-02-22T15:02:08+08:00
+List of devices attached
+
+--- poll 50 2026-02-22T15:02:10+08:00
+List of devices attached
+
+--- poll 51 2026-02-22T15:02:12+08:00
+List of devices attached
+
+--- poll 52 2026-02-22T15:02:14+08:00
+List of devices attached
+
+--- poll 53 2026-02-22T15:02:16+08:00
+List of devices attached
+
+--- poll 54 2026-02-22T15:02:18+08:00
+List of devices attached
+
+--- poll 55 2026-02-22T15:02:20+08:00
+List of devices attached
+
+--- poll 56 2026-02-22T15:02:22+08:00
+List of devices attached
+
+--- poll 57 2026-02-22T15:02:24+08:00
+List of devices attached
+
+--- poll 58 2026-02-22T15:02:26+08:00
+List of devices attached
+
+--- poll 59 2026-02-22T15:02:28+08:00
+List of devices attached
+
+--- poll 60 2026-02-22T15:02:30+08:00
+List of devices attached
+
+--- poll 61 2026-02-22T15:02:33+08:00
+List of devices attached
+
+--- poll 62 2026-02-22T15:02:35+08:00
+List of devices attached
+
+--- poll 63 2026-02-22T15:02:37+08:00
+List of devices attached
+
+--- poll 64 2026-02-22T15:02:39+08:00
+List of devices attached
+
+--- poll 65 2026-02-22T15:02:41+08:00
+List of devices attached
+
+--- poll 66 2026-02-22T15:02:43+08:00
+List of devices attached
+
+--- poll 67 2026-02-22T15:02:45+08:00
+List of devices attached
+
+--- poll 68 2026-02-22T15:02:47+08:00
+List of devices attached
+
+--- poll 69 2026-02-22T15:02:49+08:00
+List of devices attached
+
+--- poll 70 2026-02-22T15:02:51+08:00
+List of devices attached
+
+--- poll 71 2026-02-22T15:02:53+08:00
+List of devices attached
+
+--- poll 72 2026-02-22T15:02:55+08:00
+List of devices attached
+
+--- poll 73 2026-02-22T15:02:57+08:00
+List of devices attached
+
+--- poll 74 2026-02-22T15:02:59+08:00
+List of devices attached
+
+--- poll 75 2026-02-22T15:03:01+08:00
+List of devices attached
+
+--- poll 76 2026-02-22T15:03:03+08:00
+List of devices attached
+
+--- poll 77 2026-02-22T15:03:05+08:00
+List of devices attached
+
+--- poll 78 2026-02-22T15:03:07+08:00
+List of devices attached
+
+--- poll 79 2026-02-22T15:03:09+08:00
+List of devices attached
+
+--- poll 80 2026-02-22T15:03:11+08:00
+List of devices attached
+
+--- poll 81 2026-02-22T15:03:13+08:00
+List of devices attached
+
+--- poll 82 2026-02-22T15:03:15+08:00
+List of devices attached
+
+--- poll 83 2026-02-22T15:03:17+08:00
+List of devices attached
+
+--- poll 84 2026-02-22T15:03:19+08:00
+List of devices attached
+
+--- poll 85 2026-02-22T15:03:21+08:00
+List of devices attached
+
+--- poll 86 2026-02-22T15:03:23+08:00
+List of devices attached
+
+--- poll 87 2026-02-22T15:03:25+08:00
+List of devices attached
+
+--- poll 88 2026-02-22T15:03:27+08:00
+List of devices attached
+
+--- poll 89 2026-02-22T15:03:29+08:00
+List of devices attached
+
+--- poll 90 2026-02-22T15:03:31+08:00
+List of devices attached
+
+--- poll 91 2026-02-22T15:03:33+08:00
+List of devices attached
+
+--- poll 92 2026-02-22T15:03:35+08:00
+List of devices attached
+
+--- poll 93 2026-02-22T15:03:37+08:00
+List of devices attached
+
+--- poll 94 2026-02-22T15:03:39+08:00
+List of devices attached
+
+--- poll 95 2026-02-22T15:03:41+08:00
+List of devices attached
+
+--- poll 96 2026-02-22T15:03:43+08:00
+List of devices attached
+
+--- poll 97 2026-02-22T15:03:45+08:00
+List of devices attached
+
+--- poll 98 2026-02-22T15:03:47+08:00
+List of devices attached
+
+--- poll 99 2026-02-22T15:03:49+08:00
+List of devices attached
+
+--- poll 100 2026-02-22T15:03:51+08:00
+List of devices attached
+
+--- poll 101 2026-02-22T15:03:53+08:00
+List of devices attached
+
+--- poll 102 2026-02-22T15:03:55+08:00
+List of devices attached
+
+--- poll 103 2026-02-22T15:03:57+08:00
+List of devices attached
+
+--- poll 104 2026-02-22T15:03:59+08:00
+List of devices attached
+
+--- poll 105 2026-02-22T15:04:01+08:00
+List of devices attached
+
+--- poll 106 2026-02-22T15:04:03+08:00
+List of devices attached
+
+--- poll 107 2026-02-22T15:04:05+08:00
+List of devices attached
+
+--- poll 108 2026-02-22T15:04:07+08:00
+List of devices attached
+
+--- poll 109 2026-02-22T15:04:09+08:00
+List of devices attached
+
+--- poll 110 2026-02-22T15:04:11+08:00
+List of devices attached
+
+--- poll 111 2026-02-22T15:04:13+08:00
+List of devices attached
+
+--- poll 112 2026-02-22T15:04:15+08:00
+List of devices attached
+
+--- poll 113 2026-02-22T15:04:18+08:00
+List of devices attached
+
+--- poll 114 2026-02-22T15:04:20+08:00
+List of devices attached
+
+--- poll 115 2026-02-22T15:04:22+08:00
+List of devices attached
+
+--- poll 116 2026-02-22T15:04:24+08:00
+List of devices attached
+
+--- poll 117 2026-02-22T15:04:26+08:00
+List of devices attached
+
+--- poll 118 2026-02-22T15:04:28+08:00
+List of devices attached
+
+--- poll 119 2026-02-22T15:04:30+08:00
+List of devices attached
+
+--- poll 120 2026-02-22T15:04:32+08:00
+List of devices attached
+
+--- poll 121 2026-02-22T15:04:34+08:00
+List of devices attached
+
+--- poll 122 2026-02-22T15:04:36+08:00
+List of devices attached
+
+--- poll 123 2026-02-22T15:04:38+08:00
+List of devices attached
+
+--- poll 124 2026-02-22T15:04:40+08:00
+List of devices attached
+
+--- poll 125 2026-02-22T15:04:42+08:00
+List of devices attached
+
+--- poll 126 2026-02-22T15:04:44+08:00
+List of devices attached
+
+--- poll 127 2026-02-22T15:04:46+08:00
+List of devices attached
+
+--- poll 128 2026-02-22T15:04:48+08:00
+List of devices attached
+
+--- poll 129 2026-02-22T15:04:50+08:00
+List of devices attached
+
+--- poll 130 2026-02-22T15:04:52+08:00
+List of devices attached
+
+--- poll 131 2026-02-22T15:04:54+08:00
+List of devices attached
+
+--- poll 132 2026-02-22T15:04:56+08:00
+List of devices attached
+
+--- poll 133 2026-02-22T15:04:58+08:00
+List of devices attached
+
+--- poll 134 2026-02-22T15:05:00+08:00
+List of devices attached
+
+--- poll 135 2026-02-22T15:05:02+08:00
+List of devices attached
+
+--- poll 136 2026-02-22T15:05:04+08:00
+List of devices attached
+
+--- poll 137 2026-02-22T15:05:06+08:00
+List of devices attached
+
+--- poll 138 2026-02-22T15:05:08+08:00
+List of devices attached
+
+--- poll 139 2026-02-22T15:05:10+08:00
+List of devices attached
+
+--- poll 140 2026-02-22T15:05:12+08:00
+List of devices attached
+
+--- poll 141 2026-02-22T15:05:14+08:00
+List of devices attached
+
+--- poll 142 2026-02-22T15:05:16+08:00
+List of devices attached
+
+--- poll 143 2026-02-22T15:05:18+08:00
+List of devices attached
+
+--- poll 144 2026-02-22T15:05:20+08:00
+List of devices attached
+
+--- poll 145 2026-02-22T15:05:22+08:00
+List of devices attached
+
+--- poll 146 2026-02-22T15:05:24+08:00
+List of devices attached
+
+--- poll 147 2026-02-22T15:05:26+08:00
+List of devices attached
+
+--- poll 148 2026-02-22T15:05:28+08:00
+List of devices attached
+
+--- poll 149 2026-02-22T15:05:30+08:00
+List of devices attached
+
+--- poll 150 2026-02-22T15:05:32+08:00
+List of devices attached
+
+--- poll 151 2026-02-22T15:05:34+08:00
+List of devices attached
+
+--- poll 152 2026-02-22T15:05:36+08:00
+List of devices attached
+
+--- poll 153 2026-02-22T15:05:38+08:00
+List of devices attached
+
+--- poll 154 2026-02-22T15:05:40+08:00
+List of devices attached
+
+--- poll 155 2026-02-22T15:05:42+08:00
+List of devices attached
+
+--- poll 156 2026-02-22T15:05:44+08:00
+List of devices attached
+
+--- poll 157 2026-02-22T15:05:46+08:00
+List of devices attached
+
+--- poll 158 2026-02-22T15:05:48+08:00
+List of devices attached
+
+--- poll 159 2026-02-22T15:05:50+08:00
+List of devices attached
+
+--- poll 160 2026-02-22T15:05:52+08:00
+List of devices attached
+
+--- poll 161 2026-02-22T15:05:54+08:00
+List of devices attached
+
+--- poll 162 2026-02-22T15:05:56+08:00
+List of devices attached
+
+--- poll 163 2026-02-22T15:05:59+08:00
+List of devices attached
+
+--- poll 164 2026-02-22T15:06:01+08:00
+List of devices attached
+
+--- poll 165 2026-02-22T15:06:03+08:00
+List of devices attached
+
+--- poll 166 2026-02-22T15:06:05+08:00
+List of devices attached
+
+--- poll 167 2026-02-22T15:06:07+08:00
+List of devices attached
+
+--- poll 168 2026-02-22T15:06:09+08:00
+List of devices attached
+
+--- poll 169 2026-02-22T15:06:11+08:00
+List of devices attached
+
+--- poll 170 2026-02-22T15:06:13+08:00
+List of devices attached
+
+--- poll 171 2026-02-22T15:06:15+08:00
+List of devices attached
+
+--- poll 172 2026-02-22T15:06:17+08:00
+List of devices attached
+
+--- poll 173 2026-02-22T15:06:19+08:00
+List of devices attached
+
+--- poll 174 2026-02-22T15:06:21+08:00
+List of devices attached
+
+--- poll 175 2026-02-22T15:06:23+08:00
+List of devices attached
+
+--- poll 176 2026-02-22T15:06:25+08:00
+List of devices attached
+
+--- poll 177 2026-02-22T15:06:27+08:00
+List of devices attached
+
+--- poll 178 2026-02-22T15:06:29+08:00
+List of devices attached
+
+--- poll 179 2026-02-22T15:06:31+08:00
+List of devices attached
+
+--- poll 180 2026-02-22T15:06:33+08:00
+List of devices attached
+
+TIMEOUT_NO_DEVICE 2026-02-22T15:06:35+08:00

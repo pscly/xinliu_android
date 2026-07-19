@@ -435,3 +435,61 @@ SharedTransitionLayout {
 - CONTEXT.md 领域词汇更新应同时核对 strings.xml 中文标签确保一致
 - ReadingConfig 虽在 OneMemosTheme + 设置 UI 中暴露，但阅读模式不是 M3.3 独立落地的「四档字号+行距滑块」，需在债务表中区分"schema 已就绪"与"设置页交互已就绪"
 
+
+## [2026-07-18] M3.3 done - 阅读模式字号/行距
+
+### 实现
+- NEW `ReadingConfig` + `LocalReadingConfig`：字号 SMALL/STANDARD/LARGE/EXTRA_LARGE → 13/14/16/18.sp；基准行高 18/20/24/28.sp；行距 COMPACT/STANDARD/RELAXED 系数 0.875/1.0/1.25
+- `OneMemosThemeConfig` 增 `readingFontScale`/`readingLineHeight`；`OneMemosTheme` 下发 LocalReadingConfig
+- `AppViewModel`/`QuickCaptureOverlayService` 从 AppSettings 映射完整 themeDescriptor + 阅读字段
+- SettingsRepository 增 setter（默认空实现避 Fake 全量改）；DataStore key 沿用 M1 `reading_font_scale`/`line_height`
+- Appearance 深能力/ViewModel/Screen：阅读模式分区（字号四档 + 行距三档）；文案用「字号·」「行距·」前缀避免与密度「标准」冲突
+- MemoItem 正文 plain 预览、EditorScreen `HighlightingEditorField` 消费 LocalReadingConfig
+
+### 验证
+- `:core:designsystem:testDebugUnitTest` ReadingConfigTest 绿
+- `:core:settings:testDebugUnitTest` AppearanceInteractionSettingsCapabilityImplTest 绿
+- `:feature:settings:testDebugUnitTest` appearance.* 绿
+- `:app:compileBenchmarkKotlin` 绿
+
+### 经验
+- Appearance 选项文案若与其它 Section 共用「标准/宽松/紧凑」，Compose `onNodeWithText` assertExists 会因多节点失败——阅读档位应用唯一前缀
+- SettingsRepository 新方法优先 default 空实现，可避免十余处 FakeSettingsRepository 同步改接口
+- 阅读行距档是基准行高的乘数，不是独立 sp 表；字号表以 PRD 为准
+- 任务约束：不 bump versionCode、不 push
+
+## [2026-07-18] M3.R 本地验收完成——里程碑 3 发布 1.12.0 (160)
+
+### 交付总结
+- **版本**：1.11.0 (159) → **1.12.0 (160)**
+- **提交**：`79afa4a` `chore(release): bump 1.12.0 (160) M3 全屏迁移+无障碍收口`
+- **变更文件**：仅 `app/build.gradle.kts`（versionCode/versionName）+ `.ai_session.md`（M3.R 收口摘要）
+
+### 门禁通过
+| 门禁 | 结果 |
+|------|------|
+| `verify-architecture.sh` | exit 0 |
+| `:core:designsystem:testDebugUnitTest` | BUILD SUCCESSFUL |
+| `:feature:home:testDebugUnitTest` | BUILD SUCCESSFUL |
+| `:feature:editor:testDebugUnitTest` | BUILD SUCCESSFUL |
+| `:feature:settings:testDebugUnitTest` | BUILD SUCCESSFUL |
+| `:app:testDebugUnitTest` | BUILD SUCCESSFUL |
+| `:app:assembleBenchmark` | BUILD SUCCESSFUL |
+
+### APK
+- **路径**：`app/build/outputs/apk/benchmark/2026-07-18T22-21-38.apk`
+- **包名**：`cc.pscly.onememos`（output-metadata.json 核验）
+- **版本**：`1.12.0 (160)`（output-metadata.json 核验）
+- **签名**：本地 debug 签名（无 `ANDROID_RELEASE_*` 环境变量）
+
+### BLOCKED_SIGNING_MISSING
+- `ANDROID_RELEASE_*` 四项（keystore/storePassword/keyAlias/keyPassword）均未在本机设置
+- 本次 APK 由本地 `debug.keystore` 签名，**不得**用作 GitHub latest Release
+- 远端固定签名证书 SHA-256：`58749c794f0c54af6b69bb6d80248a9fda0b75c687fde55b98d9575fc091633e`
+- 远端闭环待签名/Secrets 可用后执行：push main → tag `v1.12.0` → Actions → 核验证书 → 非草稿 Release
+
+### 不做
+- 未 push（main 领先 origin 44 提交）
+- 未 tag（本地无 `v1.12.0` tag）
+- 未创建 GitHub Release
+- 未修改任何 feature 代码

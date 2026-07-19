@@ -1,0 +1,2 @@
+[1] UI hierchary dumped to: /sdcard/ui.xml
+PULLED after-anr-1.xml

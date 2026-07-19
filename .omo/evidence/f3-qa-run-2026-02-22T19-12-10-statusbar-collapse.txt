@@ -1,0 +1,10 @@
+[2026-02-22T19-12-10] statusbar collapse debug
+before collapse: dumpsys window focus
+380:  mCurrentFocus=Window{b60885e u0 cc.pscly.onememos/cc.pscly.onememos.MainActivity}
+591:    isKeyguardShowing=false
+cmd statusbar collapse
+dump#1 package=com.android.systemui
+dump#2 package=com.android.systemui
+dump#3 package=com.android.systemui
+dump#4 package=com.android.systemui
+dump#5 package=com.android.systemui

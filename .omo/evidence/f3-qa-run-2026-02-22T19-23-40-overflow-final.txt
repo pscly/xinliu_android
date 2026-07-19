@@ -1,0 +1,26 @@
+[2026-02-22T19-23-40] overflow 证据最终复跑
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=12ms (0ms mobile, 0ms wifi, 12ms not connected)
+reset to home list: BACK x5
+home has title?
+found_overflow_nodes=0
+try tap first 5 overflow nodes until assertions pass
+tap overflow#1 at  
+not matched yet; show any of keywords:
+BACK to close any opened UI
+tap overflow#2 at  
+not matched yet; show any of keywords:
+BACK to close any opened UI
+tap overflow#3 at  
+not matched yet; show any of keywords:
+BACK to close any opened UI
+tap overflow#4 at  
+not matched yet; show any of keywords:
+BACK to close any opened UI
+tap overflow#5 at  
+not matched yet; show any of keywords:
+BACK to close any opened UI
+ERROR: overflow bottom sheet 未复现（未同时出现 放入锦囊 + 墨迹卡片）

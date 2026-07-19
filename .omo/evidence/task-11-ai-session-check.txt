@@ -1,0 +1,114 @@
+## ai_session checks
+
+### key files
+9:  - `feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt`
+10:  - `feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt`
+14:  - （回溯 Home 多选）`feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+23:  - `feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt`
+33:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+38:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/MemoItem.kt`
+48:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：
+62:    - `feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsViewModel.kt`：新增 `currentParentId`、`breadcrumb`（根目录 -> 当前路径）与 `navigateUp()/enterFolder()/goToParent()`。
+64:    - `feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt`：长按进入多选；批量移动/改色/删除；新建文件夹；重命名；同层排序（上移/下移 + 完成提交 `reorder`）。
+79:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/AddToCollectionsDialog.kt`：从 `AlertDialog` 改为 `ModalBottomSheet`；文件夹选择行改为 `InkCard`；创建/放入时增加 haptics；若 memo 尚无 `serverId` 则 toast 提示“已放入锦囊（待同步）”。
+80:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：锦囊不可用文案统一为“请先使用 Flow Backend 登录后再使用锦囊；自定义服务器模式暂不支持。”
+95:    - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：长按“更多操作”增加“放入锦囊”；弹出选择器（root/文件夹）并支持快速新建文件夹
+96:    - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/AddToCollectionsDialog.kt`
+97:    - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/AddToCollectionsViewModel.kt`
+100:    - `feature/collections/src/main/java/cc/pscly/onememos/ui/feature/collections/CollectionsScreen.kt`
+142:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：
+406:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：将 per-item `SideEffect` 改为 `LaunchedEffect`，避免重组时写入状态导致额外工作。
+407:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/MemoItem.kt`：缩略图 `ImageRequest` 显式 `.size(px)`（从 `LocalDensity` 换算），减少解码/缩放开销。
+586:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+601:- 背景：HomeScreen.kt 体量过大（千行级），后续迭代容易回归；本次只做“挪文件”，不改 UI 行为。
+603:  - 新增 `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/MemoItem.kt`：承载 `MemoItem()` 与 `usableFileUri()`。
+604:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：移除 `MemoItem()` 大段实现，仅保留调用。
+624:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：`usableFileUri()` 移除 `File.exists()`（避免 Compose 滚动/重组路径磁盘 IO）。
+841:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：增加“同步”按钮（触发 WorkManager）
+853:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：归档状态文案更准确
+901:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：展示失败原因（lastSyncError）
+922:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：失败原因（lastSyncError）展示
+942:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：卡片布局加入首图缩略图
+958:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：首图缩略图卡片布局 + “附件：x 个”
+973:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：首图选择与过滤逻辑
+1035:  - `app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：列表预览优化
+1155:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1183:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1191:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1200:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1237:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1272:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1597:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1688:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1756:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+1992:  - `app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt` / `HomeViewModel.kt`：首帧后自动后台同步（仅登录后）
+2060:- 核心变更（待落地）：`ui/OneMemosApp.kt`、`ui/feature/home/HomeScreen.kt`、`ui/feature/profile/ProfileScreen.kt`、`ui/feature/profile/ProfileViewModel.kt`、`ui/feature/settings/SettingsScreen.kt`
+2071:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：TopAppBar 改为左侧汉堡按钮打开菜单（标题不再承担菜单职责）
+2122:  - Paging 3：`1memos/app/src/main/java/cc/pscly/onememos/core/database/dao/MemoDao.kt`、`1memos/app/src/main/java/cc/pscly/onememos/domain/repository/MemoRepository.kt`、`1memos/app/src/main/java/cc/pscly/onememos/data/repository/MemoRepositoryImpl.kt`、`1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeViewModel.kt`、`1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`、`1memos/gradle/libs.versions.toml`、`1memos/app/build.gradle.kts`
+2139:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：列表改为 LazyPagingItems，补齐加载/错误/追加加载的 UI。
+2228:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：刷新 UI 策略调整（non-blocking refresh）
+2302:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：回到顶部按钮 + 绑定列表 state
+2317:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：搜索/筛选徽标 + 标题栏下方状态浮窗（搜索词/标签/清除）
+2332:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：缩略图请求优化（禁用 crossfade）
+2348:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：首页缩略图禁用 crossfade + 缓存 ImageRequest
+2399:  - 1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt：主页 1B 渲染策略 + 标签/多图限量
+2417:  - 1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt：首页 MemoItem 改为“按行跳过元数据行”生成预览，并统一使用更友好的占位文案
+2467:  - 1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt：首页 rich preview 隐藏元数据改用 `hideFast()`，并优化 remember keys
+2486:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：
+2504:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：进入 Editor 前捕获滚动位置；返回时恢复 `LazyColumn` 到指定 index/offset。
+2541:  - `1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeViewModel.kt`、`1memos/app/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`：改造恢复流程（先检查 itemCount 足够再 markRestored）。
+2868:  - 修改：`feature/home/.../HomeScreen.kt` + `HomeViewModel.kt`（顶部同步/离线/鉴权 Banner，同步中禁用刷新）
+2912:  - `feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+2925:  - 修改：`feature/home/src/main/java/cc/pscly/onememos/ui/feature/home/HomeScreen.kt`
+
+### key commands
+15:- 验证命令：`./scripts/verify.sh`
+17:  - 构建命令：`./scripts/build-benchmark-apk.sh`
+125:- 验证命令（门禁）：`bash ./scripts/verify.sh`（OK；日志：`.sisyphus/evidence/task-7-verify.log`）
+126:- benchmark 构建命令：`bash ./scripts/build-benchmark-apk.sh`（OK；日志：`.sisyphus/evidence/task-7-build-benchmark.log`）
+169:  - 门禁：`./scripts/verify.sh` 通过；`app/build/reports/lint-results-debug.txt` 为 `No issues found.`
+193:  - `./scripts/verify.sh`（通过；metrics Permission denied 告警已消除）
+229:  - `./scripts/verify.sh`（通过）
+264:  - `./scripts/verify.sh`（通过）：`:app:assembleDebug` + `:app:testDebugUnitTest` + `:app:lintDebug` + `:app:assembleBenchmark`
+2831:  - 门禁：`./scripts/verify.sh` 通过（JDK21；Kotlin in-process）。
+2848:  - 门禁：`./scripts/verify.sh` 通过（JDK21；Kotlin in-process；benchmark 在 stop daemon 后构建更稳）。
+2874:  - 门禁：`./scripts/verify.sh` 通过。
+2899:  - 门禁：`./scripts/verify.sh` 通过。
+2943:  - 命令：`./scripts/build-benchmark-apk.sh`
+
+### benchmark apk paths
+18:  - 产物：`/root/1codes/xinliu_android/app/build/outputs/apk/benchmark/2026-02-21T11-26-55.apk`
+28:  - benchmark APK：`app/build/outputs/apk/benchmark/2026-02-21T11-16-10.apk`
+56:  - benchmark APK：`app/build/outputs/apk/benchmark/2026-02-14T01-20-05.apk`
+74:  - benchmark APK：`app/build/outputs/apk/benchmark/2026-02-14T00-39-06.apk`
+84:  - benchmark APK：`app/build/outputs/apk/benchmark/2026-02-14T00-56-49.apk`
+115:- benchmark 交付：`./gradlew :app:assembleBenchmarkRelease`（OK）；本地时间戳 APK：`app/build/outputs/apk/benchmark/2026-02-13T21-50-42.apk`；`adb connect 192.168.12.101:5555 && adb install -r <apk>`（OK）。
+127:- 最新时间戳 benchmark APK：`app/build/outputs/apk/benchmark/2026-02-12T10-12-56.apk`
+171:    - 本地 benchmark APK：`app/build/outputs/apk/benchmark/2026-02-07T23-24-30.apk`
+178:  - 本地 APK：`app/build/outputs/apk/benchmark/2026-02-07T23-00-40.apk`
+203:  - benchmark APK：`app/build/outputs/apk/benchmark/2026-02-07T20-50-49.apk`
+231:  - benchmark APK：`app/build/outputs/apk/benchmark/2026-02-07T20-34-11.apk`
+266:  - benchmark APK：`app/build/outputs/apk/benchmark/2026-02-07T19-13-56.apk`
+282:    - 本地：`app/build/outputs/apk/benchmark/2026-02-07T00-41-15.apk`
+309:    - 本地：`app/build/outputs/apk/benchmark/2026-02-07T00-05-38.apk`
+335:    - 本地：`app/build/outputs/apk/benchmark/2026-02-06T23-07-07.apk`
+401:- 产物：`app/build/outputs/apk/benchmark/2026-02-03T10-14-17.apk`
+414:- 产物：`app/build/outputs/apk/benchmark/2026-02-03T08-20-09.apk`（由 `scripts/copy-benchmark-apk.ps1` 复制生成）
+420:- 产物：`1memos/app/build/outputs/apk/benchmark/2026-02-03T04-14-45.apk`
+462:- 产物：`1memos/app/build/outputs/apk/benchmark/2026-02-03T00-32-08.apk`
+477:- 产物：`1memos/app/build/outputs/apk/benchmark/2026-02-02T23-52-50.apk`
+490:- 产物：`1memos/app/build/outputs/apk/benchmark/2026-02-02T21-38-56.apk`
+597:  - 时间戳基准 APK：`1memos/app/build/outputs/apk/benchmark/2026-01-31T23-38-56.apk`（由脚本复制生成）
+2591:- 产物：`1memos/app/build/outputs/apk/benchmark/2026-02-03T01-24-08.apk`
+2693:  - 产物：`app/build/outputs/apk/benchmark/benchmark-2026-02-04T23-41-39.apk`
+2745:  - 产物：`app/build/outputs/apk/benchmark/benchmark-2026-02-06T14-48-40.apk`
+2769:  - 产物：`app/build/outputs/apk/benchmark/benchmark-2026-02-06T15-31-05.apk`。
+2784:  - 产物：`app/build/outputs/apk/benchmark/benchmark-2026-02-06T15-41-37.apk`。
+2813:  - 产物：`app/build/outputs/apk/benchmark/benchmark-2026-02-06T16-03-19.apk`。
+2832:  - 产物：`app/build/outputs/apk/benchmark/2026-02-06T18-33-27.apk`。
+2849:  - 产物：`app/build/outputs/apk/benchmark/2026-02-06T18-53-30.apk`。
+2875:  - 产物：`app/build/outputs/apk/benchmark/2026-02-06T19-52-34.apk`。
+2900:  - 产物：`app/build/outputs/apk/benchmark/2026-02-06T20-28-49.apk`。
+2945:  - 产物：`app/build/outputs/apk/benchmark/2026-02-08T00-16-31.apk`
+2969:- 产物：`app/build/outputs/apk/benchmark/2026-02-12T16-32-39.apk`
+2972:  - 安装：`adb install -r app/build/outputs/apk/benchmark/2026-02-12T16-32-39.apk` -> `device offline`

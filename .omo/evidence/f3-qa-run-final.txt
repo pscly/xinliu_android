@@ -1,0 +1,20 @@
+2026-02-22T18:40:03+08:00
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=18ms (0ms mobile, 0ms wifi, 18ms not connected)
+Physical size: 1440x3200
+w=1440 h=3200
+--- enter multiselect ---
+WARN: no 已选
+--- exit multiselect by tapping '退出多选' ---
+exit_xy=
+OK: selection markers not found
+--- open overflow by tapping '更多操作' ---
+more_xy=
+FAIL: cannot find '更多操作' in uix
+--- attempt open drawer and click 锦囊 ---
+jinnang_xy=
+WARN: cannot find drawer item 锦囊
+DONE

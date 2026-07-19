@@ -1,0 +1,10 @@
+-- port 37099
+Connection to 192.168.12.101 37099 port [tcp/*] succeeded!
+-- port 37100
+Connection to 192.168.12.101 37100 port [tcp/*] succeeded!
+-- port 37101
+Connection to 192.168.12.101 37101 port [tcp/*] succeeded!
+-- port 5555
+Connection to 192.168.12.101 5555 port [tcp/*] succeeded!
+-- port 5037
+Connection to 192.168.12.101 5037 port [tcp/*] succeeded!

@@ -1,0 +1,28 @@
+== adb version ==
+Android Debug Bridge version 1.0.41
+Version 34.0.4-debian
+Installed as /usr/lib/android-sdk/platform-tools/adb
+Running on Linux 6.8.0-100-generic (x86_64)
+
+== adb devices -l ==
+List of devices attached
+
+
+== adb get-state ==
+
+== adb reconnect offline ==
+
+
+== adb devices after reconnect ==
+List of devices attached
+
+
+== ping 192.168.12.101 ==
+PING 192.168.12.101 (192.168.12.101) 56(84) bytes of data.
+64 bytes from 192.168.12.101: icmp_seq=1 ttl=63 time=12.3 ms
+
+--- 192.168.12.101 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 12.316/12.316/12.316/0.000 ms
+
+== nc 192.168.12.101:5555 ==

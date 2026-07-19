@@ -1,0 +1,21 @@
+[2026-02-22T19-10-37] wake/unlock + dump package debug
+List of devices attached
+192.168.12.101:5555    device product:ishtar model:2304FPN6DC device:ishtar transport_id:2
+
+wake/unlock sequence
+start app
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=21ms (0ms mobile, 0ms wifi, 21ms not connected)
+dump#1 package=com.android.systemui
+dump#2 package=com.android.systemui
+dump#3 package=com.android.systemui
+dump#4 package=com.android.systemui
+dump#5 package=com.android.systemui
+dump#6 package=com.android.systemui
+dump#7 package=com.android.systemui
+dump#8 package=com.android.systemui
+dump#9 package=com.android.systemui
+dump#10 package=com.android.systemui

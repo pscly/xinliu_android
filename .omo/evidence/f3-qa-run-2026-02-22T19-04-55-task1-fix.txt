@@ -1,0 +1,74 @@
+[2026-02-22T19-04-55] Task1 证据修复开始
+adb devices -l:
+List of devices attached
+192.168.12.101:5555    device product:ishtar model:2304FPN6DC device:ishtar transport_id:2
+
+启动 app
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=17ms (0ms mobile, 0ms wifi, 17ms not connected)
+
+进入多选：用固定坐标长按 (多次尝试直到出现 已选/操作区)
+try long-press at 720,700
+dump retry #1 (not onememos yet / pull failed)
+dump retry #2 (not onememos yet / pull failed)
+dump retry #3 (not onememos yet / pull failed)
+dump retry #4 (not onememos yet / pull failed)
+dump retry #5 (not onememos yet / pull failed)
+dump retry #6 (not onememos yet / pull failed)
+dump retry #7 (not onememos yet / pull failed)
+dump retry #8 (not onememos yet / pull failed)
+dump retry #9 (not onememos yet / pull failed)
+dump retry #10 (not onememos yet / pull failed)
+ERROR: dump 重试 10 次失败: /tmp/qa_after_longpress.xml
+NOT multiselect yet; sending BACK to reset
+try long-press at 720,1200
+dump retry #1 (not onememos yet / pull failed)
+dump retry #2 (not onememos yet / pull failed)
+dump retry #3 (not onememos yet / pull failed)
+dump retry #4 (not onememos yet / pull failed)
+dump retry #5 (not onememos yet / pull failed)
+dump retry #6 (not onememos yet / pull failed)
+dump retry #7 (not onememos yet / pull failed)
+dump retry #8 (not onememos yet / pull failed)
+dump retry #9 (not onememos yet / pull failed)
+dump retry #10 (not onememos yet / pull failed)
+ERROR: dump 重试 10 次失败: /tmp/qa_after_longpress.xml
+NOT multiselect yet; sending BACK to reset
+try long-press at 720,1700
+dump retry #1 (not onememos yet / pull failed)
+dump retry #2 (not onememos yet / pull failed)
+dump retry #3 (not onememos yet / pull failed)
+dump retry #4 (not onememos yet / pull failed)
+dump retry #5 (not onememos yet / pull failed)
+dump retry #6 (not onememos yet / pull failed)
+dump retry #7 (not onememos yet / pull failed)
+dump retry #8 (not onememos yet / pull failed)
+dump retry #9 (not onememos yet / pull failed)
+dump retry #10 (not onememos yet / pull failed)
+ERROR: dump 重试 10 次失败: /tmp/qa_after_longpress.xml
+NOT multiselect yet; sending BACK to reset
+ERROR: 无法进入多选态（3 次长按都未出现 已选/操作区）
+
+退出多选：BACK
+dump retry #1 (not onememos yet / pull failed)
+dump retry #2 (not onememos yet / pull failed)
+dump retry #3 (not onememos yet / pull failed)
+dump retry #4 (not onememos yet / pull failed)
+dump retry #5 (not onememos yet / pull failed)
+dump retry #6 (not onememos yet / pull failed)
+dump retry #7 (not onememos yet / pull failed)
+dump retry #8 (not onememos yet / pull failed)
+dump retry #9 (not onememos yet / pull failed)
+dump retry #10 (not onememos yet / pull failed)
+ERROR: dump 重试 10 次失败: .sisyphus/evidence/task-1-home-exit-multiselect.xml
+screencap -> .sisyphus/evidence/task-1-home-exit-multiselect.png
+OK: exit 未匹配到 已选/操作区
+
+更多操作 bottom sheet：先 dump 找 content-desc=更多操作 bounds 再 tap
+dump retry #1 (not onememos yet / pull failed)
+dump retry #2 (not onememos yet / pull failed)
+dump retry #3 (not onememos yet / pull failed)
+dump retry #4 (not onememos yet / pull failed)

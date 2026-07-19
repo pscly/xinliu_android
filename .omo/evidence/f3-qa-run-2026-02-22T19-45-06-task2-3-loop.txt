@@ -1,0 +1,5 @@
+[2026-02-22T19-45-06] Loop folders for Task2/3
+List of devices attached
+192.168.12.101:5555    device product:ishtar model:2304FPN6DC device:ishtar transport_id:2
+
+FAILED: cannot reach Collections root

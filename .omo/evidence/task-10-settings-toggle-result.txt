@@ -1,0 +1,3 @@
+nearest_checkable_checked true
+bounds [864,1228][1001,1354]
+dist 45

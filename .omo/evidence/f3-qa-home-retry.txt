@@ -1,0 +1,12 @@
+2026-02-22T18:48:14+08:00
+ensure_home_list attempt 1
+WARN: not Home list yet
+ensure_home_list attempt 2
+WARN: not Home list yet
+ensure_home_list attempt 3
+WARN: not Home list yet
+ensure_home_list attempt 4
+WARN: not Home list yet
+ensure_home_list attempt 5
+WARN: not Home list yet
+FAIL: cannot reach Home list

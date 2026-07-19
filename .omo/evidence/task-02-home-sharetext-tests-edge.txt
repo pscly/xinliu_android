@@ -1,0 +1,92 @@
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=/tmp/android-user-home
+> Task :core:designsystem:checkKotlinGradlePluginConfigurationErrors
+> Task :core:designsystem:preBuild UP-TO-DATE
+> Task :core:designsystem:preDebugBuild UP-TO-DATE
+> Task :core:designsystem:generateDebugResValues UP-TO-DATE
+> Task :core:designsystem:generateDebugResources UP-TO-DATE
+> Task :core:designsystem:packageDebugResources UP-TO-DATE
+> Task :core:designsystem:parseDebugLocalResources UP-TO-DATE
+> Task :core:designsystem:generateDebugRFile UP-TO-DATE
+> Task :core:domain:checkKotlinGradlePluginConfigurationErrors
+> Task :core:domain:preBuild UP-TO-DATE
+> Task :core:domain:preDebugBuild UP-TO-DATE
+> Task :core:domain:generateDebugResValues UP-TO-DATE
+> Task :core:domain:generateDebugResources UP-TO-DATE
+> Task :core:domain:packageDebugResources UP-TO-DATE
+> Task :core:domain:parseDebugLocalResources UP-TO-DATE
+> Task :core:domain:generateDebugRFile UP-TO-DATE
+> Task :core:model:checkKotlinGradlePluginConfigurationErrors
+> Task :core:model:preBuild UP-TO-DATE
+> Task :core:model:preDebugBuild UP-TO-DATE
+> Task :core:model:generateDebugResValues UP-TO-DATE
+> Task :core:model:generateDebugResources UP-TO-DATE
+> Task :core:model:packageDebugResources UP-TO-DATE
+> Task :core:model:parseDebugLocalResources UP-TO-DATE
+> Task :core:model:generateDebugRFile UP-TO-DATE
+> Task :core:model:compileDebugKotlin UP-TO-DATE
+> Task :core:model:javaPreCompileDebug UP-TO-DATE
+> Task :core:model:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:model:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:domain:compileDebugKotlin UP-TO-DATE
+> Task :core:domain:javaPreCompileDebug UP-TO-DATE
+> Task :core:domain:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:domain:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:designsystem:compileDebugKotlin UP-TO-DATE
+> Task :core:designsystem:javaPreCompileDebug UP-TO-DATE
+> Task :core:designsystem:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:designsystem:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:designsystem:processDebugJavaRes UP-TO-DATE
+> Task :core:domain:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:domain:processDebugJavaRes UP-TO-DATE
+> Task :core:model:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:model:processDebugJavaRes UP-TO-DATE
+> Task :core:network:checkKotlinGradlePluginConfigurationErrors
+> Task :core:network:preBuild UP-TO-DATE
+> Task :core:network:preDebugBuild UP-TO-DATE
+> Task :core:network:generateDebugResValues UP-TO-DATE
+> Task :core:network:generateDebugResources UP-TO-DATE
+> Task :core:network:packageDebugResources UP-TO-DATE
+> Task :core:network:parseDebugLocalResources UP-TO-DATE
+> Task :core:network:generateDebugRFile UP-TO-DATE
+> Task :core:network:compileDebugKotlin UP-TO-DATE
+> Task :core:network:javaPreCompileDebug UP-TO-DATE
+> Task :core:network:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:network:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:network:processDebugJavaRes UP-TO-DATE
+> Task :feature:home:preBuild UP-TO-DATE
+> Task :feature:home:preDebugBuild UP-TO-DATE
+> Task :core:designsystem:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:network:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :feature:home:checkKotlinGradlePluginConfigurationErrors
+> Task :feature:home:generateDebugBuildConfig UP-TO-DATE
+> Task :feature:home:generateDebugResValues UP-TO-DATE
+> Task :feature:home:generateDebugResources UP-TO-DATE
+> Task :feature:home:packageDebugResources UP-TO-DATE
+> Task :feature:home:parseDebugLocalResources UP-TO-DATE
+> Task :feature:home:generateDebugRFile UP-TO-DATE
+> Task :feature:home:kaptGenerateStubsDebugKotlin UP-TO-DATE
+> Task :feature:home:kaptDebugKotlin UP-TO-DATE
+> Task :feature:home:compileDebugKotlin UP-TO-DATE
+> Task :feature:home:javaPreCompileDebug UP-TO-DATE
+> Task :feature:home:compileDebugJavaWithJavac UP-TO-DATE
+> Task :feature:home:transformDebugClassesWithAsm UP-TO-DATE
+> Task :feature:home:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :feature:home:preDebugUnitTestBuild UP-TO-DATE
+> Task :feature:home:generateDebugUnitTestStubRFile UP-TO-DATE
+> Task :feature:home:processDebugJavaRes UP-TO-DATE
+> Task :feature:home:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :feature:home:kaptGenerateStubsDebugUnitTestKotlin UP-TO-DATE
+> Task :feature:home:kaptDebugUnitTestKotlin UP-TO-DATE
+> Task :feature:home:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :feature:home:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :feature:home:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :feature:home:hiltAggregateDepsDebugUnitTest UP-TO-DATE
+> Task :feature:home:hiltJavaCompileDebugUnitTest NO-SOURCE
+> Task :feature:home:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :feature:home:transformDebugUnitTestClassesWithAsm UP-TO-DATE
+
+> Task :feature:home:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=/tmp/android-user-home
+
+BUILD SUCCESSFUL in 4s
+69 actionable tasks: 6 executed, 63 up-to-date

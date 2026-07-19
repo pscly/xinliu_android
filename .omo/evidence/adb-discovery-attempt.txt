@@ -1,0 +1,95 @@
+start 2026-02-22T15:12:10+08:00
+devices0
+List of devices attached
+
+connect 192.168.3.10:5555
+failed to connect to '192.168.3.10:5555': Connection refused
+List of devices attached
+
+connect 192.168.3.10:37000
+failed to connect to '192.168.3.10:37000': Connection refused
+List of devices attached
+
+connect 192.168.3.10:37123
+failed to connect to '192.168.3.10:37123': Connection refused
+List of devices attached
+
+connect 192.168.3.10:65000
+failed to connect to '192.168.3.10:65000': Connection refused
+List of devices attached
+
+connect 192.168.3.31:5555
+failed to connect to '192.168.3.31:5555': Connection refused
+List of devices attached
+
+connect 192.168.3.31:37000
+failed to connect to '192.168.3.31:37000': Connection refused
+List of devices attached
+
+connect 192.168.3.31:37123
+failed to connect to '192.168.3.31:37123': Connection refused
+List of devices attached
+
+connect 192.168.3.31:65000
+failed to connect to '192.168.3.31:65000': Connection refused
+List of devices attached
+
+connect 192.168.3.5:5555
+failed to connect to '192.168.3.5:5555': Connection refused
+List of devices attached
+
+connect 192.168.3.5:37000
+failed to connect to '192.168.3.5:37000': Connection refused
+List of devices attached
+
+connect 192.168.3.5:37123
+failed to connect to '192.168.3.5:37123': Connection refused
+List of devices attached
+
+connect 192.168.3.5:65000
+failed to connect to '192.168.3.5:65000': Connection refused
+List of devices attached
+
+connect 192.168.3.1:5555
+failed to connect to '192.168.3.1:5555': Connection refused
+List of devices attached
+
+connect 192.168.3.1:37000
+failed to connect to '192.168.3.1:37000': Connection refused
+List of devices attached
+
+connect 192.168.3.1:37123
+failed to connect to '192.168.3.1:37123': Connection refused
+List of devices attached
+
+connect 192.168.3.1:65000
+failed to connect to '192.168.3.1:65000': Connection refused
+List of devices attached
+
+connect 192.168.12.101:5555
+failed to connect to 192.168.12.101:5555
+List of devices attached
+192.168.12.101:5555    offline transport_id:1
+
+connect 192.168.12.101:37000
+failed to connect to 192.168.12.101:37000
+List of devices attached
+192.168.12.101:37000   offline transport_id:2
+192.168.12.101:5555    offline transport_id:1
+
+connect 192.168.12.101:37123
+failed to connect to 192.168.12.101:37123
+List of devices attached
+192.168.12.101:37000   offline transport_id:2
+192.168.12.101:37123   offline transport_id:3
+192.168.12.101:5555    offline transport_id:1
+
+connect 192.168.12.101:65000
+failed to connect to 192.168.12.101:65000
+List of devices attached
+192.168.12.101:37000   offline transport_id:2
+192.168.12.101:37123   offline transport_id:3
+192.168.12.101:5555    offline transport_id:1
+192.168.12.101:65000   offline transport_id:4
+
+end 2026-02-22T15:12:51+08:00

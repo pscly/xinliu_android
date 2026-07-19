@@ -1,0 +1,21 @@
+Starting: Intent { cmp=cc.pscly.onememos/.ui.feature.quickcapture.QuickCaptureActivity }
+
+Exception occurred while executing 'start':
+java.lang.SecurityException: Permission Denial: starting Intent { flg=0x10000000 cmp=cc.pscly.onememos/.ui.feature.quickcapture.QuickCaptureActivity } from null (pid=4512, uid=2000) not exported from uid 10108
+	at com.android.server.wm.ActivityTaskSupervisor.checkStartAnyActivityPermission(ActivityTaskSupervisor.java:1136)
+	at com.android.server.wm.ActivityStarter.executeRequest(ActivityStarter.java:1069)
+	at com.android.server.wm.ActivityStarter.execute(ActivityStarter.java:742)
+	at com.android.server.wm.ActivityTaskManagerService.startActivityAsUser(ActivityTaskManagerService.java:1288)
+	at com.android.server.wm.ActivityTaskManagerService.startActivityAsUser(ActivityTaskManagerService.java:1239)
+	at com.android.server.am.ActivityManagerService.startActivityAsUserWithFeature(ActivityManagerService.java:3248)
+	at com.android.server.am.ActivityManagerShellCommand.runStartActivity(ActivityManagerShellCommand.java:724)
+	at com.android.server.am.ActivityManagerShellCommand.onCommand(ActivityManagerShellCommand.java:233)
+	at com.android.modules.utils.BasicShellCommandHandler.exec(BasicShellCommandHandler.java:97)
+	at android.os.ShellCommand.exec(ShellCommand.java:38)
+	at com.android.server.am.ActivityManagerService.onShellCommand(ActivityManagerService.java:9697)
+	at android.os.Binder.shellCommand(Binder.java:1068)
+	at android.os.Binder.onTransact(Binder.java:888)
+	at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:5267)
+	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2720)
+	at android.os.Binder.execTransactInternal(Binder.java:1344)
+	at android.os.Binder.execTransact(Binder.java:1275)

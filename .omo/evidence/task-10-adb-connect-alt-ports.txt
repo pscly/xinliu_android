@@ -1,0 +1,21 @@
+=== adb connect :37099
+failed to connect to 192.168.12.101:37099
+List of devices attached
+192.168.12.101:37099   offline transport_id:2
+192.168.12.101:5555    offline transport_id:1
+
+=== adb connect :37100
+failed to connect to 192.168.12.101:37100
+List of devices attached
+192.168.12.101:37099   offline transport_id:2
+192.168.12.101:37100   offline transport_id:3
+192.168.12.101:5555    offline transport_id:1
+
+=== adb connect :37101
+failed to connect to 192.168.12.101:37101
+List of devices attached
+192.168.12.101:37099   offline transport_id:2
+192.168.12.101:37100   offline transport_id:3
+192.168.12.101:37101   offline transport_id:4
+192.168.12.101:5555    offline transport_id:1
+

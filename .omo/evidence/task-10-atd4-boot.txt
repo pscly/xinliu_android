@@ -1,0 +1,14 @@
+List of devices attached
+emulator-5554          offline transport_id:1
+
+[bootwait 10] bc=''
+[bootwait 20] bc=''
+[bootwait 30] bc=''
+[bootwait 40] bc=''
+[bootwait 50] bc=''
+[bootwait 60] bc=''
+[bootwait 70] bc=''
+[bootwait 80] bc=''
+[bootwait 90] bc=''
+[bootwait 100] bc=''
+[bootwait 110] bc=''

@@ -1,0 +1,15 @@
+[2026-02-22T19-25-11] overflow：force-stop 后重开并抓 bottom sheet
+force-stop onememos
+start onememos
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=32ms (0ms mobile, 0ms wifi, 32ms not connected)
+dump package check:
+title check:
+found_overflow_centers=0
+tap overflow at  
+not matched; show any keyword:
+tap BACK to close
+ERROR: overflow bottom sheet 未捕获到(放入锦囊+墨迹卡片)

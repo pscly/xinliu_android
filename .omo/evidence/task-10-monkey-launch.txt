@@ -1,0 +1,15 @@
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: -c
+  bash arg: android.intent.category.LAUNCHER
+  bash arg: 1
+args: [-p, cc.pscly.onememos, -c, android.intent.category.LAUNCHER, 1]
+ arg: "-p"
+ arg: "cc.pscly.onememos"
+ arg: "-c"
+ arg: "android.intent.category.LAUNCHER"
+ arg: "1"
+data="cc.pscly.onememos"
+data="android.intent.category.LAUNCHER"
+Events injected: 1
+## Network stats: elapsed time=984ms (0ms mobile, 0ms wifi, 984ms not connected)

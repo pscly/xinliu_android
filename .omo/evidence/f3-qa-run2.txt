@@ -1,0 +1,17 @@
+2026-02-22T18:24:41+08:00
+List of devices attached
+192.168.12.101:5555    device product:ishtar model:2304FPN6DC device:ishtar transport_id:2
+
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=21ms (0ms mobile, 0ms wifi, 21ms not connected)
+Physical size: 1440x3200
+computed w=1440 h=3200 x=1360
+-- overflow probe tap x=1360 y=420
+-- overflow probe tap x=1360 y=560
+-- overflow probe tap x=1360 y=700
+-- overflow probe tap x=1360 y=840
+-- overflow probe tap x=1360 y=980
+-- overflow probe tap x=1360 y=1120

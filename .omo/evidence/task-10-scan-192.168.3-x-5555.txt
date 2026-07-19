@@ -1,0 +1,10 @@
+=== 192.168.3.5
+  nc: connect to 192.168.3.5 port 5555 (tcp) failed: Connection refused
+=== 192.168.3.1
+  nc: connect to 192.168.3.1 port 5555 (tcp) failed: Connection refused
+=== 192.168.3.2
+  nc: connect to 192.168.3.2 port 5555 (tcp) timed out: Operation now in progress
+=== 192.168.3.3
+  nc: connect to 192.168.3.3 port 5555 (tcp) timed out: Operation now in progress
+=== 192.168.3.4
+  nc: connect to 192.168.3.4 port 5555 (tcp) timed out: Operation now in progress

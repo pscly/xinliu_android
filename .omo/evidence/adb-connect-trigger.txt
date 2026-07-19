@@ -1,0 +1,7 @@
+start 2026-02-22T16:20:26+08:00
+connect 192.168.12.101:5555
+failed to connect to 192.168.12.101:5555
+List of devices attached
+192.168.12.101:5555    offline transport_id:1
+
+end 2026-02-22T16:20:36+08:00

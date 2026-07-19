@@ -1,0 +1,23 @@
+说明：计划 Task 05 - 批量放入锦囊（edge：锦囊不可用分支）编译门禁证据（仅对齐证据文件名）。
+命令：./gradlew :app:assembleDebug --stacktrace
+复用来源：.sisyphus/evidence/task-05-home-batch-add-assemble-verify2.txt（同一 assembleDebug 输出；截取末尾含 BUILD SUCCESSFUL）。
+
+> Task :feature:sharecard:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :feature:todo:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:todo:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:todo:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :feature:welcome:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:welcome:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:welcome:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:ensureDebugKeystore UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:packageDebug UP-TO-DATE
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleDebug UP-TO-DATE
+
+BUILD SUCCESSFUL in 3s
+453 actionable tasks: 19 executed, 434 up-to-date

@@ -5,31 +5,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import cc.pscly.onememos.domain.model.ThemeTexture
 import cc.pscly.onememos.ui.accessibility.PaperInkFocusIndicator
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
-import cc.pscly.onememos.ui.theme.InkTone
-import cc.pscly.onememos.ui.theme.LocalThemeTexture
-import kotlin.math.absoluteValue
 
 @Composable
 fun TagChip(
@@ -39,20 +31,19 @@ fun TagChip(
     selected: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
-    val texture = LocalThemeTexture.current
-    // 清简质感：标签退后，使用 surface/次要文字色 + outline 描边，不再按 hash 生成彩虹底色
-    val minimal = texture == ThemeTexture.MINIMAL
+    // 全质感统一退后：不再按 hash 生成彩虹底色，标签作为卡片内的次要信息安静呈现。
+    // 未选中：surfaceVariant 低透明度底 + 次要文字色；选中：primary 低填充 + primary 文字（与 InkChip 选中口径一致）。
     val bg =
-        if (minimal) {
-            MaterialTheme.colorScheme.surface
+        if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = InkBorder.ChipFillSelected)
         } else {
-            remember(tag, selected) { tagBackgroundColor(tag = tag, selected = selected) }
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
         }
     val fg =
-        if (minimal) {
-            if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+        if (selected) {
+            MaterialTheme.colorScheme.primary
         } else {
-            remember(bg) { if (bg.luminance() > 0.55f) InkTone.TagTextOnLight else InkTone.TagTextOnDark }
+            MaterialTheme.colorScheme.onSurfaceVariant
         }
     val borderColor =
         MaterialTheme.colorScheme.outline.copy(
@@ -66,20 +57,10 @@ fun TagChip(
     val shape = InkShape.Tag
 
     Surface(
+        // 视觉高度由内容决定（文字行高 + TagPaddingV×2 ≈ 24dp）：memo 卡内标签为次要交互，
+        // 整卡可点进详情，产品决策不套用 48dp 最小触控目标；无障碍语义由下方 semantics 保留。
         modifier =
             modifier
-                .then(
-                    if (clickable) {
-                        Modifier
-                            .minimumInteractiveComponentSize()
-                            .defaultMinSize(
-                                minWidth = InkSpacing.TouchTargetMin,
-                                minHeight = InkSpacing.TouchTargetMin,
-                            )
-                    } else {
-                        Modifier
-                    },
-                )
                 .semantics(mergeDescendants = true) {
                     contentDescription = a11yDescription
                     if (selected) {
@@ -122,12 +103,4 @@ fun TagChip(
             maxLines = 1,
         )
     }
-}
-
-private fun tagBackgroundColor(tag: String, selected: Boolean): Color {
-    val h = tag.hashCode().absoluteValue % 360
-    // 文墨质感：哈希彩色降饱和收敛，安静退后，仅保留轻微色彩倾向
-    val saturation = if (selected) 0.26f else 0.16f
-    val value = if (selected) 0.92f else 0.86f
-    return Color.hsv(h.toFloat(), saturation, value)
 }

@@ -1,0 +1,16 @@
+== adb -H 192.168.12.3 -P 5037 devices -l ==
+adb: failed to check server version: protocol fault (couldn't read status): Success
+
+== adb -H 192.168.12.51 -P 5037 devices -l ==
+adb: failed to check server version: protocol fault (couldn't read status): Success
+
+== adb -H 192.168.12.52 -P 5037 devices -l ==
+adb: failed to check server version: protocol fault (couldn't read status): Success
+
+== adb -H 192.168.12.101 -P 5037 devices -l ==
+adb: failed to check server version: protocol fault (couldn't read status): Success
+
+== adb -H 192.168.12.171 -P 5037 devices -l ==
+adb: failed to check server version: protocol fault (couldn't read status): Success
+
+done 2026-02-22T15:40:07+08:00

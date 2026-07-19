@@ -1,0 +1,27 @@
+02-27 13:20:19.442 127159 127159 D adb     : adb_trace.cpp:187 Android Debug Bridge version 1.0.41
+02-27 13:20:19.442 127159 127159 D adb     : adb_trace.cpp:187 Version 34.0.4-debian
+02-27 13:20:19.442 127159 127159 D adb     : adb_trace.cpp:187 Installed as /usr/lib/android-sdk/platform-tools/adb
+02-27 13:20:19.442 127159 127159 D adb     : adb_trace.cpp:187 Running on Linux 6.8.0-101-generic (x86_64)
+02-27 13:20:19.442 127159 127159 D adb     : adb_trace.cpp:187 
+02-27 13:20:19.442 127159 127159 D adb     : adb_client.cpp:400 adb_query: host:connect:192.168.12.101:5555
+02-27 13:20:19.442 127159 127159 D adb     : adb_client.cpp:358 adb_connect: service: host:connect:192.168.12.101:5555
+02-27 13:20:19.442 127159 127159 D adb     : adb_client.cpp:160 _adb_connect: host:version
+02-27 13:20:19.442 127159 127159 D adb     : adb_io.cpp:107 writex: fd=3 len=16 30303063686f73743a76657273696f6e 000chost:version
+02-27 13:20:19.442 127159 127159 D adb     : adb_io.cpp:81 readx: fd=3 wanted=4
+02-27 13:20:19.442 127159 127159 D adb     : adb_io.cpp:97 readx: fd=3 wanted=4 got=4 4f4b4159 OKAY
+02-27 13:20:19.442 127159 127159 D adb     : adb_client.cpp:194 _adb_connect: return fd 3
+02-27 13:20:19.442 127159 127159 D adb     : adb_io.cpp:81 readx: fd=3 wanted=4
+02-27 13:20:19.442 127159 127159 D adb     : adb_io.cpp:97 readx: fd=3 wanted=4 got=4 30303034 0004
+02-27 13:20:19.442 127159 127159 D adb     : adb_io.cpp:81 readx: fd=3 wanted=4
+02-27 13:20:19.442 127159 127159 D adb     : adb_io.cpp:97 readx: fd=3 wanted=4 got=4 30303239 0029
+02-27 13:20:19.443 127159 127159 D adb     : adb_client.cpp:160 _adb_connect: host:connect:192.168.12.101:5555
+02-27 13:20:19.443 127159 127159 D adb     : adb_io.cpp:107 writex: fd=3 len=36 30303230686f73743a636f6e6e656374 0020host:connect [truncated]
+02-27 13:20:19.443 127159 127159 D adb     : adb_io.cpp:81 readx: fd=3 wanted=4
+02-27 13:20:19.443 127159 127159 D adb     : adb_io.cpp:97 readx: fd=3 wanted=4 got=4 4f4b4159 OKAY
+02-27 13:20:19.443 127159 127159 D adb     : adb_client.cpp:194 _adb_connect: return fd 3
+02-27 13:20:19.443 127159 127159 D adb     : adb_client.cpp:376 adb_connect: return fd 3
+02-27 13:20:19.443 127159 127159 D adb     : adb_io.cpp:81 readx: fd=3 wanted=4
+02-27 13:20:19.444 127159 127159 D adb     : adb_io.cpp:97 readx: fd=3 wanted=4 got=4 30303238 0028
+02-27 13:20:19.444 127159 127159 D adb     : adb_io.cpp:81 readx: fd=3 wanted=40
+02-27 13:20:19.445 127159 127159 D adb     : adb_io.cpp:97 readx: fd=3 wanted=40 got=40 616c726561647920636f6e6e65637465 already connecte [truncated]
+already connected to 192.168.12.101:5555

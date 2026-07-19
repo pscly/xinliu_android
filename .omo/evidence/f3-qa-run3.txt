@@ -1,0 +1,8 @@
+2026-02-22T18:29:03+08:00
+  bash arg: -p
+  bash arg: cc.pscly.onememos
+  bash arg: 1
+Events injected: 1
+## Network stats: elapsed time=14ms (0ms mobile, 0ms wifi, 14ms not connected)
+xy=''
+FAIL: could not locate '更多操作' in uix

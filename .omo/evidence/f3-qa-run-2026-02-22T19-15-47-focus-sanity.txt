@@ -1,0 +1,15 @@
+[2026-02-22T19-15-47] focus sanity
+List of devices attached
+192.168.12.101:5555    device product:ishtar model:2304FPN6DC device:ishtar transport_id:2
+
+dumpsys window focus:
+380:  mCurrentFocus=Window{2cc689e u0 NotificationShade}
+381:  mFocusedApp=ActivityRecord{80100847 u0 com.autonavi.minimap/com.autonavi.map.activity.SplashActivity t14670}
+587:    isKeyguardShowing=true
+dumpsys activity resumed:
+1584:  ResumedActivity: ActivityRecord{80100847 u0 com.autonavi.minimap/com.autonavi.map.activity.SplashActivity t14670}
+uiautomator dump package:
+com.android.systemui
+screencap:
+/sdcard/_qa_screen.png: 1 file pulled, 0 skipped. 1.5 MB/s (25402 bytes in 0.016s)
+-rw-r--r-- 1 root root 25402  2月 22 19:15 .sisyphus/evidence/_qa_screen-sanity-2026-02-22T19-15-47.png

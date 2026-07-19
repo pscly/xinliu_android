@@ -1,0 +1,14 @@
+total 52
+drwxr-x---  4 root root 4096  2月 27 16:21 .
+drwx------ 35 root root 4096  2月 27 13:25 ..
+-rw-r--r--  1 root root   36  2月 27 16:21 adb.5037
+-rw-------  1 root root 1704  2月 22 16:01 adbkey
+-rw-r--r--  1 root root  708  2月 22 16:01 adbkey.pub
+-rw-r--r--  1 root root  127  2月  3 17:11 analytics.settings
+drwxr-xr-x  6 root root 4096  2月 27 14:22 avd
+drwxr-xr-x  2 root root 4096  2月  3 17:17 cache
+-rw-r--r--  1 root root 2618  2月  3 17:24 debug.keystore
+-rw-r--r--  1 root root    0  2月  3 17:24 debug.keystore.lock
+-rw-r--r--  1 root root 4675  2月 27 13:25 emu-last-feature-flags.protobuf
+-rw-r--r--  1 root root   66  2月 27 13:25 emu-update-last-check.ini
+-rwxr-xr-x  1 root root  171  2月 27 16:21 modem-nv-ram-5554

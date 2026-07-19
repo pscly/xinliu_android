@@ -1,0 +1,4 @@
+.ai_session.md
+.sisyphus/boulder.json
+.sisyphus/notepads/jinnang-home-ux/issues.md
+.sisyphus/notepads/jinnang-home-ux/learnings.md

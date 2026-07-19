@@ -1,0 +1,50 @@
+> Task :core:designsystem:checkKotlinGradlePluginConfigurationErrors
+> Task :core:designsystem:preBuild UP-TO-DATE
+> Task :core:designsystem:preDebugBuild UP-TO-DATE
+> Task :core:designsystem:generateDebugResValues UP-TO-DATE
+> Task :core:designsystem:generateDebugResources UP-TO-DATE
+> Task :core:designsystem:packageDebugResources UP-TO-DATE
+> Task :core:designsystem:parseDebugLocalResources UP-TO-DATE
+> Task :core:designsystem:generateDebugRFile UP-TO-DATE
+> Task :core:domain:checkKotlinGradlePluginConfigurationErrors
+> Task :core:domain:preBuild UP-TO-DATE
+> Task :core:domain:preDebugBuild UP-TO-DATE
+> Task :core:domain:generateDebugResValues UP-TO-DATE
+> Task :core:domain:generateDebugResources UP-TO-DATE
+> Task :core:domain:packageDebugResources UP-TO-DATE
+> Task :core:domain:parseDebugLocalResources UP-TO-DATE
+> Task :core:domain:generateDebugRFile UP-TO-DATE
+> Task :core:model:checkKotlinGradlePluginConfigurationErrors
+> Task :core:model:preBuild UP-TO-DATE
+> Task :core:model:preDebugBuild UP-TO-DATE
+> Task :core:model:generateDebugResValues UP-TO-DATE
+> Task :core:model:generateDebugResources UP-TO-DATE
+> Task :core:model:packageDebugResources UP-TO-DATE
+> Task :core:model:parseDebugLocalResources UP-TO-DATE
+> Task :core:model:generateDebugRFile UP-TO-DATE
+> Task :core:model:compileDebugKotlin UP-TO-DATE
+> Task :core:model:javaPreCompileDebug UP-TO-DATE
+> Task :core:model:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:model:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:domain:compileDebugKotlin UP-TO-DATE
+> Task :core:domain:javaPreCompileDebug UP-TO-DATE
+> Task :core:domain:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:domain:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:designsystem:compileDebugKotlin UP-TO-DATE
+> Task :core:designsystem:javaPreCompileDebug UP-TO-DATE
+> Task :core:designsystem:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:designsystem:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :feature:collections:checkKotlinGradlePluginConfigurationErrors
+> Task :feature:collections:preBuild UP-TO-DATE
+> Task :feature:collections:preDebugBuild UP-TO-DATE
+> Task :feature:collections:generateDebugResValues UP-TO-DATE
+> Task :feature:collections:generateDebugResources UP-TO-DATE
+> Task :feature:collections:packageDebugResources UP-TO-DATE
+> Task :feature:collections:parseDebugLocalResources UP-TO-DATE
+> Task :feature:collections:generateDebugRFile UP-TO-DATE
+> Task :feature:collections:kaptGenerateStubsDebugKotlin UP-TO-DATE
+> Task :feature:collections:kaptDebugKotlin UP-TO-DATE
+> Task :feature:collections:compileDebugKotlin UP-TO-DATE
+
+BUILD SUCCESSFUL in 4s
+36 actionable tasks: 4 executed, 32 up-to-date

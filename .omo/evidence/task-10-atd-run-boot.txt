@@ -1,0 +1,24 @@
+adb-online at 96
+List of devices attached
+emulator-5554          device product:sdk_slim_x86_64 model:Android_SDK_built_for_x86_64 device:emulator64_x86_64 transport_id:1
+
+[bootwait 10] bc='' anim='stopped'
+[bootwait 20] bc='' anim='stopped'
+[bootwait 30] bc='' anim='stopped'
+[bootwait 40] bc='' anim='stopped'
+[bootwait 50] bc='' anim='stopped'
+[bootwait 60] bc='' anim='stopped'
+[bootwait 70] bc='' anim='stopped'
+[bootwait 80] bc='' anim='stopped'
+[bootwait 90] bc='' anim='stopped'
+[bootwait 100] bc='' anim='stopped'
+[bootwait 110] bc='' anim='stopped'
+[bootwait 120] bc='' anim='stopped'
+[bootwait 130] bc='' anim='stopped'
+[bootwait 140] bc='' anim='stopped'
+[bootwait 150] bc='' anim='stopped'
+[bootwait 160] bc='' anim='stopped'
+[bootwait 170] bc='' anim='stopped'
+[bootwait 180] bc='' anim='stopped'
+[bootwait 190] bc='' anim='stopped'
+BOOT_COMPLETED at 193
