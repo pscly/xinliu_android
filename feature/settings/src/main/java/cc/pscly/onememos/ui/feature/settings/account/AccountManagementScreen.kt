@@ -39,6 +39,7 @@ import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 fun AccountManagementScreen(
@@ -155,11 +156,11 @@ fun AccountManagementContent(
                 text = stringResource(R.string.settings_account_password_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = InkSpacing.X8),
             )
             Column(
-                modifier = Modifier.padding(top = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(top = InkSpacing.X10),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
             ) {
                 PasswordField(
                     value = currentPassword,
@@ -201,7 +202,7 @@ fun AccountManagementContent(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = InkSpacing.TouchTargetMin)
                             .testTag("settings_account_password_save")
                             .semantics { stateDescription = passwordActionState },
                 ) {
@@ -227,7 +228,7 @@ fun AccountManagementContent(
                 text = stringResource(R.string.settings_account_logout_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = InkSpacing.X8),
             )
             if (logoutError != null) {
                 Text(
@@ -236,7 +237,7 @@ fun AccountManagementContent(
                     color = MaterialTheme.colorScheme.error,
                     modifier =
                         Modifier
-                            .padding(top = 8.dp)
+                            .padding(top = InkSpacing.X8)
                             .testTag("settings_account_logout_error"),
                 )
             }
@@ -247,9 +248,9 @@ fun AccountManagementContent(
                 enabled = canLogout,
                 modifier =
                     Modifier
-                        .padding(top = 10.dp)
+                        .padding(top = InkSpacing.X10)
                         .fillMaxWidth()
-                        .heightIn(min = 48.dp)
+                        .heightIn(min = InkSpacing.TouchTargetMin)
                         .focusRequester(logoutFocusRequester)
                         .testTag("settings_account_logout")
                         .semantics {

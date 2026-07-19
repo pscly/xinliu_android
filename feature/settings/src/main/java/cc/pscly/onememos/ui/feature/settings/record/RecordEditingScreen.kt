@@ -48,6 +48,7 @@ import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.InkLoading
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealIconButton
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 fun RecordEditingScreen(
@@ -76,7 +77,7 @@ fun RecordEditingContent(
                 .fillMaxSize()
                 .testTag("settings_record_root"),
     ) {
-        val contentMax = maxWidth.coerceAtMost(720.dp)
+        val contentMax = maxWidth.coerceAtMost(InkSpacing.ContentMaxWidth)
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
@@ -94,8 +95,8 @@ fun RecordEditingContent(
                         Modifier
                             .fillMaxSize()
                             .verticalScroll(scroll)
-                            .padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                            .padding(vertical = InkSpacing.X8),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 ) {
                     RecordHeader(onBack = onBack)
                     uiState.persistentError?.let { error ->
@@ -136,7 +137,7 @@ private fun RecordHeader(onBack: () -> Unit) {
             modifier =
                 Modifier
                     .weight(1f)
-                    .padding(start = 12.dp),
+                    .padding(start = InkSpacing.X12),
         )
     }
 }
@@ -164,7 +165,7 @@ private fun PersistentError(error: SettingsCapabilityError) {
             imageVector = Icons.Filled.Warning,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(end = 8.dp),
+            modifier = Modifier.padding(end = InkSpacing.X8),
         )
         Text(
             text = errorText,
@@ -267,7 +268,7 @@ private fun VisibilityOption(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = InkSpacing.TouchTargetMin)
                 .selectable(
                     selected = selected,
                     enabled = enabled,
@@ -332,7 +333,7 @@ private fun QuickInsertSettings(
             text = stringResource(R.string.settings_record_format_title),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = InkSpacing.X12),
         )
         Column(modifier = Modifier.selectableGroup()) {
             TimeFormatOption(
@@ -388,8 +389,8 @@ private fun SwitchSettingHeader(
                 modifier =
                     Modifier
                         .align(Alignment.End)
-                        .padding(top = 8.dp)
-                        .heightIn(min = 48.dp)
+                        .padding(top = InkSpacing.X8)
+                        .heightIn(min = InkSpacing.TouchTargetMin)
                         .testTag(testTag),
             )
         }
@@ -409,8 +410,8 @@ private fun SwitchSettingHeader(
                 enabled = enabled,
                 modifier =
                     Modifier
-                        .padding(start = 12.dp)
-                        .heightIn(min = 48.dp)
+                        .padding(start = InkSpacing.X12)
+                        .heightIn(min = InkSpacing.TouchTargetMin)
                         .testTag(testTag),
             )
         }
@@ -454,7 +455,7 @@ private fun SectionTitle(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = 2.dp),
+                    .padding(top = InkSpacing.X2),
         )
     }
 }

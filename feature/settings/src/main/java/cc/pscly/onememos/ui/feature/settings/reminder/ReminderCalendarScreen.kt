@@ -41,6 +41,7 @@ import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.InkLoading
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 fun ReminderCalendarScreen(viewModel: ReminderCalendarViewModel = hiltViewModel()) {
@@ -56,7 +57,7 @@ fun ReminderCalendarContent(
 ) {
     val scroll = rememberScrollState()
     BoxWithConstraints(modifier.fillMaxSize()) {
-        val contentMax = maxWidth.coerceAtMost(720.dp)
+        val contentMax = maxWidth.coerceAtMost(InkSpacing.ContentMaxWidth)
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             ScrollPaperSurface(
                 modifier =
@@ -68,8 +69,8 @@ fun ReminderCalendarContent(
                 scrollOffsetPx = scroll.value.toFloat(),
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(vertical = InkSpacing.X8),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 ) {
                     Text(
                         text = stringResource(R.string.settings_reminder_title),
@@ -128,7 +129,7 @@ fun ReminderCalendarContent(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .heightIn(min = 48.dp)
+                                        .heightIn(min = InkSpacing.TouchTargetMin)
                                         .testTag("settings_reminder_clear_calendar"),
                             ) { Text(stringResource(R.string.settings_reminder_calendar_clear)) }
                         }
@@ -153,7 +154,7 @@ fun ReminderCalendarContent(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .heightIn(min = 48.dp)
+                                        .heightIn(min = InkSpacing.TouchTargetMin)
                                         .testTag("settings_reminder_reschedule"),
                             ) { Text(stringResource(R.string.settings_reminder_reschedule)) }
                         }
@@ -170,7 +171,7 @@ private fun SectionTitle(textRes: Int) {
         text = stringResource(textRes),
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(top = 4.dp),
+        modifier = Modifier.padding(top = InkSpacing.X4),
     )
 }
 
@@ -187,7 +188,7 @@ private fun ChoiceRow(
     InkCard(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.heightIn(min = 48.dp).testTag(tag).semantics {
+        modifier = Modifier.heightIn(min = InkSpacing.TouchTargetMin).testTag(tag).semantics {
             this.selected = selected
             stateDescription = state
         },
@@ -201,7 +202,7 @@ private fun ChoiceRow(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Text(state, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 12.dp))
+            Text(state, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = InkSpacing.X12))
         }
     }
 }
@@ -230,8 +231,8 @@ private fun SettingSwitch(
                 onCheckedChange = null,
                 modifier =
                     Modifier
-                        .padding(start = 12.dp)
-                        .heightIn(min = 48.dp)
+                        .padding(start = InkSpacing.X12)
+                        .heightIn(min = InkSpacing.TouchTargetMin)
                         .testTag(tag)
                         .toggleable(
                             value = checked,

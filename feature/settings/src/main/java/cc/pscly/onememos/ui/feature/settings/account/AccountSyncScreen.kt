@@ -47,6 +47,7 @@ import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 fun AccountSyncScreen(
@@ -121,7 +122,7 @@ internal fun AccountPaperPage(
 ) {
     val scrollState = rememberScrollState()
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val contentMaxWidth = maxWidth.coerceAtMost(720.dp)
+        val contentMaxWidth = maxWidth.coerceAtMost(InkSpacing.ContentMaxWidth)
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
@@ -139,8 +140,8 @@ internal fun AccountPaperPage(
                         Modifier
                             .fillMaxSize()
                             .verticalScroll(scrollState)
-                            .padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                            .padding(vertical = InkSpacing.X8),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 ) {
                     content()
                 }
@@ -163,7 +164,7 @@ internal fun AccountHeader(
             onClick = onBack,
             modifier =
                 Modifier
-                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .sizeIn(minWidth = InkSpacing.TouchTargetMin, minHeight = InkSpacing.TouchTargetMin)
                     .testTag("settings_account_back"),
         ) {
             Icon(
@@ -175,7 +176,7 @@ internal fun AccountHeader(
             text = title,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 8.dp),
+            modifier = Modifier.padding(start = InkSpacing.X8),
         )
     }
 }
@@ -202,7 +203,7 @@ private fun HealthBlock(snapshot: AccountSyncSettingsSnapshot?) {
             text = presentation.detail,
             style = MaterialTheme.typography.bodyLarge,
             color = if (presentation.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = InkSpacing.X8),
         )
     }
 }
@@ -256,7 +257,7 @@ private fun PrimaryRecoveryAction(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = InkSpacing.TouchTargetMin)
                 .testTag("settings_account_primary")
                 .semantics { stateDescription = label },
     ) {
@@ -280,7 +281,7 @@ internal fun SummaryBlock(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = InkSpacing.X8),
         )
     }
 }
@@ -296,7 +297,7 @@ private fun NavigationRow(
     InkCard(
         onClick = onClick,
         contentDescription = "$title，$summary，$enter",
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier.heightIn(min = InkSpacing.TouchTargetMin),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -312,7 +313,7 @@ private fun NavigationRow(
                     text = summary,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = InkSpacing.X8),
                 )
             }
             NavigationAffordance(enter)
@@ -324,7 +325,7 @@ private fun NavigationRow(
 private fun RowScope.NavigationAffordance(enter: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(start = 8.dp),
+        modifier = Modifier.padding(start = InkSpacing.X8),
     ) {
         Text(
             text = enter,

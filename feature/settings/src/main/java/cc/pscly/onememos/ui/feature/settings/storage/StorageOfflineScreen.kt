@@ -48,6 +48,7 @@ import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealIconButton
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.ByteSizeFormatter
 import kotlin.math.roundToInt
 
@@ -115,7 +116,7 @@ fun StorageOfflineContent(
                 .testTag("settings_storage_root")
                 .semantics { stateDescription = stateText },
     ) {
-        val contentMaxWidth = maxWidth.coerceAtMost(720.dp)
+        val contentMaxWidth = maxWidth.coerceAtMost(InkSpacing.ContentMaxWidth)
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             ScrollPaperSurface(
                 modifier =
@@ -130,8 +131,8 @@ fun StorageOfflineContent(
                         Modifier
                             .fillMaxSize()
                             .verticalScroll(scroll)
-                            .padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                            .padding(vertical = InkSpacing.X8),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 ) {
                     Text(
                         text = stringResource(R.string.settings_storage_title),
@@ -244,7 +245,7 @@ private fun StorageUsageCard(
             )
         }
         StorageStats(snapshot.cacheStats)
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X4))
         Text(
             text = stringResource(R.string.settings_storage_cache_explanation),
             style = MaterialTheme.typography.bodySmall,
@@ -306,11 +307,11 @@ private fun OfflinePrefetchCard(
                 enabled = enabled,
                 modifier =
                     Modifier
-                        .heightIn(min = 48.dp)
+                        .heightIn(min = InkSpacing.TouchTargetMin)
                         .testTag("settings_storage_prefetch_switch"),
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X8))
         IntegerLimitSlider(
             persistedValue = snapshot.prefetchMemoLimit,
             defaultMaximum = 100,
@@ -494,7 +495,7 @@ private fun CleanupActionCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = InkSpacing.TouchTargetMin)
                 .testTag(tag),
     ) {
         Text(

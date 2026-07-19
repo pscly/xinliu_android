@@ -33,6 +33,7 @@ import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 @Composable
 fun AdvancedSyncScreen(
@@ -121,7 +122,7 @@ fun AdvancedSyncContent(
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = InkSpacing.X8),
             )
             if (commandError != null) {
                 Text(
@@ -130,7 +131,7 @@ fun AdvancedSyncContent(
                     color = MaterialTheme.colorScheme.error,
                     modifier =
                         Modifier
-                            .padding(top = 8.dp)
+                            .padding(top = InkSpacing.X8)
                             .testTag("settings_account_full_resync_error"),
                 )
             }
@@ -142,9 +143,9 @@ fun AdvancedSyncContent(
                     enabled = snapshot.commandInFlight == null,
                     modifier =
                         Modifier
-                            .padding(top = 10.dp)
+                            .padding(top = InkSpacing.X10)
                             .fillMaxWidth()
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = InkSpacing.TouchTargetMin)
                             .testTag("settings_account_full_resync_acknowledge")
                             .semantics { stateDescription = acknowledgeLabel },
                 ) {
@@ -158,9 +159,9 @@ fun AdvancedSyncContent(
                     enabled = action.enabled,
                     modifier =
                         Modifier
-                            .padding(top = 10.dp)
+                            .padding(top = InkSpacing.X10)
                             .fillMaxWidth()
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = InkSpacing.TouchTargetMin)
                             .focusRequester(focusRequester)
                             .testTag("settings_account_full_resync_action")
                             .semantics { stateDescription = actionState },

@@ -52,6 +52,7 @@ import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 /**
  * 关于与高级能力页：单列纸墨布局，最大内容宽 720dp。
@@ -148,7 +149,7 @@ fun AboutAdvancedContent(
                 .fillMaxSize()
                 .testTag("settings_about_root"),
     ) {
-        val contentMax = maxWidth.coerceAtMost(720.dp)
+        val contentMax = maxWidth.coerceAtMost(InkSpacing.ContentMaxWidth)
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
@@ -166,9 +167,9 @@ fun AboutAdvancedContent(
                         Modifier
                             .fillMaxSize()
                             .verticalScroll(scroll)
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X8)
                             .testTag("settings_about_list"),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
                 ) {
                     Text(
                         text = stringResource(R.string.settings_about_title),
@@ -295,7 +296,7 @@ fun AboutAdvancedContent(
                     onClick = callbacks.onConfirmRebuildDerivedFields,
                     modifier =
                         Modifier
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = InkSpacing.TouchTargetMin)
                             .testTag("settings_about_rebuild_confirm"),
                 ) {
                     Text(stringResource(R.string.settings_about_confirm))
@@ -304,7 +305,7 @@ fun AboutAdvancedContent(
             dismissButton = {
                 TextButton(
                     onClick = callbacks.onDismissRebuildConfirm,
-                    modifier = Modifier.heightIn(min = 48.dp),
+                    modifier = Modifier.heightIn(min = InkSpacing.TouchTargetMin),
                 ) {
                     Text(stringResource(R.string.settings_about_cancel))
                 }
@@ -318,7 +319,7 @@ fun AboutAdvancedContent(
             onDismissRequest = { showUnlockDialog = false },
             title = { Text(stringResource(R.string.settings_about_developer_unlock_title)) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                     Text(
                         text = stringResource(R.string.settings_about_developer_unlock_body),
                         style = MaterialTheme.typography.bodySmall,
@@ -363,7 +364,7 @@ fun AboutAdvancedContent(
                     },
                     modifier =
                         Modifier
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = InkSpacing.TouchTargetMin)
                             .testTag("settings_about_unlock_confirm"),
                 ) {
                     Text(stringResource(R.string.settings_about_developer_unlock_action))
@@ -372,7 +373,7 @@ fun AboutAdvancedContent(
             dismissButton = {
                 TextButton(
                     onClick = { showUnlockDialog = false },
-                    modifier = Modifier.heightIn(min = 48.dp),
+                    modifier = Modifier.heightIn(min = InkSpacing.TouchTargetMin),
                 ) {
                     Text(stringResource(R.string.settings_about_cancel))
                 }
@@ -402,7 +403,7 @@ private fun VersionCard(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Box(modifier = Modifier.height(6.dp))
+        Box(modifier = Modifier.height(InkSpacing.X6))
         Text(
             text =
                 stringResource(
@@ -468,7 +469,7 @@ private fun UpdateCard(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Box(modifier = Modifier.height(6.dp))
+        Box(modifier = Modifier.height(InkSpacing.X6))
         Text(
             text = statusText,
             style = MaterialTheme.typography.bodyMedium,
@@ -478,7 +479,7 @@ private fun UpdateCard(
                     .semantics { stateDescription = stateDesc },
         )
         update.downloadProgressPercent?.let { progress ->
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             LinearProgressIndicator(
                 progress = { progress.coerceIn(0, 100) / 100f },
                 modifier =
@@ -488,13 +489,13 @@ private fun UpdateCard(
             )
         }
         if (errorText != null) {
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             SectionErrorRow(text = errorText, testTag = "settings_about_update_error")
         }
-        Box(modifier = Modifier.height(10.dp))
+        Box(modifier = Modifier.height(InkSpacing.X10))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
         ) {
             ActionButton(
                 text = stringResource(R.string.settings_about_check_update),
@@ -524,7 +525,7 @@ private fun UpdateCard(
             }
         }
         update.ignoredVersionTag?.takeIf { it.isNotBlank() }?.let { tag ->
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             Text(
                 text = stringResource(R.string.settings_about_update_ignored, tag),
                 style = MaterialTheme.typography.bodySmall,
@@ -556,7 +557,7 @@ private fun TilesCard(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Box(modifier = Modifier.height(8.dp))
+        Box(modifier = Modifier.height(InkSpacing.X8))
         Text(
             text = stringResource(R.string.settings_about_quick_capture_title),
             style = MaterialTheme.typography.bodyLarge,
@@ -566,8 +567,8 @@ private fun TilesCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Box(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(modifier = Modifier.height(InkSpacing.X8))
+        Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
             ActionButton(
                 text = stringResource(R.string.settings_about_add_tile),
                 enabled = !busy,
@@ -583,7 +584,7 @@ private fun TilesCard(
                 modifier = Modifier.weight(1f),
             )
         }
-        Box(modifier = Modifier.height(14.dp))
+        Box(modifier = Modifier.height(InkSpacing.X14))
         Text(
             text = stringResource(R.string.settings_about_screenshot_title),
             style = MaterialTheme.typography.bodyLarge,
@@ -593,8 +594,8 @@ private fun TilesCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Box(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(modifier = Modifier.height(InkSpacing.X8))
+        Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
             ActionButton(
                 text = stringResource(R.string.settings_about_add_tile),
                 enabled = !busy,
@@ -611,7 +612,7 @@ private fun TilesCard(
             )
         }
         if (sectionError != null) {
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             SectionErrorRow(
                 text = mapError(sectionError),
                 testTag = "settings_about_tiles_error",
@@ -633,7 +634,7 @@ private fun DiagnosticsCard(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Box(modifier = Modifier.height(6.dp))
+        Box(modifier = Modifier.height(InkSpacing.X6))
         Text(
             text = stringResource(R.string.settings_about_diagnostics_desc),
             style = MaterialTheme.typography.bodySmall,
@@ -647,13 +648,13 @@ private fun DiagnosticsCard(
             )
         }
         if (sectionError != null) {
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             SectionErrorRow(
                 text = mapError(sectionError),
                 testTag = "settings_about_diagnostics_error",
             )
         }
-        Box(modifier = Modifier.height(8.dp))
+        Box(modifier = Modifier.height(InkSpacing.X8))
         ActionButton(
             text = stringResource(R.string.settings_about_export_diagnostics),
             enabled = !busy,
@@ -676,20 +677,20 @@ private fun RebuildCard(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Box(modifier = Modifier.height(6.dp))
+        Box(modifier = Modifier.height(InkSpacing.X6))
         Text(
             text = stringResource(R.string.settings_about_rebuild_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (sectionError != null) {
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             SectionErrorRow(
                 text = mapError(sectionError),
                 testTag = "settings_about_rebuild_error",
             )
         }
-        Box(modifier = Modifier.height(8.dp))
+        Box(modifier = Modifier.height(InkSpacing.X8))
         ActionButton(
             text = stringResource(R.string.settings_about_rebuild_action),
             enabled = !busy,
@@ -719,20 +720,20 @@ private fun UploadCard(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Box(modifier = Modifier.height(6.dp))
+        Box(modifier = Modifier.height(InkSpacing.X6))
         Text(
             text = stringResource(R.string.settings_about_upload_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (sectionError != null) {
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             SectionErrorRow(
                 text = mapError(sectionError),
                 testTag = "settings_about_upload_error",
             )
         }
-        Box(modifier = Modifier.height(8.dp))
+        Box(modifier = Modifier.height(InkSpacing.X8))
         OutlinedTextField(
             value = text,
             onValueChange = { raw ->
@@ -749,7 +750,7 @@ private fun UploadCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 48.dp)
+                    .heightIn(min = InkSpacing.TouchTargetMin)
                     .testTag("settings_about_upload_limit"),
         )
     }
@@ -779,7 +780,7 @@ private fun DeveloperCard(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Box(modifier = Modifier.height(6.dp))
+        Box(modifier = Modifier.height(InkSpacing.X6))
         Text(
             text =
                 if (options.unlocked) {
@@ -791,14 +792,14 @@ private fun DeveloperCard(
             modifier = Modifier.testTag("settings_about_developer_status"),
         )
         if (sectionError != null) {
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             SectionErrorRow(
                 text = mapError(sectionError),
                 testTag = "settings_about_developer_error",
             )
         }
         if (options.unlocked) {
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             DevSwitchRow(
                 label = stringResource(R.string.settings_about_developer_public),
                 checked = options.showPublicWorkspaceMemos,
@@ -822,7 +823,7 @@ private fun DeveloperCard(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 48.dp)
+                        .heightIn(min = InkSpacing.TouchTargetMin)
                         .testTag("settings_about_developer_keywords"),
             )
             DevSwitchRow(
@@ -867,10 +868,10 @@ private fun DeveloperCard(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 48.dp)
+                        .heightIn(min = InkSpacing.TouchTargetMin)
                         .testTag("settings_about_developer_sticky"),
             )
-            Box(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.height(InkSpacing.X8))
             ActionButton(
                 text = stringResource(R.string.settings_about_developer_exit),
                 enabled = !busy,
@@ -901,7 +902,7 @@ private fun DevSwitchRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = InkSpacing.TouchTargetMin)
                 .testTag(testTag),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -937,7 +938,7 @@ private fun SectionErrorRow(
             imageVector = Icons.Filled.Warning,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(end = 4.dp),
+            modifier = Modifier.padding(end = InkSpacing.X4),
         )
         Text(
             text = text,
@@ -963,14 +964,14 @@ private fun ActionButton(
         contentDescription = text,
         modifier =
             modifier
-                .heightIn(min = 48.dp)
+                .heightIn(min = InkSpacing.TouchTargetMin)
                 .testTag(testTag),
     ) {
         Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = InkSpacing.X10),
             contentAlignment = Alignment.Center,
         ) {
             Text(

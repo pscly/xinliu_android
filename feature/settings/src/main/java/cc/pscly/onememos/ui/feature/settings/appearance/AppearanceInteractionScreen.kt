@@ -54,6 +54,7 @@ import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.accessibility.ReducedMotion
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
+import cc.pscly.onememos.ui.theme.InkSpacing
 import kotlin.math.roundToInt
 
 internal fun appearanceInk(colors: ColorScheme) = colors.onSurface
@@ -77,13 +78,13 @@ fun AppearanceInteractionContent(
         modifier = modifier.fillMaxSize().semantics { stateDescription = motionDescription }
             .testTag("settings_appearance_root"),
     ) {
-        val contentMax = maxWidth.coerceAtMost(720.dp)
+        val contentMax = maxWidth.coerceAtMost(InkSpacing.ContentMaxWidth)
         ScrollPaperSurface(
             modifier = Modifier.align(Alignment.TopCenter).widthIn(max = contentMax).fillMaxSize(),
             scrollOffsetPx = scroll.value.toFloat(),
         ) {
-            Column(modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(vertical = 8.dp)
-                .testTag("settings_appearance_list"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(vertical = InkSpacing.X8)
+                .testTag("settings_appearance_list"), verticalArrangement = Arrangement.spacedBy(InkSpacing.X16)) {
                 Text(stringResource(R.string.settings_appearance_title),
                     style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(
@@ -169,7 +170,7 @@ private fun AdvancedSection(
 ) {
     val descriptor = snapshot.themeDescriptor
     val dynamicSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X12)) {
         Text(
             text = stringResource(R.string.settings_appearance_advanced_title),
             style = MaterialTheme.typography.titleMedium,
@@ -259,7 +260,7 @@ private fun ReadingSection(
     enabled: Boolean,
     onIntent: (AppearanceInteractionUserIntent) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X12)) {
         Text(
             text = stringResource(R.string.settings_appearance_reading_title),
             style = MaterialTheme.typography.titleMedium,
@@ -312,7 +313,7 @@ private fun TagColorSection(snapshot: AppearanceInteractionSettingsSnapshot, ena
                 onClick = { onIntent(AppearanceInteractionUserIntent.SetTagChipColorful(nextEnabled)) },
                 enabled = enabled,
                 contentDescription = stringResource(R.string.settings_appearance_tag_color_semantics, status),
-                modifier = Modifier.heightIn(min = 48.dp).semantics { stateDescription = status }
+                modifier = Modifier.heightIn(min = InkSpacing.TouchTargetMin).semantics { stateDescription = status }
                     .testTag("settings_appearance_tag_color"),
             ) {
                 Text(status, color = appearanceInk(MaterialTheme.colorScheme), fontWeight = FontWeight.SemiBold)
@@ -336,7 +337,7 @@ private fun OverlaySection(snapshot: AppearanceInteractionSettingsSnapshot, enab
                 onClick = { onIntent(AppearanceInteractionUserIntent.SetQuickCaptureOverlayEnabled(nextEnabled)) },
                 enabled = enabled,
                 contentDescription = stringResource(R.string.settings_appearance_overlay_semantics, status),
-                modifier = Modifier.heightIn(min = 48.dp).semantics { stateDescription = status }
+                modifier = Modifier.heightIn(min = InkSpacing.TouchTargetMin).semantics { stateDescription = status }
                     .testTag("settings_appearance_overlay"),
             ) {
                 Text(status, color = appearanceInk(MaterialTheme.colorScheme), fontWeight = FontWeight.SemiBold)
@@ -360,7 +361,7 @@ private fun DurationSection(persistedValue: Int, enabled: Boolean,
         Text(valueText, color = ink, style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold)
         Box(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = InkSpacing.TouchTargetMin)
                 .semantics(mergeDescendants = true) {
                     contentDescription = semantics
                     stateDescription = valueText
@@ -387,7 +388,7 @@ private fun DurationSection(persistedValue: Int, enabled: Boolean,
 
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X8)) {
         Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         content()
     }
@@ -421,7 +422,7 @@ private fun ChoiceCard(
                 semanticsLabel,
                 selectionText,
             ),
-            modifier = Modifier.heightIn(min = 48.dp).semantics {
+            modifier = Modifier.heightIn(min = InkSpacing.TouchTargetMin).semantics {
                 this.selected = selected
                 stateDescription = selectionText
             }.testTag(testTag),

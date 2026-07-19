@@ -46,6 +46,7 @@ import cc.pscly.onememos.navigation.ReminderCalendarSettingsKey
 import cc.pscly.onememos.navigation.StorageOfflineSettingsKey
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
+import cc.pscly.onememos.ui.theme.InkSpacing
 
 private data class HubRow(
     val index: Int,
@@ -85,7 +86,7 @@ fun SettingsHubContent(
                 .fillMaxSize()
                 .testTag("settings_hub_root"),
     ) {
-        val contentMax = maxWidth.coerceAtMost(720.dp)
+        val contentMax = maxWidth.coerceAtMost(InkSpacing.ContentMaxWidth)
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
@@ -103,9 +104,9 @@ fun SettingsHubContent(
                         Modifier
                             .fillMaxSize()
                             .verticalScroll(scroll)
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = InkSpacing.X8)
                             .testTag("settings_hub_list"),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                 ) {
                     Text(
                         text = stringResource(R.string.settings_hub_title),
@@ -113,7 +114,7 @@ fun SettingsHubContent(
                         fontWeight = FontWeight.Bold,
                         modifier =
                             Modifier
-                                .padding(bottom = 4.dp)
+                                .padding(bottom = InkSpacing.X4)
                                 .testTag("settings_hub_title"),
                     )
                     rows.forEach { row ->
@@ -217,7 +218,7 @@ private fun HubSectionRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = InkSpacing.TouchTargetMin)
                 .testTag(row.testTag)
                 .semantics {
                     stateDescription = stateDesc
@@ -234,7 +235,7 @@ private fun HubSectionRow(
                 color = MaterialTheme.colorScheme.primary,
                 modifier =
                     Modifier
-                        .padding(end = 12.dp)
+                        .padding(end = InkSpacing.X12)
                         .testTag("${row.testTag}_index"),
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -248,13 +249,13 @@ private fun HubSectionRow(
                 if (issueText != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 2.dp),
+                        modifier = Modifier.padding(top = InkSpacing.X2),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Warning,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(end = 4.dp),
+                            modifier = Modifier.padding(end = InkSpacing.X4),
                         )
                         Text(
                             text = issueText,
@@ -275,14 +276,14 @@ private fun HubSectionRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier =
                             Modifier
-                                .padding(top = if (i == 0 && issueText == null) 2.dp else 0.dp)
+                                .padding(top = if (i == 0 && issueText == null) InkSpacing.X2 else 0.dp)
                                 .testTag("${row.testTag}_summary_$i"),
                     )
                 }
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier.padding(start = InkSpacing.X8),
             ) {
                 Text(
                     text = enterLabel,
