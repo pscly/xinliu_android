@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -40,6 +39,7 @@ import cc.pscly.onememos.domain.settings.CalendarSummary
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.component.InkLoading
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 
 @Composable
@@ -79,14 +79,7 @@ fun ReminderCalendarContent(
                     )
                     val snapshot = uiState.snapshot
                     if (snapshot == null) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CircularProgressIndicator()
-                            Text(stringResource(R.string.settings_reminder_loading))
-                        }
+                        InkLoading(message = stringResource(R.string.settings_reminder_loading))
                     } else {
                         val controlsEnabled =
                             snapshot.commandInFlight == null && !uiState.platformRequestPending

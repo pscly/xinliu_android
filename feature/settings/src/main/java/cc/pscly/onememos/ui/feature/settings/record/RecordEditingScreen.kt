@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -46,6 +45,7 @@ import cc.pscly.onememos.domain.settings.RecordEditingSettingsSnapshot
 import cc.pscly.onememos.domain.settings.SettingsCapabilityError
 import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.component.InkLoading
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.component.SealIconButton
 
@@ -143,20 +143,7 @@ private fun RecordHeader(onBack: () -> Unit) {
 
 @Composable
 private fun LoadingContent() {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 24.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CircularProgressIndicator()
-        Text(
-            text = stringResource(R.string.settings_record_loading),
-            modifier = Modifier.padding(start = 12.dp),
-        )
-    }
+    InkLoading(message = stringResource(R.string.settings_record_loading))
 }
 
 @Composable

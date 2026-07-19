@@ -116,6 +116,10 @@ import cc.pscly.onememos.domain.derived.MarkdownDeriver
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoServerState
 import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.component.InkEmpty
+import cc.pscly.onememos.ui.component.InkError
+import cc.pscly.onememos.ui.component.InkLoading
+import cc.pscly.onememos.ui.component.InkRetryBanner
 import cc.pscly.onememos.ui.component.MarkdownPreview
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.SealIconButton
@@ -927,65 +931,35 @@ private fun GroupedListItem.contentType(): String =
 /** 首屏加载占位（整行居中）。 */
 @Composable
 private fun HomeListLoadingItem() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 40.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator()
-    }
+    InkLoading()
 }
 
-/** 首屏加载失败（整行卡片，可重试/同步）。 */
+/** 首屏加载失败（错误原语 + 原「同步」动作）。 */
 @Composable
 private fun HomeListErrorItem(
     message: String,
     onRetry: () -> Unit,
     onSync: () -> Unit,
 ) {
-    InkCard {
-        Text(
-            text = "加载失败：$message",
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton(onClick = onRetry) { Text("重试") }
-            TextButton(onClick = onSync) { Text("同步") }
-        }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        InkError(message = "加载失败：$message", onRetry = onRetry)
+        Spacer(modifier = Modifier.height(InkSpacing.StateGapS))
+        TextButton(onClick = onSync) { Text("同步") }
     }
 }
 
 /** 空态文案（整行居中）。 */
 @Composable
 private fun HomeListEmptyItem(isFiltering: Boolean) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 40.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = if (isFiltering) "没有匹配的记录" else "还没有任何记录，点右下角“记”开始吧。",
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodyLarge,
-        )
-    }
+    InkEmpty(
+        message = if (isFiltering) "没有匹配的记录" else "还没有任何记录，点右下角“记”开始吧。",
+    )
 }
 
 /** 分页追加加载占位（整行居中）。 */
 @Composable
 private fun HomeListAppendLoadingItem() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator(strokeWidth = 2.dp)
-    }
+    InkLoading()
 }
 
 /** 单个分组项渲染：DateHeader / 加载占位 / memo 卡片。单列与双列容器共用。 */
@@ -1334,65 +1308,43 @@ private fun SyncStatusBanner(
     onOpenAuth: () -> Unit,
 ) {
     AnimatedVisibility(visible = visible) {
-        InkCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (state.isSyncing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-
-                val pendingText =
-                    if (state.pendingCount > 0) {
-                        "待同步 ${state.pendingCount} 条"
-                    } else {
-                        "无待同步"
-                    }
-
-                val message =
-                    when {
-                        state.authInvalid -> "鉴权失败，请重新登录。"
-                        !state.networkOnline -> "当前离线，联网后会自动同步。"
-                        state.isSyncing -> "同步中…"
-                        state.hasError -> "同步失败：${state.lastError.ifBlank { "未知错误" }}"
-                        state.pendingCount > 0 -> "有离线记录待同步。"
-                        state.isEnqueued -> "已排队，等待同步执行。"
-                        else -> "同步状态"
-                    }
-
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (state.authInvalid || state.hasError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Text(
-                    text = pendingText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    maxLines = 1,
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    when {
-                        state.authInvalid -> {
-                            TextButton(onClick = onOpenAuth) { Text("去登录") }
-                        }
-
-                        state.hasError -> {
-                            TextButton(onClick = onRetrySync) { Text("重试") }
-                        }
-
-                        state.pendingCount > 0 && state.networkOnline && !state.isSyncing -> {
-                            TextButton(onClick = onRetrySync) { Text("同步") }
-                        }
-                    }
-                }
+        Column {
+            if (state.isSyncing) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
+
+            val pendingText =
+                if (state.pendingCount > 0) {
+                    "待同步 ${state.pendingCount} 条"
+                } else {
+                    "无待同步"
+                }
+
+            val message =
+                when {
+                    state.authInvalid -> "鉴权失败，请重新登录。"
+                    !state.networkOnline -> "当前离线，联网后会自动同步。"
+                    state.isSyncing -> "同步中…"
+                    state.hasError -> "同步失败：${state.lastError.ifBlank { "未知错误" }}"
+                    state.pendingCount > 0 -> "有离线记录待同步。"
+                    state.isEnqueued -> "已排队，等待同步执行。"
+                    else -> "同步状态"
+                }
+
+            // 动作映射沿用原实现：鉴权失败→去登录（onOpenAuth）；出错→重试；其余→同步（均复用原回调）。
+            val retryLabel =
+                when {
+                    state.authInvalid -> "去登录"
+                    state.hasError -> "重试"
+                    else -> "同步"
+                }
+            val onRetry = if (state.authInvalid) onOpenAuth else onRetrySync
+
+            InkRetryBanner(
+                message = "$message\n$pendingText",
+                onRetry = onRetry,
+                retryLabel = retryLabel,
+            )
         }
     }
 }
