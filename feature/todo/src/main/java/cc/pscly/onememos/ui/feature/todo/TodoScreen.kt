@@ -56,7 +56,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -404,7 +403,7 @@ fun TodoScreen(
                         Modifier
                             .fillMaxWidth()
                             .align(Alignment.TopCenter)
-                            .offset(y = 8.dp),
+                            .offset(y = InkSpacing.X8),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),

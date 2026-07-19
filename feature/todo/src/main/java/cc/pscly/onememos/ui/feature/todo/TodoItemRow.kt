@@ -111,7 +111,7 @@ internal fun TodoItemRow(
                         .fillMaxSize()
                         .clip(InkShape.Card)
                         .background(bgColor)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = InkSpacing.X16),
                 contentAlignment =
                     when (dismissState.targetValue) {
                         SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
@@ -156,7 +156,7 @@ internal fun TodoItemRow(
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X4),
                 ) {
                     Text(
                         text = item.title,
@@ -172,8 +172,8 @@ internal fun TodoItemRow(
                     )
 
                     if (item.tags.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Spacer(modifier = Modifier.height(InkSpacing.X4))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X6)) {
                             items(item.tags, key = { it }) { tag ->
                                 TagChip(
                                     tag = tag,
@@ -212,6 +212,7 @@ private fun TodoDoneMark(
     androidx.compose.material3.Surface(
         modifier =
             Modifier
+                // 结构常量：完成标记边长，组件几何，非间距尺度
                 .size(30.dp)
                 .clickable(
                     interactionSource = interactionSource,
@@ -220,6 +221,7 @@ private fun TodoDoneMark(
                 ),
         shape = shape,
         color = bgColor,
+        // 结构常量：1dp 描边线宽禁止令牌化
         border = BorderStroke(1.dp, borderColor),
     ) {
         Box(

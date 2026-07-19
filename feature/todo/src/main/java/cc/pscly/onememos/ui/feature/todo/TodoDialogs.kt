@@ -105,7 +105,7 @@ internal fun TodoManageListDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(InkSpacing.X2))
                 TextButton(onClick = { showDeleteConfirm = true }) {
                     Text("删除清单", color = MaterialTheme.colorScheme.error)
                 }
@@ -239,6 +239,7 @@ internal fun TodoDeletedItemsDialog(
                     modifier =
                         Modifier
                             .fillMaxWidth()
+                            // 结构常量：弹层列表最大高度，弹层结构几何，非间距尺度
                             .heightIn(max = 520.dp),
                 ) {
                     items(
@@ -474,6 +475,7 @@ internal fun TodoEditItemDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        // 结构常量：弹层内容最大高度，弹层结构几何，非间距尺度
                         .heightIn(max = 520.dp)
                         .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),

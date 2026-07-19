@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.model.TodoList
 import cc.pscly.onememos.domain.model.TodoStatuses
 import cc.pscly.onememos.ui.component.InkCard
@@ -82,7 +81,7 @@ internal fun TodoFilterBar(
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X2))
 
             Text(
                 text = "状态",
@@ -116,7 +115,7 @@ internal fun TodoFilterBar(
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X2))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -158,7 +157,7 @@ internal fun TodoFilterBar(
 
             if (tagFilter.isNotBlank()) {
                 Text(
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier.padding(top = InkSpacing.X2),
                     text = "提示：点击条目上的标签，可快速切换筛选。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

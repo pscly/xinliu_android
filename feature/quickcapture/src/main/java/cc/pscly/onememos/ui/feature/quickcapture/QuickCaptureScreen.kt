@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -51,7 +50,6 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -59,6 +57,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.SealStampOverlay
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.delay
@@ -170,7 +170,7 @@ private fun QuickCaptureScreen(
         InkCard(
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = InkSpacing.X16)
                 // 消费卡片区域的点击，避免点到卡片背景也触发关闭
                 .pointerInput(Unit) {
                     detectTapGestures { /* no-op */ }
@@ -179,7 +179,7 @@ private fun QuickCaptureScreen(
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -252,9 +252,9 @@ private fun QuickCaptureScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(InkShape.Chip)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .padding(horizontal = InkSpacing.X12, vertical = InkSpacing.X10),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
@@ -267,16 +267,16 @@ private fun QuickCaptureScreen(
                                 text = "恢复草稿",
                                 modifier = Modifier
                                     .clickable { onRestoreDraft() }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    .padding(horizontal = InkSpacing.X8, vertical = InkSpacing.X4),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary,
                             )
-                            Spacer(modifier = Modifier.size(4.dp))
+                            Spacer(modifier = Modifier.size(InkSpacing.X4))
                             Text(
                                 text = "清空",
                                 modifier = Modifier
                                     .clickable { onClearDraft() }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    .padding(horizontal = InkSpacing.X8, vertical = InkSpacing.X4),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.outline,
                             )
@@ -317,7 +317,7 @@ private fun QuickCaptureScreen(
                         }
 
                         SealButton(
-                            modifier = Modifier.padding(start = 10.dp),
+                            modifier = Modifier.padding(start = InkSpacing.X10),
                             text = "盖",
                             enabled = !uiState.isSaving,
                             onClick = onSave,
@@ -370,16 +370,16 @@ private fun QuickCaptureHistoryBottomSheet(
         onDismissRequest = onDismiss,
     ) {
         Text(
-            modifier = Modifier.padding(horizontal = 20.dp),
+            modifier = Modifier.padding(horizontal = InkSpacing.X20),
             text = "续写",
             style = MaterialTheme.typography.titleLarge,
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X12))
 
         if (items.isEmpty()) {
             Text(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = InkSpacing.X20, vertical = InkSpacing.X8),
                 text = "还没有可续写的记录。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline,
@@ -388,8 +388,8 @@ private fun QuickCaptureHistoryBottomSheet(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(horizontal = InkSpacing.X20),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
             ) {
                 items(items, key = { it.uuid }) { item ->
                     InkCard(
@@ -401,7 +401,7 @@ private fun QuickCaptureHistoryBottomSheet(
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
-                            modifier = Modifier.padding(top = 6.dp),
+                            modifier = Modifier.padding(top = InkSpacing.X6),
                             text = DateTimeFormatter.formatYmdHm(item.updatedAt),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
@@ -411,7 +411,7 @@ private fun QuickCaptureHistoryBottomSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X16))
     }
 }
 
@@ -434,7 +434,7 @@ private fun QuickCaptureTextAction(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = InkSpacing.X10, vertical = InkSpacing.X8),
         style = MaterialTheme.typography.labelLarge,
         color =
             MaterialTheme.colorScheme.primary.copy(

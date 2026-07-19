@@ -29,7 +29,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -101,6 +100,7 @@ import cc.pscly.onememos.ui.component.TagFilterBottomSheet
 import cc.pscly.onememos.ui.filter.MemoFilter
 import cc.pscly.onememos.ui.filter.TagMatchMode
 import cc.pscly.onememos.ui.theme.InkBorder
+import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.theme.LocalReadingConfig
 import cc.pscly.onememos.ui.util.DateTimeFormatter
@@ -382,14 +382,14 @@ fun EditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12)
                 // minSdk=33（Android 13）：直接用 Compose 的 IME insets 修正布局。
                 // 相比手动读取 insets 再算 padding，这种写法更“布局层”，避免 IME 动画期间频繁触发重组带来的卡顿。
                 .imePadding(),
         ) {
             androidx.compose.foundation.layout.Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
             ) {
                 if (!uiState.loadError.isNullOrBlank()) {
                     Text(
@@ -443,8 +443,8 @@ fun EditorScreen(
                 if (!uiState.canEdit && memoTags.isNotEmpty()) {
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                        verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                     ) {
                         memoTags.forEach { tag ->
                             TagChip(
@@ -519,7 +519,7 @@ fun EditorScreen(
                             modifier =
                                 Modifier
                                     .align(Alignment.BottomStart)
-                                    .padding(horizontal = 2.dp, vertical = 10.dp),
+                                    .padding(horizontal = InkSpacing.X2, vertical = InkSpacing.X10),
                         )
                     }
                 } else {
@@ -535,8 +535,8 @@ fun EditorScreen(
 
                 if (uiState.attachments.isNotEmpty()) {
                     LazyRow(
-                        contentPadding = PaddingValues(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(vertical = InkSpacing.X4),
+                        horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                     ) {
                         itemsIndexed(uiState.attachments, key = { _, it -> it.key }) { index, attachment ->
                             val remoteName = attachment.remoteName
@@ -585,8 +585,9 @@ fun EditorScreen(
 
                             Box(
                                 modifier = Modifier
+                                    // 结构常量：附件缩略图边长，组件几何，非间距尺度
                                     .size(84.dp)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(InkShape.Chip)
                                     .then(
                                         if (!showReorder && thumbnailModel != null && fullModel != null) {
                                             Modifier.clickable {
@@ -616,6 +617,7 @@ fun EditorScreen(
 
                                 if (canEditAttachments) {
                                     IconButton(
+                                        // 结构常量：附件覆盖按钮尺寸，对齐缩略图角标几何，非间距尺度
                                         modifier = Modifier.align(Alignment.TopEnd).size(28.dp),
                                         onClick = { viewModel.removeAttachment(attachment.key) },
                                     ) {
@@ -626,6 +628,7 @@ fun EditorScreen(
                                 if (showReorder) {
                                     if (index > 0) {
                                         IconButton(
+                                            // 结构常量：附件覆盖按钮尺寸，对齐缩略图角标几何，非间距尺度
                                             modifier = Modifier.align(Alignment.BottomStart).size(28.dp),
                                             onClick = { viewModel.moveAttachment(attachment.key, -1) },
                                         ) {
@@ -634,6 +637,7 @@ fun EditorScreen(
                                     }
                                     if (index < uiState.attachments.lastIndex) {
                                         IconButton(
+                                            // 结构常量：附件覆盖按钮尺寸，对齐缩略图角标几何，非间距尺度
                                             modifier = Modifier.align(Alignment.BottomEnd).size(28.dp),
                                             onClick = { viewModel.moveAttachment(attachment.key, 1) },
                                         ) {
@@ -648,8 +652,10 @@ fun EditorScreen(
 
                 // 底部工具栏：左侧“添加图片/附件信息”，右侧“录”（与主页右下角“记”呼应）。
                 Box(
+                    // 结构常量：工具栏最小高度，组件几何，非间距尺度
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                 ) {
+                    // 结构常量：编辑态为印章预留尾部空间；0dp 禁止令牌化
                     val rowEndPadding = if (uiState.canEdit) 68.dp else 0.dp
                     Row(
                         modifier =
@@ -726,7 +732,7 @@ fun EditorScreen(
                         SealButton(
                             text = "录",
                             modifier = Modifier.align(Alignment.CenterEnd),
-                            // 与主页右下角“记”同尺寸，形成呼应感。
+                            // 结构常量：SealButton 固定尺寸，与主页“记”对齐的组件几何，非间距尺度
                             size = 56.dp,
                             enabled = uiState.canEdit && !uiState.isSaving,
                             onClick = viewModel::save,
@@ -734,7 +740,7 @@ fun EditorScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(InkSpacing.X6))
             }
 
             SealStampOverlay(
@@ -779,11 +785,11 @@ private fun TagSuggestionPanel(
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(InkSpacing.X10))
 
             val countMap = remember(allTags) { allTags.associate { it.name to it.count } }
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
             ) {
                 items(suggestions, key = { it }) { tag ->
                     val count = countMap[tag] ?: 0
