@@ -33,6 +33,7 @@ import cc.pscly.onememos.ui.accessibility.ReducedMotion
 import cc.pscly.onememos.ui.theme.InkMotion
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.LocalInkDisabledColors
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 
 @Composable
@@ -54,7 +55,22 @@ fun SealIconButton(
         label = "seal_icon_scale",
     )
     val haptics = rememberOneMemosHaptics()
+    val disabledColors = LocalInkDisabledColors.current
     val shape = InkShape.sealFor(size)
+    // 禁用：容器/内容取 LocalInkDisabledColors（M3 onSurface×0.12 / ×0.38），
+    // 替换旧的 outline 底 + 仍用 onPrimary 前景（见 DESIGN.md §8.2）。
+    val containerColor =
+        if (enabled) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            disabledColors.container
+        }
+    val contentColor =
+        if (enabled) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            disabledColors.content
+        }
 
     // 外层 ≥48dp 触控区；内层默认 44dp 视觉尺寸。
     Box(
@@ -89,17 +105,11 @@ fun SealIconButton(
                         scaleY = scale
                     }
                     .clip(shape)
-                    .background(
-                        if (enabled) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.outline
-                        },
-                    )
+                    .background(containerColor)
                     .then(
                         with(PaperInkFocusIndicator) {
                             Modifier.paperInkFocusBorder(
-                                focused = focused,
+                                focused = focused && enabled,
                                 shape = shape,
                                 emphasized = true,
                             )
@@ -110,7 +120,7 @@ fun SealIconButton(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
+                tint = contentColor,
             )
         }
     }

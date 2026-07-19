@@ -273,12 +273,12 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 
 - 印章：主色底、`onPrimary` 内容；按压 `PressScale` + haptic tick（`ReducedMotion` 时 snap、不触发动效缩放）。
 - 默认尺寸：按钮 `56.dp`、图标钮视觉 `44.dp` + **外层 ≥48.dp 触控包围盒**。
-- 禁用：背景改 `outline`；前景仍为 `onPrimary`（见 §8.2）。
-- 焦点：`paperInkFocusBorder(emphasized = true)`。
+- 禁用：容器/内容取 `LocalInkDisabledColors`（`onSurface×0.12` / `onSurface×0.38`，M3 惯例）；语义 `disabled()`。
+- 焦点：`paperInkFocusBorder(emphasized = true)`（仅 `enabled` 时）。
 
 ### 5.4 `InkChip` / `TagChip`
 
-- `InkChip`：克制筛选片；选中 `primary@ChipFillSelected` + 强描边 + primary 文字。
+- `InkChip`：克制筛选片；选中 `primary@ChipFillSelected` + 强描边 + primary 文字；已接 `paperInkFocusBorder`；禁用时文字/描边用 `LocalInkDisabledColors.content`。
 - `TagChip`：固定 `#` 前缀；文墨下可有稳定哈希色块，清简下退后为细描边次要色；`TagChip` 已接焦点环。
 - **约束**：标签语义不得只靠色块；`#` 与文本必须可读。
 
@@ -379,9 +379,9 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 | 债务 | 原位置 | 核销结论 | 依据 / 保留理由 |
 | --- | --- | --- | --- |
 | 紧凑控件不足 `48.dp` | `SealIconButton` 默认 `44.dp`；Chip 无最小高度 | **已核销（印章）**；Chip **部分保留** | `SealIconButton` 外层 `minimumInteractiveComponentSize` + `defaultMinSize(TouchTargetMin)`。`InkCard` 可点击路径同样兜底。`InkChip`/`TagChip` 视觉仍可 &lt;48.dp，依赖 Material 最小触控与调用方 `modifier`；未在 Chip 内强制 `defaultMinSize`。 |
-| 自定义焦点态缺失 | 取消 ripple 的共享原语 | **已核销（主原语）** | `PaperInkFocusIndicator.paperInkFocusBorder` 已接入 `InkCard`、`SealButton`、`SealIconButton`、`TagChip`。`InkChip` 仍未接焦点环 → 作为 Chip 子项保留。 |
+| 自定义焦点态缺失 | 取消 ripple 的共享原语 | **已核销** | `PaperInkFocusIndicator.paperInkFocusBorder` 已接入 `InkCard`、`SealButton`、`SealIconButton`、`TagChip`、`InkChip`（shape=`InkShape.Chip`）。 |
 | reduced-motion 未统一 | 印章按压 / 盖章 / 转场 | **已核销** | `ReducedMotion` 读系统动画缩放 + `providesFromPageTransitions`；`SealButton`/`SealIconButton`/`SealStampOverlay`/`AppNavigationHost` 已门控。 |
-| 禁用视觉不完整 | 印章与 `InkChip` | **保留** | 印章禁用仅改容器为 `outline`，图标/文字仍 `onPrimary`；`InkChip` 的 `enabled=false` 停点击但无独立禁用色。退出条件：定义全主题禁用前景/容器令牌并接入原语。 |
+| 禁用视觉不完整 | 印章与 `InkChip` | **已核销** | `LocalInkDisabledColors`（`inkDisabledColorsOf`：`onSurface×0.12` 容器 / `×0.38` 内容）由 `OneMemosTheme` 下发；`SealButton`/`SealIconButton`/`InkChip` 已接入；语义 `disabled()` 保留。禁用态对比度享 WCAG inactive 豁免。 |
 | 通用状态原语缺失 | 设计系统 | **已核销（原语层）**；业务迁移 **部分保留** | `InkLoading`/`InkEmpty`/`InkError`/`InkRetryBanner` 已落地并测。feature 屏替换清单仍在 `InkStatePrimitives.kt` 头注释中，未全部完成。 |
 | 字体放大适配未形成契约 | 固定印章、单行 Chip、表格 | **保留** | 无组件级字体缩放验收契约与金图矩阵；文楷印章在大字体下仍需人工验证。 |
 | TalkBack 遍历与动态播报未系统化 | 卡片 / Chip / 盖章 / 弹层 | **部分核销** | 状态原语 live region；首页 `MemoItemTalkBack` 合并朗读；设置矩阵测有部分覆盖。关键路径（浏览→编辑→保存→归档）全流程焦点恢复规范仍未系统化。 |
@@ -407,6 +407,12 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 
 - `PaperInkFocusIndicator`：`primary` 描边；常规宽 `Hairline`，强调宽 `Stamp`。
 - 聚焦才叠加 border，未聚焦零额外分配。
+- 已接入：`InkCard`、`SealButton`、`SealIconButton`、`TagChip`、`InkChip`。
+
+### 9.7 禁用视觉令牌
+
+- `InkDisabledColors` + `LocalInkDisabledColors`：容器 `onSurface×0.12`、内容 `onSurface×0.38`（M3）。
+- 由 `OneMemosTheme` 按当前 `colorScheme` 推导下发；`SealButton`/`SealIconButton`/`InkChip` 共用。
 
 ### 9.3 触控目标
 

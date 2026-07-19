@@ -6,7 +6,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -24,8 +27,13 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.ui.accessibility.ReducedMotion
+import cc.pscly.onememos.ui.theme.InkDisabledContainerAlpha
+import cc.pscly.onememos.ui.theme.InkDisabledContentAlpha
+import cc.pscly.onememos.ui.theme.LocalInkDisabledColors
 import cc.pscly.onememos.ui.theme.OneMemosTheme
+import cc.pscly.onememos.ui.theme.inkDisabledColorsOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -125,6 +133,89 @@ class SettingsPrimitivesAccessibilityTest {
         assertEquals(1, clicks)
         // reduced-motion 下点击仍立即生效；缩放动画被 snap 关闭，由实现契约保证。
         assertNotNull(ReducedMotion.Local)
+    }
+
+    @Test
+    fun inkChip_disabled_hasDisabledSemanticsAndDoesNotClick() {
+        var clicks = 0
+        composeRule.setContent {
+            OneMemosTheme {
+                InkChip(
+                    label = "待办",
+                    selected = false,
+                    enabled = false,
+                    onClick = { clicks += 1 },
+                    modifier = Modifier.testTag("ink_chip_disabled"),
+                )
+            }
+        }
+        val node = composeRule.onNodeWithTag("ink_chip_disabled")
+        node.assertIsDisplayed()
+        node.assertIsNotEnabled()
+        assertTrue(node.isDisabledSemantics())
+        node.performClick()
+        composeRule.waitForIdle()
+        assertEquals(0, clicks)
+    }
+
+    @Test
+    fun inkChip_enabled_acceptsFocusRequesterWithoutCrash() {
+        // 焦点环：InkChip 已接 paperInkFocusBorder(focused && clickable, shape=Chip)；
+        // 通过 FocusRequester 请求焦点，验证可聚焦路径不崩溃且语义树仍可见。
+        val focusRequester = FocusRequester()
+        composeRule.setContent {
+            OneMemosTheme {
+                InkChip(
+                    label = "全部",
+                    selected = true,
+                    enabled = true,
+                    onClick = {},
+                    modifier =
+                        Modifier
+                            .testTag("ink_chip_focus")
+                            .focusRequester(focusRequester),
+                )
+            }
+        }
+        composeRule.onNodeWithTag("ink_chip_focus").assertIsDisplayed()
+        composeRule.runOnIdle {
+            focusRequester.requestFocus()
+        }
+        composeRule.waitForIdle()
+        val node = composeRule.onNodeWithTag("ink_chip_focus")
+        node.assertIsDisplayed()
+        node.assertIsEnabled()
+        assertFalse(node.isDisabledSemantics())
+        // 聚焦后节点仍在语义树（焦点环为视觉边框，不改变 disabled 语义）
+        assertTrue(
+            node.fetchSemanticsNode().config.getOrNull(SemanticsProperties.Focused) == true ||
+                node.fetchSemanticsNode().layoutInfo.isPlaced,
+        )
+    }
+
+    @Test
+    fun inkDisabledColors_matchM3OnSurfaceAlphas() {
+        var onSurface = androidx.compose.ui.graphics.Color.Unspecified
+        var localContainer = androidx.compose.ui.graphics.Color.Unspecified
+        var localContent = androidx.compose.ui.graphics.Color.Unspecified
+        var derivedContainer = androidx.compose.ui.graphics.Color.Unspecified
+        var derivedContent = androidx.compose.ui.graphics.Color.Unspecified
+        composeRule.setContent {
+            OneMemosTheme {
+                onSurface = MaterialTheme.colorScheme.onSurface
+                val disabled = LocalInkDisabledColors.current
+                localContainer = disabled.container
+                localContent = disabled.content
+                val derived = inkDisabledColorsOf(MaterialTheme.colorScheme)
+                derivedContainer = derived.container
+                derivedContent = derived.content
+            }
+        }
+        composeRule.waitForIdle()
+        assertEquals(onSurface.copy(alpha = InkDisabledContainerAlpha), localContainer)
+        assertEquals(onSurface.copy(alpha = InkDisabledContentAlpha), localContent)
+        assertEquals(derivedContainer, localContainer)
+        assertEquals(derivedContent, localContent)
     }
 
     @Test

@@ -78,11 +78,13 @@ fun OneMemosTheme(
     // 质感轴下发：组件读取 LocalThemeTexture 按文墨卷轴/清简分支渲染
     // 密度轴下发：组件读取 LocalThemeDensity 按标准/宽松/紧凑调整留白与间距
     // 阅读轴下发：列表/编辑器正文读取 LocalReadingConfig 缩放字号与行高
+    // 禁用色对：由当前 colorScheme.onSurface 按 M3 alpha 推导，印章/Chip 共用
     CompositionLocalProvider(
         LocalThemeTexture provides config.themeDescriptor.texture,
         LocalThemeDensity provides config.themeDescriptor.density,
         LocalReadingConfig provides config.readingConfig,
         LocalTagChipColorful provides config.tagChipColorful,
+        LocalInkDisabledColors provides inkDisabledColorsOf(colorScheme),
     ) {
         // M2.10：shapes 轴同步纸墨圆角，AlertDialog/BottomSheet 等 M3 默认值随令牌落地
         MaterialTheme(
