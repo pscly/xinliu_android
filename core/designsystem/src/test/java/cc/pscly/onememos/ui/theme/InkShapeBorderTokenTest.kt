@@ -33,4 +33,13 @@ class InkShapeBorderTokenTest {
         assertEquals(1.6.dp, InkBorder.CalendarRing)
         assertEquals(2.dp, InkBorder.SpinnerStroke)
     }
+
+    @Test
+    fun aliases_referenceTokens() {
+        assertEquals(InkBorder.Stamp, InkBorder.SpinnerStroke)
+        assertEquals(RoundedCornerShape(InkShape.RadiusXss), InkShape.Skeleton)
+        assertEquals(RoundedCornerShape(InkShape.RadiusXss), InkShape.CanvasSub)
+        assertEquals(RoundedCornerShape(InkShape.RadiusXl), InkShape.SkeletonCard)
+        assertEquals(RoundedCornerShape(InkShape.RadiusMicro), InkShape.Legend)
+    }
 }

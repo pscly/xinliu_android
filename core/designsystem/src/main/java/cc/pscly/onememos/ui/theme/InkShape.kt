@@ -11,6 +11,12 @@ import androidx.compose.ui.unit.dp
  * - 12dp：紧凑印章、筛选片与 Markdown 子表面
  * - 10dp：标签与盖章反馈
  * - 2dp：Markdown 引用竖条
+ * - 18dp：骨架卡片 / 横幅（M6）
+ * - 8dp：骨架占位 / 画布子面（M6）
+ * - 3dp：图例色条（M6）
+ *
+ * Pill 系列胶囊使用 percent=50 替代历史 RoundedCornerShape(999.dp)，
+ * 对尺寸 <200dp 的点元素视觉等价且更精确。
  *
  * 组件只引用本对象的语义形状，不再书写 RoundedCornerShape(裸值)。
  */
