@@ -193,7 +193,7 @@ fun ShareCardScreen(
                         Modifier
                             .fillMaxWidth()
                             // 一次性布局常量：预览区固定高度（屏幕预览专用，与导出位图尺寸无关）。
-                            .height(360.dp)
+                            .height(InkSpacing.ShareCardPreviewHeight)
                             .clip(InkShape.Card)
                             .transformable(transformState),
                     contentAlignment = Alignment.Center,

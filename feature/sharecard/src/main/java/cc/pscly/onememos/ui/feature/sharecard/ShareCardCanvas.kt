@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkShareCardPalette
 import cc.pscly.onememos.ui.theme.InkSpacing
@@ -80,9 +81,8 @@ fun ShareCardCanvas(
                         val img = bgBitmap?.asImageBitmap()
                         val lineColor = InkShareCardPalette.CanvasBlack.copy(alpha = 0.05f)
                         val stroke = InkSpacing.X1.toPx()
-                        // 纸纹线节度量（marginX=22dp、lineGap=26dp）：画布导出一次性布局常量，与编辑器纸面不同尺度，不收敛令牌。
-                        val marginX = 22.dp.toPx()
-                        val lineGap = 26.dp.toPx()
+                        val marginX = InkSpacing.ShareCardMarginX.toPx()
+                        val lineGap = InkSpacing.ShareCardLineGap.toPx()
 
                         onDrawBehind {
                             // 光影：有图就铺底（长图模式不做 blur，避免导出变慢/变重）
@@ -118,8 +118,7 @@ fun ShareCardCanvas(
                                     color = accentLine,
                                     start = Offset(marginX, 0f),
                                     end = Offset(marginX, size.height),
-                                    // 朱砂竖线宽 3dp：画布导出一次性常量（与屏幕 InkBorder 不同尺度）。
-                                    strokeWidth = 3.dp.toPx(),
+                                    strokeWidth = InkBorder.CanvasStroke.toPx(),
                                 )
                             }
                         }
@@ -139,8 +138,7 @@ fun ShareCardCanvas(
             PaperLines(accent = accent.copy(alpha = 0.28f))
         }
 
-        // 画布内容内边距（54dp/56dp）：导出位图排版专用一次性常量，决定卡片留白比例，不收敛令牌。
-        val contentPadding = PaddingValues(horizontal = 54.dp, vertical = 56.dp)
+        val contentPadding = PaddingValues(horizontal = InkSpacing.ShareCardPaddingH, vertical = InkSpacing.ShareCardPaddingV)
         Column(
             modifier =
                 Modifier
@@ -322,8 +320,8 @@ private fun SealMark(
 ) {
     Surface(
         color = accent.copy(alpha = 0.92f),
-        // 印章圆角 8dp：画布导出一次性形状常量（InkShape 无 8dp 档，不收敛）。
-        shape = RoundedCornerShape(8.dp),
+        // 印章圆角 8dp → InkShape.CanvasSub
+        shape = InkShape.CanvasSub,
     ) {
         Text(
             modifier = Modifier.padding(horizontal = InkSpacing.X10, vertical = InkSpacing.X6),
@@ -346,8 +344,8 @@ private fun PaperLines(
                 .fillMaxSize()
                 .alpha(0.22f)
                 .padding(horizontal = 0.dp, vertical = InkSpacing.X24),
-        // 纸纹线节距 26dp：画布导出一次性布局常量（同 drawWithCache 分支的 lineGap）。
-        verticalArrangement = Arrangement.spacedBy(26.dp),
+        // 纸纹线节距 → InkSpacing.ShareCardLineGap
+        verticalArrangement = Arrangement.spacedBy(InkSpacing.ShareCardLineGap),
     ) {
         repeat(40) {
             Box(
@@ -365,17 +363,17 @@ private fun PaperLines(
         modifier =
             Modifier
                 .fillMaxSize()
-                // 竖线距左 22dp：画布导出一次性布局常量（同 drawWithCache 分支的 marginX）。
-                .padding(start = 22.dp)
+                // 竖线距左 → InkSpacing.ShareCardMarginX
+                .padding(start = InkSpacing.ShareCardMarginX)
                 .background(Color.Transparent),
     ) {
         Box(
             modifier =
                 Modifier
                     .align(Alignment.CenterStart)
-                    // 竖线宽 3dp、高 520dp、胶囊圆角：画布导出一次性常量，随卡片构图固定。
-                    .size(width = 3.dp, height = 520.dp)
-                    .clip(RoundedCornerShape(999.dp))
+                    // 竖线宽 InkBorder.CanvasStroke、高 InkSpacing.ShareCardQuoteBarHeight
+                    .size(width = InkBorder.CanvasStroke, height = InkSpacing.ShareCardQuoteBarHeight)
+                    .clip(InkShape.Pill)
                     .background(accent),
         )
     }
@@ -459,7 +457,7 @@ private fun PhotoPolaroid(
     Surface(
         tonalElevation = InkSpacing.X2,
         // 拍立得投影 4dp：画布导出一次性深度常量（InkSpacing 无 4dp 档）。
-        shadowElevation = 4.dp,
+        shadowElevation = InkSpacing.ShareCardElevation,
         color = InkShareCardPalette.PolaroidPaper,
         shape = RoundedCornerShape(InkShape.RadiusM),
     ) {
@@ -470,8 +468,8 @@ private fun PhotoPolaroid(
             Image(
                 bitmap = img,
                 contentDescription = "随笔图片",
-                // 拍立得照片边长 108dp：画布导出构图一次性常量。
-                modifier = Modifier.size(108.dp).clip(RoundedCornerShape(InkShape.RadiusS)),
+                // 拍立得照片边长 → InkSpacing.ShareCardImageSize
+                modifier = Modifier.size(InkSpacing.ShareCardImageSize).clip(RoundedCornerShape(InkShape.RadiusS)),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             )
             Box(
@@ -480,7 +478,7 @@ private fun PhotoPolaroid(
                         .fillMaxWidth()
                         .height(InkSpacing.X2)
                         // 胶囊圆角（999dp）：全圆端点装饰条的一次性写法，非令牌尺度。
-                        .clip(RoundedCornerShape(999.dp))
+                        .clip(InkShape.Pill)
                         .background(accent.copy(alpha = 0.35f)),
             )
         }
@@ -503,13 +501,13 @@ private fun QrBlock(
         color = bg.copy(alpha = 0.95f),
         shape = RoundedCornerShape(InkShape.RadiusM),
         // 二维码衬纸投影 4dp：画布导出一次性深度常量（InkSpacing 无 4dp 档）。
-        shadowElevation = 4.dp,
+        shadowElevation = InkSpacing.ShareCardElevation,
     ) {
         Image(
             bitmap = img,
             contentDescription = "二维码",
-            // 二维码边长 92dp：画布导出构图一次性常量。
-            modifier = Modifier.size(92.dp).padding(InkSpacing.X10),
+            // 二维码边长 → InkSpacing.ShareCardSealSize
+            modifier = Modifier.size(InkSpacing.ShareCardSealSize).padding(InkSpacing.X10),
         )
     }
 }
@@ -527,7 +525,7 @@ private fun QuoteWatermark(
             fontSize = 150.sp,
             color = textColor,
             fontWeight = FontWeight.Black,
-            modifier = Modifier.padding(top = 80.dp, start = InkSpacing.X12),
+            modifier = Modifier.padding(top = InkSpacing.ShareCardThemesTopPadding, start = InkSpacing.X12),
         )
     }
 }
