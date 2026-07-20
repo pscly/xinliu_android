@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,7 +35,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
@@ -44,7 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.CompositionLocalProvider
@@ -63,7 +62,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalTextToolbar
@@ -92,8 +90,11 @@ import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraft
 import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftAttachment
 import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftStore
 import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.component.ScrollTextField
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.SealStampOverlay
+import cc.pscly.onememos.ui.theme.InkShape
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.theme.OneMemosTheme
 import cc.pscly.onememos.ui.theme.OneMemosThemeConfig
 import cc.pscly.onememos.ui.util.AutoTagLineHider
@@ -1042,8 +1043,8 @@ private fun QuickCaptureOverlayContent(
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
     val liftTarget =
         remember(imeBottomDp) {
-            val raw = (imeBottomDp.value * 0.35f).dp
-            raw.coerceIn(0.dp, 140.dp)
+            val raw = (imeBottomDp.value * InkSpacing.OverlayImeLiftFactor).dp
+            raw.coerceIn(0.dp, InkSpacing.OverlayImeLiftMax)
         }
     val lift by animateDpAsState(targetValue = liftTarget, label = "overlayImeLift")
 
@@ -1082,7 +1083,7 @@ private fun QuickCaptureOverlayContent(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.38f))
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.38f))
                     .clickable(
                         interactionSource = scrimInteraction,
                         indication = null,
@@ -1092,11 +1093,11 @@ private fun QuickCaptureOverlayContent(
             InkCard(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = InkSpacing.X16)
                     .offset(y = -lift),
                 onClick = null,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                     val title =
                         when (uiState.source) {
                             QuickCaptureOverlaySource.SCREENSHOT -> "截图记录"
@@ -1123,22 +1124,20 @@ private fun QuickCaptureOverlayContent(
                         onAfterAction = { toolbarState.value = OverlayTextToolbarState() },
                     )
 
-                    OutlinedTextField(
+                    ScrollTextField(
                         value = uiState.content,
                         onValueChange = onUpdateContent,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = InkSpacing.OverlayInputMinHeight, max = InkSpacing.OverlayInputMaxHeight)
                             .focusRequester(focusRequester),
-                        placeholder = { Text(text = "写点什么…") },
-                        minLines = 3,
-                        maxLines = 10,
-                        singleLine = false,
+                        placeholder = "写点什么…",
                     )
 
                     if (uiState.attachments.isNotEmpty()) {
                         LazyRow(
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(vertical = InkSpacing.X4),
+                            horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
                         ) {
                             itemsIndexed(uiState.attachments, key = { _, it -> it.key }) { _, attachment ->
                                 OverlayAttachmentThumb(
@@ -1209,9 +1208,9 @@ private fun QuickCaptureOverlayContent(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(InkShape.Card)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = InkSpacing.X12, vertical = InkSpacing.X10),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
@@ -1224,16 +1223,16 @@ private fun QuickCaptureOverlayContent(
                                     text = "恢复草稿",
                                     modifier = Modifier
                                         .clickable { onRestoreDraft() }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        .padding(horizontal = InkSpacing.X8, vertical = InkSpacing.X4),
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
-                                Spacer(modifier = Modifier.size(4.dp))
+                                Spacer(modifier = Modifier.size(InkSpacing.X4))
                                 Text(
                                     text = "清空",
                                     modifier = Modifier
                                         .clickable { onClearDraft() }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        .padding(horizontal = InkSpacing.X8, vertical = InkSpacing.X4),
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.outline,
                                 )
@@ -1262,7 +1261,7 @@ private fun QuickCaptureOverlayContent(
                             }
 
                             SealButton(
-                                modifier = Modifier.padding(start = 10.dp),
+                                modifier = Modifier.padding(start = InkSpacing.X10),
                                 text = "盖",
                                 enabled = !uiState.isSaving,
                                 onClick = onSave,
@@ -1324,7 +1323,7 @@ private fun OverlayAttachmentThumb(
             ?: attachment.localUri?.takeIf { it.isNotBlank() }
 
     Box(
-        modifier = Modifier.size(84.dp).clip(RoundedCornerShape(12.dp)),
+        modifier = Modifier.size(InkSpacing.OverlayThumbSize).clip(InkShape.Card),
         contentAlignment = Alignment.Center,
     ) {
         if (model != null) {
@@ -1344,7 +1343,7 @@ private fun OverlayAttachmentThumb(
 
         if (editable) {
             IconButton(
-                modifier = Modifier.align(Alignment.TopEnd).size(28.dp),
+                modifier = Modifier.align(Alignment.TopEnd).size(InkSpacing.OverlayThumbBadgeSize),
                 onClick = { onRemove(attachment.key) },
             ) {
                 Icon(
@@ -1399,7 +1398,7 @@ private fun OverlayTextToolbarRow(
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        horizontalArrangement = Arrangement.spacedBy(InkSpacing.X8, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         state.onCut?.let { onCut ->
@@ -1456,16 +1455,16 @@ private fun QuickCaptureHistoryBottomSheet(
         onDismissRequest = onDismiss,
     ) {
         Text(
-            modifier = Modifier.padding(horizontal = 20.dp),
+            modifier = Modifier.padding(horizontal = InkSpacing.SheetMarginH),
             text = "续写",
             style = MaterialTheme.typography.titleLarge,
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X12))
 
         if (items.isEmpty()) {
             Text(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = InkSpacing.SheetMarginH, vertical = InkSpacing.X8),
                 text = "还没有可续写的记录。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline,
@@ -1474,8 +1473,8 @@ private fun QuickCaptureHistoryBottomSheet(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(horizontal = InkSpacing.SheetMarginH),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
             ) {
                 items(items, key = { it.uuid }) { item ->
                     InkCard(
@@ -1487,7 +1486,7 @@ private fun QuickCaptureHistoryBottomSheet(
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
-                            modifier = Modifier.padding(top = 6.dp),
+                            modifier = Modifier.padding(top = InkSpacing.X6),
                             text = DateTimeFormatter.formatYmdHm(item.updatedAt),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
@@ -1497,7 +1496,7 @@ private fun QuickCaptureHistoryBottomSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(InkSpacing.X16))
     }
 }
 
@@ -1520,7 +1519,7 @@ private fun QuickCaptureTextAction(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = InkSpacing.X10, vertical = InkSpacing.X8),
         style = MaterialTheme.typography.labelLarge,
         color =
             MaterialTheme.colorScheme.primary.copy(
