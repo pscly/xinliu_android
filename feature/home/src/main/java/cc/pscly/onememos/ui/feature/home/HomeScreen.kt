@@ -761,6 +761,10 @@ fun HomeScreen(
                 }
             val isEmpty = !isRefreshing && refreshError == null && !hasItems
 
+            // FAB 组（回到顶部 + 「记」）悬浮在列表右下角，底部内容会被遮挡；
+            // 因此列表/网格的底部 contentPadding 需要额外预留 FAB 组的高度净空。
+            val fabBottomClearance = HomeFabClearance.fabBottomClearance(showScrollToTop)
+
             if (useGrid) {
                 // 双列瀑布流：DateHeader 跨整行（FullLine），memo 占单列。
                 // 令牌：列间距 InkSpacing.X12，项间距 InkSpacing.CardPadding。
@@ -775,7 +779,13 @@ fun HomeScreen(
                                 traversalIndex = 0f
                             },
                     state = gridState,
-                    contentPadding = PaddingValues(horizontal = horizontalPad, vertical = verticalPad),
+                    // 底部追加 FAB 净空，避免最后一项被悬浮按钮遮挡
+                    contentPadding = PaddingValues(
+                        start = horizontalPad,
+                        end = horizontalPad,
+                        top = verticalPad,
+                        bottom = verticalPad + fabBottomClearance,
+                    ),
                     horizontalArrangement = Arrangement.spacedBy(InkSpacing.X12),
                     verticalItemSpacing = InkSpacing.CardPadding,
                 ) {
@@ -845,7 +855,13 @@ fun HomeScreen(
                             traversalIndex = 0f
                         },
                 state = listState,
-                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = verticalPad),
+                // 底部追加 FAB 净空，避免最后一项被悬浮按钮遮挡
+                contentPadding = PaddingValues(
+                    start = horizontalPad,
+                    end = horizontalPad,
+                    top = verticalPad,
+                    bottom = verticalPad + fabBottomClearance,
+                ),
                 verticalArrangement = Arrangement.spacedBy(itemGap),
             ) {
                 if (isRefreshing && !hasItems) {

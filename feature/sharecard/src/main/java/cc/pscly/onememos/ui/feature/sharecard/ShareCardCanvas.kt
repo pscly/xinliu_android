@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package cc.pscly.onememos.ui.feature.sharecard
 
@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -149,8 +150,13 @@ fun ShareCardCanvas(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X12)) {
                 if (state.tags.isNotEmpty()) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
-                        items(state.tags.take(6), key = { it }) { tag ->
+                    // 标签用 FlowRow 换行排布：LazyRow 会在卡片右缘截断最后一枚胶囊（预览与导出位图同样被裁），
+                    // 改为超宽自动换行，保证每枚标签完整呈现；仍限制最多 6 枚。
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                        verticalArrangement = Arrangement.spacedBy(InkSpacing.X8),
+                    ) {
+                        state.tags.take(6).forEach { tag ->
                             TagChip(
                                 tag = tag,
                                 label = tag,
