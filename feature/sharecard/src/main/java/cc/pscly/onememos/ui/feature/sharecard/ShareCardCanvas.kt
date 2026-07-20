@@ -456,7 +456,7 @@ private fun PhotoPolaroid(
     val img = bitmap.asImageBitmap()
     Surface(
         tonalElevation = InkSpacing.X2,
-        // 拍立得投影 4dp：画布导出一次性深度常量（InkSpacing 无 4dp 档）。
+        // 拍立得投影 → InkSpacing.ShareCardElevation
         shadowElevation = InkSpacing.ShareCardElevation,
         color = InkShareCardPalette.PolaroidPaper,
         shape = RoundedCornerShape(InkShape.RadiusM),
@@ -477,7 +477,7 @@ private fun PhotoPolaroid(
                     Modifier
                         .fillMaxWidth()
                         .height(InkSpacing.X2)
-                        // 胶囊圆角（999dp）：全圆端点装饰条的一次性写法，非令牌尺度。
+                        // 全圆端点装饰 → InkShape.Pill
                         .clip(InkShape.Pill)
                         .background(accent.copy(alpha = 0.35f)),
             )
@@ -500,7 +500,7 @@ private fun QrBlock(
     Surface(
         color = bg.copy(alpha = 0.95f),
         shape = RoundedCornerShape(InkShape.RadiusM),
-        // 二维码衬纸投影 4dp：画布导出一次性深度常量（InkSpacing 无 4dp 档）。
+        // 二维码衬纸投影 → InkSpacing.ShareCardElevation
         shadowElevation = InkSpacing.ShareCardElevation,
     ) {
         Image(
@@ -521,7 +521,7 @@ private fun QuoteWatermark(
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = a) {
         Text(
             text = "“",
-            // 引号水印字号 150sp、顶部偏移 80dp：画布导出构图一次性常量。
+            // 引号水印字号 150sp；顶部偏移 → InkSpacing.ShareCardThemesTopPadding
             fontSize = 150.sp,
             color = textColor,
             fontWeight = FontWeight.Black,
