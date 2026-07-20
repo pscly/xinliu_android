@@ -20,6 +20,9 @@ object InkShape {
     val RadiusM = 12.dp
     val RadiusS = 10.dp
     val RadiusXs = 2.dp
+    val RadiusXl = 18.dp // 首页骨架卡片 / 横幅（M6）
+    val RadiusXss = 8.dp // 骨架屏占位块、分享卡画布子面（M6）
+    val RadiusMicro = 3.dp // 个人中心图例色条（M6）
 
     // ---------- 语义形状 ----------
     val Card = RoundedCornerShape(RadiusL)
@@ -31,6 +34,14 @@ object InkShape {
     val Tag = RoundedCornerShape(RadiusS)
     val Stamp = RoundedCornerShape(RadiusS)
     val QuoteBar = RoundedCornerShape(RadiusXs)
+    val Skeleton = RoundedCornerShape(RadiusXss) // 骨架屏占位块
+    val CanvasSub = RoundedCornerShape(RadiusXss) // 分享卡画布子面
+    val SkeletonCard = RoundedCornerShape(RadiusXl) // 首页骨架卡片 / 横幅
+    val Legend = RoundedCornerShape(RadiusMicro) // 图例色条
+    /** 胶囊：替代 RoundedCornerShape(999.dp)；使用点元素尺寸均 <200dp，视觉等价 */
+    val Pill = RoundedCornerShape(percent = 50)
+    val PillStart = RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50) // 日历连选左端
+    val PillEnd = RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50) // 日历连选右端
 
     /**
      * 印章控件圆角规则：尺寸不大于紧凑阈值（44dp）时用 12dp，否则用 14dp。

@@ -14,6 +14,9 @@ object InkBorder {
     val Hairline = 1.dp // 卡片/纸面/Chip/标签外框与自绘线条
     val Stamp = 2.dp // 盖章印记描边
     val TableCell = 0.5.dp // 表格单元格细分隔线
+    val CanvasStroke = 3.dp // 分享卡画布竖线描边（M6）
+    val CalendarRing = 1.6.dp // 个人中心日历今日描边（M6）
+    val SpinnerStroke = Stamp // 按钮加载态 CPI 描边（复用 Stamp 值，不重复字面量）
 
     // ---------- 描边透明度（作用于 colorScheme.outline） ----------
     const val OutlineStrong = 0.45f // 卡片与纸面外框
