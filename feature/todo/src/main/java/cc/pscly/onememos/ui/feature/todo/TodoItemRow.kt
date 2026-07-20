@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.model.TodoItem
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.TagChip
+import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
 
@@ -213,7 +214,7 @@ private fun TodoDoneMark(
         modifier =
             Modifier
                 // 结构常量：完成标记边长，组件几何，非间距尺度
-                .size(30.dp)
+                .size(InkSpacing.TodoStatusIconSize)
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
@@ -222,7 +223,7 @@ private fun TodoDoneMark(
         shape = shape,
         color = bgColor,
         // 结构常量：1dp 描边线宽禁止令牌化
-        border = BorderStroke(1.dp, borderColor),
+        border = BorderStroke(InkBorder.Hairline, borderColor),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),

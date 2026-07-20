@@ -582,7 +582,7 @@ fun EditorScreen(
                             Box(
                                 modifier = Modifier
                                     // 结构常量：附件缩略图边长，组件几何，非间距尺度
-                                    .size(84.dp)
+                                    .size(InkSpacing.AttachmentThumbSize)
                                     .clip(InkShape.Chip)
                                     .then(
                                         if (!showReorder && thumbnailModel != null && fullModel != null) {
@@ -614,7 +614,7 @@ fun EditorScreen(
                                 if (canEditAttachments) {
                                     IconButton(
                                         // 结构常量：附件覆盖按钮尺寸，对齐缩略图角标几何，非间距尺度
-                                        modifier = Modifier.align(Alignment.TopEnd).size(28.dp),
+                                        modifier = Modifier.align(Alignment.TopEnd).size(InkSpacing.OverlayThumbBadgeSize),
                                         onClick = { viewModel.removeAttachment(attachment.key) },
                                     ) {
                                         Icon(imageVector = Icons.Filled.Close, contentDescription = "删除附件")
@@ -625,7 +625,7 @@ fun EditorScreen(
                                     if (index > 0) {
                                         IconButton(
                                             // 结构常量：附件覆盖按钮尺寸，对齐缩略图角标几何，非间距尺度
-                                            modifier = Modifier.align(Alignment.BottomStart).size(28.dp),
+                                            modifier = Modifier.align(Alignment.BottomStart).size(InkSpacing.OverlayThumbBadgeSize),
                                             onClick = { viewModel.moveAttachment(attachment.key, -1) },
                                         ) {
                                             Icon(imageVector = Icons.Filled.ChevronLeft, contentDescription = "左移")
@@ -634,7 +634,7 @@ fun EditorScreen(
                                     if (index < uiState.attachments.lastIndex) {
                                         IconButton(
                                             // 结构常量：附件覆盖按钮尺寸，对齐缩略图角标几何，非间距尺度
-                                            modifier = Modifier.align(Alignment.BottomEnd).size(28.dp),
+                                            modifier = Modifier.align(Alignment.BottomEnd).size(InkSpacing.OverlayThumbBadgeSize),
                                             onClick = { viewModel.moveAttachment(attachment.key, 1) },
                                         ) {
                                             Icon(imageVector = Icons.Filled.ChevronRight, contentDescription = "右移")
@@ -649,10 +649,10 @@ fun EditorScreen(
                 // 底部工具栏：左侧“添加图片/附件信息”，右侧“录”（与主页右下角“记”呼应）。
                 Box(
                     // 结构常量：工具栏最小高度，组件几何，非间距尺度
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = InkSpacing.X56),
                 ) {
                     // 结构常量：编辑态为印章预留尾部空间；0dp 禁止令牌化
-                    val rowEndPadding = if (uiState.canEdit) 68.dp else 0.dp
+                    val rowEndPadding = if (uiState.canEdit) InkSpacing.EditorRowEndPadding else 0.dp
                     Row(
                         modifier =
                             Modifier
@@ -729,7 +729,7 @@ fun EditorScreen(
                             text = "录",
                             modifier = Modifier.align(Alignment.CenterEnd),
                             // 结构常量：SealButton 固定尺寸，与主页“记”对齐的组件几何，非间距尺度
-                            size = 56.dp,
+                            size = InkSpacing.X56,
                             enabled = uiState.canEdit && !uiState.isSaving,
                             onClick = viewModel::save,
                         )

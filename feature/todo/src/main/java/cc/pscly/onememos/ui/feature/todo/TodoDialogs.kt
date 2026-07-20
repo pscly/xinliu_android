@@ -240,7 +240,7 @@ internal fun TodoDeletedItemsDialog(
                         Modifier
                             .fillMaxWidth()
                             // 结构常量：弹层列表最大高度，弹层结构几何，非间距尺度
-                            .heightIn(max = 520.dp),
+                            .heightIn(max = InkSpacing.SheetListMaxHeight),
                 ) {
                     items(
                         items = deletedItems.sortedByDescending { it.deletedAt.orEmpty() },
@@ -476,7 +476,7 @@ internal fun TodoEditItemDialog(
                     Modifier
                         .fillMaxWidth()
                         // 结构常量：弹层内容最大高度，弹层结构几何，非间距尺度
-                        .heightIn(max = 520.dp)
+                        .heightIn(max = InkSpacing.SheetListMaxHeight)
                         .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
             ) {
