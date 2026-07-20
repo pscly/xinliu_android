@@ -9,8 +9,9 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -21,6 +22,7 @@ import cc.pscly.onememos.ui.theme.InkSpacing
  * 国漫风“信纸/奏折”输入框：
  * - 使用 BasicTextField 自绘背景横线与左侧朱砂竖线
  * - 保持可滚动；适配深色/浅色主题
+ * - [focusRequester] 挂到内部 [BasicTextField]，供外层请求焦点/弹出 IME
  */
 @Composable
 fun ScrollTextField(
@@ -30,6 +32,7 @@ fun ScrollTextField(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     placeholder: String = "",
+    focusRequester: FocusRequester? = null,
 ) {
     // “信纸横线”的行距：略大一些更有留白感
     val lineHeight = InkSpacing.LinePitch
@@ -62,12 +65,18 @@ fun ScrollTextField(
                 }
             }
         } else {
+            val fieldModifier =
+                if (focusRequester != null) {
+                    contentModifier.focusRequester(focusRequester)
+                } else {
+                    contentModifier
+                }
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 enabled = enabled,
                 readOnly = false,
-                modifier = contentModifier,
+                modifier = fieldModifier,
                 textStyle = textStyle,
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions =

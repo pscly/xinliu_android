@@ -61,7 +61,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalTextToolbar
@@ -1129,9 +1128,9 @@ private fun QuickCaptureOverlayContent(
                         onValueChange = onUpdateContent,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = InkSpacing.OverlayInputMinHeight, max = InkSpacing.OverlayInputMaxHeight)
-                            .focusRequester(focusRequester),
+                            .heightIn(min = InkSpacing.OverlayInputMinHeight, max = InkSpacing.OverlayInputMaxHeight),
                         placeholder = "写点什么…",
+                        focusRequester = focusRequester,
                     )
 
                     if (uiState.attachments.isNotEmpty()) {
