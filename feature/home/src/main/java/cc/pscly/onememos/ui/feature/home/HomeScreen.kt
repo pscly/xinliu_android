@@ -1213,7 +1213,6 @@ private fun FilterStatusBanner(
     AnimatedVisibility(visible = visible) {
         Surface(
             modifier = Modifier.padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X8),
-            // 结构常量：筛选状态横幅圆角，无对应形状令牌
             shape = InkShape.SkeletonCard,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = InkSpacing.X2,
@@ -1404,7 +1403,6 @@ private fun SearchPopup(
                     .padding(top = topInset + InkSpacing.X56 + InkSpacing.X10)
                     .padding(horizontal = InkSpacing.X16)
                     .fillMaxWidth(),
-                // 结构常量：搜索弹层圆角，无对应形状令牌
                 shape = InkShape.SkeletonCard,
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = InkSpacing.X2,
