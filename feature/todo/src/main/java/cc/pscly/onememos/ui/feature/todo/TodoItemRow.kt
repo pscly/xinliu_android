@@ -33,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.domain.model.TodoItem
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.TagChip
