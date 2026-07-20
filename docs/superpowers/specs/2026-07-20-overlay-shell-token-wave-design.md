@@ -72,7 +72,9 @@
 | Skeleton / CanvasSub | RoundedCornerShape(RadiusXss) | 语义形状 |
 | SkeletonCard | RoundedCornerShape(RadiusXl) | 语义形状 |
 | Legend | RoundedCornerShape(RadiusMicro) | 语义形状 |
-| Pill | RoundedCornerShape(percent=50) | 替代全部 `RoundedCornerShape(999.dp)`（profile ×4、sharecard ×2；视觉等价） |
+| Pill | RoundedCornerShape(percent=50) | 替代全部 `RoundedCornerShape(999.dp)`（profile ×2、sharecard ×2；视觉等价） |
+| PillStart | RoundedCornerShape(topStartPercent=50, bottomStartPercent=50) | profile 日历连选左端胶囊 |
+| PillEnd | RoundedCornerShape(topEndPercent=50, bottomEndPercent=50) | profile 日历连选右端胶囊 |
 
 ### 3.4 InkBorder 新增
 
