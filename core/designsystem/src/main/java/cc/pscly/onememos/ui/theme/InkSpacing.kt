@@ -42,7 +42,6 @@ object InkSpacing {
     val X92 = 92.dp // 分享卡印章
     val X108 = 108.dp // 分享卡图
     val X120 = 120.dp // 悬浮层输入框最小高（≈3 行 LinePitch + 纸面留白）
-    val X140 = 140.dp // 悬浮层 IME 抬升上限
     val X150 = 150.dp // 盖章印记固定尺寸
     val X320 = 320.dp // 收藏弹窗列表最大高
     val X324 = 324.dp // 悬浮层输入框最大高（≈10 行 LinePitch + 纸面留白）
@@ -116,8 +115,10 @@ object InkSpacing {
     // ---------- 语义别名：悬浮速记层（M6） ----------
     val OverlayThumbSize = X84 // 附件缩略图边长
     val OverlayThumbBadgeSize = X28 // 附件角标 / 移除钮尺寸
-    val OverlayImeLiftMax = X140 // 键盘抬升上限
-    const val OverlayImeLiftFactor = 0.35f // 键盘高度抬升比例
+    /** 可见卡片最大高度占全屏视口的比例（半屏） */
+    const val OverlayCardMaxHeightFraction = 0.5f
+    val OverlayCardMarginH = X16 // 卡片水平边距（相对视口）
+    val OverlayCardMarginV = X16 // 自由带内垂直边距（上下各一份）
     val OverlayInputMinHeight = X120 // 输入框最小高
     val OverlayInputMaxHeight = X324 // 输入框最大高
 

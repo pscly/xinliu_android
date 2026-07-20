@@ -12,13 +12,13 @@ import android.view.WindowManager.LayoutParams
 import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,13 +27,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -59,9 +60,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
@@ -441,6 +443,8 @@ class QuickCaptureOverlayService : Service() {
             ).apply {
                 gravity = Gravity.TOP or Gravity.START
                 // 让输入法可用：不要加 NOT_FOCUSABLE
+                // 双信号避让键盘：优先由 ADJUST_RESIZE 直接缩放窗口（OEM 兼容最好），
+                // WindowInsets.ime.bottom 作为兜底信号，几何层取较小自由带、不重复扣减
                 @Suppress("DEPRECATION")
                 softInputMode = LayoutParams.SOFT_INPUT_ADJUST_RESIZE
             }
@@ -1039,13 +1043,7 @@ private fun QuickCaptureOverlayContent(
     var showHistory by remember { mutableStateOf(false) }
     val haptics = rememberOneMemosHaptics()
     val density = LocalDensity.current
-    val imeBottomDp = with(density) { imeBottomPx.toDp() }
-    val liftTarget =
-        remember(imeBottomDp) {
-            val raw = (imeBottomDp.value * InkSpacing.OverlayImeLiftFactor).dp
-            raw.coerceIn(0.dp, InkSpacing.OverlayImeLiftMax)
-        }
-    val lift by animateDpAsState(targetValue = liftTarget, label = "overlayImeLift")
+    val bodyScrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         eventsFlow.collect { event ->
@@ -1078,7 +1076,33 @@ private fun QuickCaptureOverlayContent(
     CompositionLocalProvider(
         LocalTextToolbar provides OverlayTextToolbar(toolbarState = toolbarState),
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            // 全屏视口高度取屏幕配置（不随键盘缩放）；窗口实际高度取当前约束（ADJUST_RESIZE 生效时已被压缩）
+            val fullViewportHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.roundToPx() }
+            val windowHeightPx = constraints.maxHeight
+            val verticalMarginPx = with(density) { InkSpacing.OverlayCardMarginV.roundToPx() }
+            val layout =
+                remember(fullViewportHeightPx, windowHeightPx, imeBottomPx, verticalMarginPx) {
+                    QuickCaptureOverlayGeometry.compute(
+                        QuickCaptureOverlayGeometryInput(
+                            fullViewportHeightPx = fullViewportHeightPx,
+                            windowHeightPx = windowHeightPx,
+                            imeBottomPx = imeBottomPx,
+                            verticalMarginPx = verticalMarginPx,
+                            cardMaxHeightFraction = InkSpacing.OverlayCardMaxHeightFraction,
+                        ),
+                    )
+                }
+            val bottomPaddingDp = with(density) { layout.bottomPaddingPx.toDp() }
+            val maxCardHeightDp = with(density) { layout.maxCardHeightPx.toDp() }
+            // 滚动区高度上限 = 卡高上限 − 固定 chrome（卡片上下内边距 + 底栏上间距 + 底栏 SealButton 高度）
+            val scrollRegionMaxHeightDp =
+                with(density) {
+                    val chromePx =
+                        (InkSpacing.CardPadding * 2 + InkSpacing.X10 + InkSpacing.SealButtonSize).roundToPx()
+                    (layout.maxCardHeightPx - chromePx).coerceAtLeast(0).toDp()
+                }
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1089,182 +1113,204 @@ private fun QuickCaptureOverlayContent(
                     ) { onClose() },
             )
 
-            InkCard(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = InkSpacing.X16)
-                    .offset(y = -lift),
-                onClick = null,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
-                    val title =
-                        when (uiState.source) {
-                            QuickCaptureOverlaySource.SCREENSHOT -> "截图记录"
-                            QuickCaptureOverlaySource.NORMAL -> "极速记录"
-                        }
-                    Text(text = title, style = MaterialTheme.typography.titleLarge)
-
-                    Text(
-                        text = "点“续写”可编辑上一条，长按“续写”可选择历史。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-
-                    if (!uiState.editingUuid.isNullOrBlank()) {
-                        Text(
-                            text = "续写中：当前保存会覆盖原记录。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-
-                    OverlayTextToolbarRow(
-                        state = toolbarState.value,
-                        onAfterAction = { toolbarState.value = OverlayTextToolbarState() },
-                    )
-
-                    ScrollTextField(
-                        value = uiState.content,
-                        onValueChange = onUpdateContent,
+            if (layout.maxCardHeightPx > 0) {
+                // 自由带容器：仅在窗口未被键盘缩放时于底部补偿 IME 高度；卡片在自由带内居中
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = bottomPaddingDp),
+                ) {
+                    InkCard(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = InkSpacing.OverlayInputMinHeight, max = InkSpacing.OverlayInputMaxHeight),
-                        placeholder = "写点什么…",
-                        focusRequester = focusRequester,
-                    )
-
-                    if (uiState.attachments.isNotEmpty()) {
-                        LazyRow(
-                            contentPadding = PaddingValues(vertical = InkSpacing.X4),
-                            horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
-                        ) {
-                            itemsIndexed(uiState.attachments, key = { _, it -> it.key }) { _, attachment ->
-                                OverlayAttachmentThumb(
-                                    attachment = attachment,
-                                    editable = uiState.attachmentsEditable && !uiState.isSaving,
-                                    onRemove = onRemoveAttachment,
-                                )
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (uiState.quickInsertTimeEnabled) {
-                            IconButton(
-                                modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "插入时间" },
-                                enabled = !uiState.isSaving,
-                                onClick = {
-                                    haptics.tick()
-                                    onInsertTime()
-                                },
-                            ) {
-                                Text(
-                                    text = "时",
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            enabled = uiState.attachmentsEditable && !uiState.isSaving,
-                            onClick = onPickImages,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.AddPhotoAlternate,
-                                contentDescription = "添加图片",
+                            .align(Alignment.Center)
+                            .padding(
+                                horizontal = InkSpacing.OverlayCardMarginH,
+                                vertical = InkSpacing.OverlayCardMarginV,
                             )
-                        }
+                            .heightIn(max = maxCardHeightDp),
+                        onClick = null,
+                    ) {
+                        Column {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = scrollRegionMaxHeightDp)
+                                    .verticalScroll(bodyScrollState),
+                                verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                            ) {
+                            val title =
+                                when (uiState.source) {
+                                    QuickCaptureOverlaySource.SCREENSHOT -> "截图记录"
+                                    QuickCaptureOverlaySource.NORMAL -> "极速记录"
+                                }
+                            Text(text = title, style = MaterialTheme.typography.titleLarge)
 
-                        Text(
-                            text = if (uiState.attachments.isEmpty()) "未添加图片" else "附件：${uiState.attachments.size} 个",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        if (!uiState.editingUuid.isNullOrBlank() && !uiState.attachmentsEditable) {
                             Text(
-                                text = "暂不支持编辑附件",
+                                text = "点“续写”可编辑上一条，长按“续写”可选择历史。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline,
                             )
-                        }
-                    }
 
-                    if (!uiState.error.isNullOrBlank()) {
-                        Text(
-                            text = uiState.error.orEmpty(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-
-                    if (uiState.draftBannerVisible) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(InkShape.Card)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = InkSpacing.X12, vertical = InkSpacing.X10),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                text = "有草稿，可恢复",
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!uiState.editingUuid.isNullOrBlank()) {
                                 Text(
-                                    text = "恢复草稿",
-                                    modifier = Modifier
-                                        .clickable { onRestoreDraft() }
-                                        .padding(horizontal = InkSpacing.X8, vertical = InkSpacing.X4),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                Spacer(modifier = Modifier.size(InkSpacing.X4))
-                                Text(
-                                    text = "清空",
-                                    modifier = Modifier
-                                        .clickable { onClearDraft() }
-                                        .padding(horizontal = InkSpacing.X8, vertical = InkSpacing.X4),
-                                    style = MaterialTheme.typography.labelLarge,
+                                    text = "续写中：当前保存会覆盖原记录。",
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.outline,
                                 )
                             }
-                        }
-                    }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        QuickCaptureTextAction(
-                            text = "续写",
-                            enabled = !uiState.isSaving,
-                            onClick = onEditPrevious,
-                            onLongClick = { showHistory = true },
-                        )
+                            OverlayTextToolbarRow(
+                                state = toolbarState.value,
+                                onAfterAction = { toolbarState.value = OverlayTextToolbarState() },
+                            )
 
-                        Row(
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            TextButton(onClick = onClose) {
-                                Text(text = "取消")
+                            ScrollTextField(
+                                value = uiState.content,
+                                onValueChange = onUpdateContent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = InkSpacing.OverlayInputMinHeight, max = InkSpacing.OverlayInputMaxHeight),
+                                placeholder = "写点什么…",
+                                focusRequester = focusRequester,
+                            )
+
+                            if (uiState.attachments.isNotEmpty()) {
+                                LazyRow(
+                                    contentPadding = PaddingValues(vertical = InkSpacing.X4),
+                                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                                ) {
+                                    itemsIndexed(uiState.attachments, key = { _, it -> it.key }) { _, attachment ->
+                                        OverlayAttachmentThumb(
+                                            attachment = attachment,
+                                            editable = uiState.attachmentsEditable && !uiState.isSaving,
+                                            onRemove = onRemoveAttachment,
+                                        )
+                                    }
+                                }
                             }
 
-                            SealButton(
-                                modifier = Modifier.padding(start = InkSpacing.X10),
-                                text = "盖",
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (uiState.quickInsertTimeEnabled) {
+                                    IconButton(
+                                        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "插入时间" },
+                                        enabled = !uiState.isSaving,
+                                        onClick = {
+                                            haptics.tick()
+                                            onInsertTime()
+                                        },
+                                    ) {
+                                        Text(
+                                            text = "时",
+                                            style = MaterialTheme.typography.titleMedium,
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    enabled = uiState.attachmentsEditable && !uiState.isSaving,
+                                    onClick = onPickImages,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.AddPhotoAlternate,
+                                        contentDescription = "添加图片",
+                                    )
+                                }
+
+                                Text(
+                                    text = if (uiState.attachments.isEmpty()) "未添加图片" else "附件：${uiState.attachments.size} 个",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.outline,
+                                )
+
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                if (!uiState.editingUuid.isNullOrBlank() && !uiState.attachmentsEditable) {
+                                    Text(
+                                        text = "暂不支持编辑附件",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.outline,
+                                    )
+                                }
+                            }
+
+                            if (!uiState.error.isNullOrBlank()) {
+                                Text(
+                                    text = uiState.error.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+
+                            if (uiState.draftBannerVisible) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(InkShape.Card)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .padding(horizontal = InkSpacing.X12, vertical = InkSpacing.X10),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(
+                                        text = "有草稿，可恢复",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "恢复草稿",
+                                            modifier = Modifier
+                                                .clickable { onRestoreDraft() }
+                                                .padding(horizontal = InkSpacing.X8, vertical = InkSpacing.X4),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Spacer(modifier = Modifier.size(InkSpacing.X4))
+                                        Text(
+                                            text = "清空",
+                                            modifier = Modifier
+                                                .clickable { onClearDraft() }
+                                                .padding(horizontal = InkSpacing.X8, vertical = InkSpacing.X4),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.outline,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = InkSpacing.X10),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            QuickCaptureTextAction(
+                                text = "续写",
                                 enabled = !uiState.isSaving,
-                                onClick = onSave,
+                                onClick = onEditPrevious,
+                                onLongClick = { showHistory = true },
                             )
+
+                            Row(
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TextButton(onClick = onClose) {
+                                    Text(text = "取消")
+                                }
+
+                                SealButton(
+                                    modifier = Modifier.padding(start = InkSpacing.X10),
+                                    text = "盖",
+                                    enabled = !uiState.isSaving,
+                                    onClick = onSave,
+                                )
+                            }
+                        }
                         }
                     }
                 }
@@ -1301,7 +1347,6 @@ private fun QuickCaptureOverlayContent(
             }
         }
     }
-
 }
 
 private fun List<QuickCaptureOverlayAttachmentUi>.toDraftAttachments(): List<QuickCaptureDraftAttachment> =
