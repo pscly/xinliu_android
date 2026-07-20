@@ -103,8 +103,7 @@ internal fun AddToCollectionsDialog(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 结构常量：文件夹列表最大高度，组件特有约束，非间距尺度
-                    .heightIn(max = 320.dp),
+                    .heightIn(max = InkSpacing.DialogListMaxHeight),
                 verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
             ) {
                 item(key = "root") {

@@ -138,6 +138,7 @@ import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.OneMemosHaptics
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.LocalThemeDensity
 import kotlinx.coroutines.launch
@@ -289,7 +290,7 @@ fun HomeScreen(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
     val useGrid =
         when (uiState.listLayout) {
-            ListLayout.AUTO -> maxWidth >= TwoColumnMinWidth
+            ListLayout.AUTO -> maxWidth >= InkSpacing.TwoColumnMinWidth
             ListLayout.SINGLE -> false
             ListLayout.DOUBLE -> true
         }
@@ -364,7 +365,7 @@ fun HomeScreen(
                         IconButton(onClick = viewModel::requestSync, enabled = !isSyncing) {
                             if (isSyncing) {
                                 // 顶栏同步按钮加载态：转圈尺寸为结构常量，非间距尺度（M4 豁免保留）
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(InkSpacing.X20), strokeWidth = InkBorder.SpinnerStroke)
                             } else {
                                 Icon(imageVector = Icons.Filled.Refresh, contentDescription = "同步")
                             }
@@ -676,8 +677,8 @@ fun HomeScreen(
                         if (batchBusy) {
                             // 批量确认按钮加载态：转圈尺寸为结构常量，非间距尺度（M4 豁免保留）
                             CircularProgressIndicator(
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(18.dp),
+                                strokeWidth = InkBorder.SpinnerStroke,
+                                modifier = Modifier.size(InkSpacing.X18),
                             )
                             Spacer(modifier = Modifier.width(InkSpacing.X10))
                         }
@@ -926,9 +927,6 @@ fun HomeScreen(
     }
     }
 }
-
-/** 双列自适应触发的最小可用宽度（Material 窗口宽度档 Medium 边界）。 */
-private val TwoColumnMinWidth = 600.dp
 
 /** 列表项稳定 key：与单列/双列容器无关，保证切换形态时 item 状态可复用。 */
 private fun GroupedListItem.stableKey(): Any =
@@ -1217,7 +1215,7 @@ private fun FilterStatusBanner(
         Surface(
             modifier = Modifier.padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X8),
             // 结构常量：筛选状态横幅圆角，无对应形状令牌
-            shape = RoundedCornerShape(18.dp),
+            shape = InkShape.SkeletonCard,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = InkSpacing.X2,
             shadowElevation = InkSpacing.X10,
@@ -1295,13 +1293,13 @@ private fun FilterStatusBanner(
                                 IconButton(
                                     onClick = onClearQuery,
                                     // 结构常量：清除按钮尺寸，组件特有约束，非间距尺度
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(InkSpacing.OverlayThumbBadgeSize),
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Close,
                                         contentDescription = "清除关键词",
                                         // 结构常量：清除图标尺寸，组件特有约束，非间距尺度
-                                        modifier = Modifier.size(18.dp),
+                                        modifier = Modifier.size(InkSpacing.X18),
                             )
                             }
                         }
@@ -1404,11 +1402,11 @@ private fun SearchPopup(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     // 结构常量：56dp 为顶栏占位高度，组件特有约束，非间距尺度
-                    .padding(top = topInset + 56.dp + InkSpacing.X10)
+                    .padding(top = topInset + InkSpacing.X56 + InkSpacing.X10)
                     .padding(horizontal = InkSpacing.X16)
                     .fillMaxWidth(),
                 // 结构常量：搜索弹层圆角，无对应形状令牌
-                shape = RoundedCornerShape(18.dp),
+                shape = InkShape.SkeletonCard,
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = InkSpacing.X2,
                 shadowElevation = InkSpacing.X8,
@@ -1418,7 +1416,7 @@ private fun SearchPopup(
                         modifier = Modifier
                             .fillMaxWidth()
                             // 避免大字号/无障碍字体下文字被裁切：不要固定 44dp，高度至少按 Material 默认高度走。
-                            .heightIn(min = 56.dp)
+                            .heightIn(min = InkSpacing.X56)
                             .focusRequester(focusRequester),
                         value = queryValue,
                         onValueChange = { value: TextFieldValue ->
@@ -1517,8 +1515,8 @@ private fun MemoItemLoadingPlaceholder() {
                 Surface(
                     // 结构常量：骨架屏标签块尺寸（28×64），一次性占位几何，非间距尺度
                     modifier = Modifier
-                        .height(28.dp)
-                        .width(64.dp),
+                        .height(InkSpacing.X28)
+                        .width(InkSpacing.X64),
                     shape = RoundedCornerShape(InkShape.RadiusL),
                     color = blockColor,
                 ) {}
@@ -1530,16 +1528,16 @@ private fun MemoItemLoadingPlaceholder() {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(18.dp), // 结构常量：骨架屏正文行高，一次性占位几何，非间距尺度
-            shape = RoundedCornerShape(8.dp), // 结构常量：骨架屏圆角，无对应形状令牌
+                .height(InkSpacing.SkeletonTextLineHeight),
+            shape = InkShape.Skeleton,
             color = blockColor,
         ) {}
         Spacer(modifier = Modifier.height(InkSpacing.X8))
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.82f)
-                .height(18.dp), // 结构常量：骨架屏正文行高，一次性占位几何，非间距尺度
-            shape = RoundedCornerShape(8.dp), // 结构常量：骨架屏圆角，无对应形状令牌
+                .height(InkSpacing.SkeletonTextLineHeight),
+            shape = InkShape.Skeleton,
             color = blockColor,
         ) {}
 
@@ -1549,7 +1547,7 @@ private fun MemoItemLoadingPlaceholder() {
             modifier = Modifier
                 .fillMaxWidth(0.40f)
                 .height(InkSpacing.X14),
-            shape = RoundedCornerShape(8.dp), // 结构常量：骨架屏圆角，无对应形状令牌
+            shape = InkShape.Skeleton,
             color = blockColor,
         ) {}
     }
