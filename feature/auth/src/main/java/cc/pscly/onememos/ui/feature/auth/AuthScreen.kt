@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.ui.component.InkCard
+import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkSpacing
 import kotlinx.coroutines.flow.collectLatest
 
@@ -191,8 +192,8 @@ private fun BackendPane(
                     if (uiState.loading) {
                         // 按钮内加载态：豁免状态原语；尺寸为结构常量
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(InkSpacing.X18),
+                            strokeWidth = InkBorder.SpinnerStroke,
                         )
                         Spacer(modifier = Modifier.size(InkSpacing.X10))
                     }
@@ -293,8 +294,8 @@ private fun CustomPane(
                 if (uiState.loading) {
                     // 按钮内加载态：豁免状态原语；尺寸为结构常量
                     CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(InkSpacing.X18),
+                        strokeWidth = InkBorder.SpinnerStroke,
                     )
                     Spacer(modifier = Modifier.size(InkSpacing.X10))
                 }

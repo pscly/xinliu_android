@@ -468,7 +468,7 @@ fun CollectionsScreen(
                     ) {
                         Icon(
                             // 结构常量：操作图标尺寸，组件几何，非间距尺度（勿映射 SheetGapL）
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(InkSpacing.X18),
                             imageVector = if (reorderMode) Icons.Filled.Check else Icons.Filled.SwapVert,
                             contentDescription = if (reorderMode) "完成排序" else "排序",
                         )
@@ -1019,7 +1019,7 @@ private fun CollectionItemCard(
                         // 结构常量：缩略图解码像素边长（单图 76 / 多图 88），显示与解码对齐的几何，非间距尺度
                         val thumbSizePx =
                             with(LocalDensity.current) {
-                                if (imageThumbModels.size == 1) 76.dp.roundToPx() else 88.dp.roundToPx()
+                                if (imageThumbModels.size == 1) InkSpacing.SingleImageThumbSize.roundToPx() else InkSpacing.GridImageThumbSize.roundToPx()
                             }
                         val hasOneImage = imageThumbModels.size == 1
 
@@ -1066,7 +1066,7 @@ private fun CollectionItemCard(
                             ) {
                                 Box(
                                         // 结构常量：单图缩略图显示边长，组件几何，非间距尺度
-                                        modifier = Modifier.size(76.dp).clip(InkShape.Card),
+                                        modifier = Modifier.size(InkSpacing.SingleImageThumbSize).clip(InkShape.Card),
                                 ) {
                                     Surface(
                                         modifier = Modifier.matchParentSize(),
@@ -1148,7 +1148,7 @@ private fun CollectionItemCard(
                                     imageThumbModels.forEach { model ->
                                         Box(
                                                 // 结构常量：多图缩略图显示边长，组件几何，非间距尺度
-                                                modifier = Modifier.size(88.dp).clip(InkShape.Chip),
+                                                modifier = Modifier.size(InkSpacing.GridImageThumbSize).clip(InkShape.Chip),
                                         ) {
                                             Surface(
                                                 modifier = Modifier.matchParentSize(),
@@ -1165,7 +1165,7 @@ private fun CollectionItemCard(
                                     if (moreImages > 0) {
                                         Surface(
                                             // 结构常量：多图“+N”占位边长，与缩略图同组几何，非间距尺度
-                                            modifier = Modifier.size(88.dp),
+                                            modifier = Modifier.size(InkSpacing.GridImageThumbSize),
                                             shape = InkShape.Chip,
                                             color = MaterialTheme.colorScheme.surfaceVariant,
                                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1358,7 +1358,7 @@ private fun MoveToFolderDialog(
         text = {
             LazyColumn(
                 // 结构常量：移动弹层列表最大高度，弹层结构几何，非间距尺度
-                modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(max = InkSpacing.CollectionsDialogMaxHeight),
                 verticalArrangement = Arrangement.spacedBy(InkSpacing.X2),
             ) {
                 item(key = "root") {
@@ -1441,7 +1441,7 @@ private fun ColorPickerDialog(
         text = {
             LazyColumn(
                 // 结构常量：颜色弹层列表最大高度，弹层结构几何，非间距尺度
-                modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(max = InkSpacing.CollectionsDialogMaxHeight),
                 verticalArrangement = Arrangement.spacedBy(InkSpacing.X2),
             ) {
                 items(options, key = { it.label }) { opt ->
@@ -1461,7 +1461,7 @@ private fun ColorPickerDialog(
                                 Spacer(modifier = Modifier.width(InkSpacing.X10))
                             } else {
                                 // 结构常量：无色块时对齐占位宽，与色点+间距同组几何，非间距尺度
-                                Spacer(modifier = Modifier.width(22.dp))
+                                Spacer(modifier = Modifier.width(InkSpacing.X22))
                             }
                             Text(text = opt.label, style = MaterialTheme.typography.bodyMedium)
                         }

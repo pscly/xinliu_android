@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.MarkdownPreview
+import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.DateTimeFormatter
@@ -260,7 +261,7 @@ private fun MemoRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline,
                 // 结构常量：时间列固定宽，列表对齐用几何，非间距尺度
-                modifier = Modifier.width(44.dp),
+                modifier = Modifier.width(InkSpacing.CalendarCellMin),
             )
             Column(modifier = Modifier.weight(1f)) {
                 MarkdownPreview(
@@ -294,8 +295,8 @@ private fun HeatmapGrid(
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val rowGap = InkSpacing.X6
         // 结构常量：热力图单元格自适应上下界（44~56dp），组件特有几何，非间距尺度
-        val maxCell = 56.dp
-        val minCell = 44.dp
+        val maxCell = InkSpacing.CalendarCellMax
+        val minCell = InkSpacing.CalendarCellMin
         val computed = maxWidth / 7
         val cellSize = computed.coerceIn(minCell, maxCell)
 
@@ -481,9 +482,9 @@ private fun HeatmapCell(
                 val rangeShape =
                     when {
                         connectLeft && connectRight -> RectangleShape
-                        connectLeft && !connectRight -> RoundedCornerShape(topEnd = 999.dp, bottomEnd = 999.dp)
-                        !connectLeft && connectRight -> RoundedCornerShape(topStart = 999.dp, bottomStart = 999.dp)
-                        else -> RoundedCornerShape(999.dp)
+                        connectLeft && !connectRight -> InkShape.PillEnd
+                        !connectLeft && connectRight -> InkShape.PillStart
+                        else -> InkShape.Pill
                     }
                 Box(
                     modifier = Modifier
@@ -518,11 +519,11 @@ private fun HeatmapCell(
                     Box(
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .size(34.dp)
+                            .size(InkSpacing.CalendarDaySize)
                             .border(
-                                width = 1.6.dp,
+                                width = InkBorder.CalendarRing,
                                 color = primary.copy(alpha = 0.60f),
-                                shape = RoundedCornerShape(999.dp),
+                                shape = InkShape.Pill,
                             ),
                     )
                 }
@@ -576,7 +577,7 @@ private fun HeatLegendSquare(alpha: Float) {
         modifier = Modifier
             .size(InkSpacing.X10)
             // 结构常量：3dp 图例方块微圆角，无等值形状令牌
-            .background(primary.copy(alpha = alpha.coerceIn(0f, 1f)), shape = RoundedCornerShape(3.dp)),
+            .background(primary.copy(alpha = alpha.coerceIn(0f, 1f)), shape = InkShape.Legend),
     )
 }
 
@@ -601,7 +602,7 @@ private fun MonthPickerDialog(
         text = {
             LazyColumn(
                 // 结构常量：月份选择列表可视高度，对话框专用几何，非间距尺度
-                modifier = Modifier.height(380.dp),
+                modifier = Modifier.height(InkSpacing.ProfileCalendarHeight),
             ) {
                 itemsIndexed(months, key = { _, m -> "${m.year}-${m.monthValue}" }) { _, m ->
                     val selected = m == current
