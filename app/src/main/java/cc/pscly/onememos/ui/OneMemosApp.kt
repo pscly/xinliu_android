@@ -43,7 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.R
 import cc.pscly.onememos.ui.accessibility.ReducedMotion
+import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.navigation.AppNavigationHost
 import cc.pscly.onememos.navigation.ExternalNavigationInput
 import cc.pscly.onememos.navigation.TopLevelSection
@@ -183,7 +184,7 @@ fun OneMemosApp(
             gesturesEnabled = false,
             drawerContent = {
                 ModalDrawerSheet {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X18)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -197,7 +198,7 @@ fun OneMemosApp(
                                 Icon(imageVector = Icons.Filled.Close, contentDescription = "关闭菜单")
                             }
                         }
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(InkSpacing.X14))
 
                         NavigationDrawerItem(
                             label = { Text("随笔") },
@@ -311,11 +312,11 @@ private fun AppUpdateDialog(
                     Column(
                         modifier =
                             Modifier
-                                .heightIn(max = 420.dp)
+                                .heightIn(max = InkSpacing.UpdateDialogNotesMaxHeight)
                                 .verticalScroll(rememberScrollState()),
                     ) {
                         Text(release.notes.ifBlank { "本次为完整稳定版更新。" })
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(InkSpacing.X10))
                         Text(
                             text = "安装包约 ${"%.1f".format(release.apkSizeBytes / 1024.0 / 1024.0)} MB，下载后会校验哈希、包名、版本和签名。",
                         )
@@ -338,7 +339,7 @@ private fun AppUpdateDialog(
                 text = {
                     Column {
                         Text(state.statusMessage)
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(InkSpacing.X10))
                         LinearProgressIndicator(
                             progress = { (state.downloadProgressPercent ?: 0).coerceIn(0, 100) / 100f },
                             modifier = Modifier.fillMaxWidth(),
