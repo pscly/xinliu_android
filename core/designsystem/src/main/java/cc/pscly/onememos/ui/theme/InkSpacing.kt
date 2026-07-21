@@ -42,9 +42,9 @@ object InkSpacing {
     val X92 = 92.dp // 分享卡印章
     val X108 = 108.dp // 分享卡图
     val X120 = 120.dp // 悬浮层输入框最小高（≈3 行 LinePitch + 纸面留白）
-    val X150 = 150.dp // 盖章印记固定尺寸
+    val X150 = 150.dp // 盖章印记固定尺寸 / 悬浮层输入框最大高（≈4 行 LinePitch + 纸面留白）
     val X320 = 320.dp // 收藏弹窗列表最大高
-    val X324 = 324.dp // 悬浮层输入框最大高（≈10 行 LinePitch + 纸面留白）
+    val X324 = 324.dp // 历史悬浮层输入框最大高（已退役，保留尺度备查）
     val X360 = 360.dp // 分享卡预览高 / 锦囊弹窗高
     val X380 = 380.dp // 个人中心日历高
     val X420 = 420.dp // 更新弹窗内容最大高
@@ -119,8 +119,8 @@ object InkSpacing {
     const val OverlayCardMaxHeightFraction = 0.5f
     val OverlayCardMarginH = X16 // 卡片水平边距（相对视口）
     val OverlayCardMarginV = X16 // 自由带内垂直边距（上下各一份）
-    val OverlayInputMinHeight = X120 // 输入框最小高
-    val OverlayInputMaxHeight = X324 // 输入框最大高
+    val OverlayInputMinHeight = X120 // 输入框最小高（≈3 行）
+    val OverlayInputMaxHeight = X150 // 输入框最大高（≈4 行，超出后内部滚动）
 
     // ---------- 语义别名：分享卡画布（M6） ----------
     val ShareCardMarginX = X22

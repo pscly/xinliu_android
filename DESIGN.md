@@ -94,7 +94,7 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 | `X44` | `44.dp` | `SealIconSize`、`SealCompactThreshold`、`StateIconSize` |
 | `X56` | `56.dp` | `SealButtonSize` |
 | `X88` | `88.dp` | `TableCellMinWidth` |
-| `X150` | `150.dp` | `StampSize` |
+| `X150` | `150.dp` | `StampSize` / 悬浮层输入框最大高（≈4 行，悬浮层） |
 | `X18` | `18.dp` | CPI 尺寸 / 骨架屏正文行高（同源 `SheetGapL`；悬浮层/骨架） |
 | `X22` | `22.dp` | 分享卡画布边距 / 锦囊分隔（分享卡/锦囊） |
 | `X26` | `26.dp` | 分享卡行距（分享卡） |
@@ -110,7 +110,7 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 | `X108` | `108.dp` | 分享卡图片尺寸（分享卡） |
 | `X120` | `120.dp` | 悬浮层输入框最小高（悬浮层） |
 | `X320` | `320.dp` | 收藏弹窗列表最大高（弹窗） |
-| `X324` | `324.dp` | 悬浮层输入框最大高（悬浮层） |
+| `X324` | `324.dp` | 历史悬浮层输入框最大高（已退役，保留尺度备查） |
 | `X360` | `360.dp` | 分享卡预览高 / 锦囊弹窗高（分享卡/弹窗） |
 | `X380` | `380.dp` | 个人中心日历高（个人中心） |
 | `X420` | `420.dp` | 更新弹窗内容最大高（弹窗） |
@@ -319,8 +319,8 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
   - **几何**（`QuickCaptureOverlayGeometry`，双信号）：自由带 = `min(窗口实际高度, 全屏视口 − 钳制后的 IME 高度)`，两信号任一生效都把卡片限制在键盘上方，同时到达时不重复扣减；底部避让 = 窗口高度 − 自由带（仅窗口未被缩放时补偿）；卡片高度上限 = `min(全屏视口 × OverlayCardMaxHeightFraction, 自由带 − 2×OverlayCardMarginV)`；水平边距 `OverlayCardMarginH`。
   - **高度与键盘态**：卡片**内容自适应**、不超过上限（常态上限为视口 50%，`OverlayCardMaxHeightFraction = 0.5f`），居中于自由带；键盘升起时自由带收窄，卡片随之上移并进一步压缩上限。
   - **卡片内部结构**：主体（标题 → 草稿条）置于可滚动区，滚动区高度上限 = 卡高上限 − 底栏预留（卡片上下内边距 + 底栏上间距 + SealButton 高度）；底部「续写 / 取消 / 盖」动作行固定在卡片底边，不可随正文滚走。
-  - **输入框高度**：`OverlayInputMinHeight`–`OverlayInputMaxHeight`（`X120`…`X324`）。
-  - **令牌**：`OverlayCardMaxHeightFraction`、`OverlayCardMarginH`（`X16`）、`OverlayCardMarginV`（`X16`）、`OverlayThumbSize`、`OverlayThumbBadgeSize`、`OverlayInputMinHeight`、`OverlayInputMaxHeight`。已退役：`OverlayImeLiftMax` / `OverlayImeLiftFactor` / `X140`（旧「按 IME 比例抬升 + 140dp 上限」方案）与固定半屏卡高写法。
+  - **输入框高度**：`OverlayInputMinHeight`–`OverlayInputMaxHeight`（`X120`…`X150`，≈3–4 行）；`ScrollTextField` 传入 `fillMaxSize = false`，高度随文本在区间内自适应，超出 4 行后输入框内部滚动（`ScrollPaper` 新增 `fillMaxSize` 形参，默认 `true` 保持编辑器行为不变）。
+  - **令牌**：`OverlayCardMaxHeightFraction`、`OverlayCardMarginH`（`X16`）、`OverlayCardMarginV`（`X16`）、`OverlayThumbSize`、`OverlayThumbBadgeSize`、`OverlayInputMinHeight`、`OverlayInputMaxHeight`。已退役：`OverlayImeLiftMax` / `OverlayImeLiftFactor` / `X140`（旧「按 IME 比例抬升 + 140dp 上限」方案）、固定半屏卡高写法与 `X324` 输入框 10 行最大高（1.15.1 起收敛为 `X150` ≈4 行）。
 
 ### 5.6 Markdown：全量阅读 `MikepenzMarkdown` 与列表预览 `MarkdownPreview`
 

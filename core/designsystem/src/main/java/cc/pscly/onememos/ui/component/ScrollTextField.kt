@@ -23,6 +23,8 @@ import cc.pscly.onememos.ui.theme.InkSpacing
  * - 使用 BasicTextField 自绘背景横线与左侧朱砂竖线
  * - 保持可滚动；适配深色/浅色主题
  * - [focusRequester] 挂到内部 [BasicTextField]，供外层请求焦点/弹出 IME
+ * - [fillMaxSize] 透传给 [ScrollPaper]：悬浮速记等场景传 `false`，
+ *   输入框高度随文本在外层 `heightIn(min, max)` 区间内自适应，超出后内部滚动
  */
 @Composable
 fun ScrollTextField(
@@ -33,6 +35,7 @@ fun ScrollTextField(
     readOnly: Boolean = false,
     placeholder: String = "",
     focusRequester: FocusRequester? = null,
+    fillMaxSize: Boolean = true,
 ) {
     // “信纸横线”的行距：略大一些更有留白感
     val lineHeight = InkSpacing.LinePitch
@@ -46,6 +49,7 @@ fun ScrollTextField(
     ScrollPaper(
         modifier = modifier,
         lineHeight = lineHeight,
+        fillMaxSize = fillMaxSize,
     ) { contentModifier ->
         if (readOnly) {
             Box(modifier = contentModifier) {

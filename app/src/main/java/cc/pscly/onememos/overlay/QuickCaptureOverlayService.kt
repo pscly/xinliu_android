@@ -1172,6 +1172,7 @@ private fun QuickCaptureOverlayContent(
                                     .heightIn(min = InkSpacing.OverlayInputMinHeight, max = InkSpacing.OverlayInputMaxHeight),
                                 placeholder = "写点什么…",
                                 focusRequester = focusRequester,
+                                fillMaxSize = false,
                             )
 
                             if (uiState.attachments.isNotEmpty()) {

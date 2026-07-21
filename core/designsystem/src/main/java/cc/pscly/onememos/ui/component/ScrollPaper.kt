@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -37,11 +38,17 @@ import cc.pscly.onememos.ui.theme.LocalThemeTexture
  * - [ThemeTexture.SCROLL]：保持上述卷轴表现；
  * - [ThemeTexture.MINIMAL]：清简风，不绘横线与朱砂竖线，仅保留发丝边框，
  *   默认内边距改用 InkSpacing 的 Minimal 语义别名（更大留白）。
+ *
+ * 高度策略：
+ * - [fillMaxSize] 为 `true`（默认，编辑器/长文场景）：内容强制填满传入约束的最大高度；
+ * - [fillMaxSize] 为 `false`（悬浮速记等随文自适应场景）：内容高度随文本增长，
+ *   由外层 `heightIn(min, max)` 决定可视行数，超出后内部滚动。
  */
 @Composable
 fun ScrollPaper(
     modifier: Modifier = Modifier,
     lineHeight: TextUnit = InkSpacing.LinePitch,
+    fillMaxSize: Boolean = true,
     contentPadding: PaddingValues =
         if (LocalThemeTexture.current == ThemeTexture.MINIMAL) {
             PaddingValues(
@@ -126,7 +133,7 @@ fun ScrollPaper(
     ) {
         content(
             Modifier
-                .fillMaxSize()
+                .then(if (fillMaxSize) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
                 .verticalScroll(scrollState),
         )
     }
