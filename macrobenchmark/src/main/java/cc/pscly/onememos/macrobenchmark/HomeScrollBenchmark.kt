@@ -1,24 +1,27 @@
 package cc.pscly.onememos.macrobenchmark
 
-import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.BaselineProfileMode
 import androidx.benchmark.macro.CompilationMode
+import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.regex.Pattern
 
 /**
- * 目的：把“冷启动 + 主页连续滑动 + 点开一条记录再返回”的真实链路做成可重复的跑分用例。
+ * 冷启动 + 主页连续滑动 + 点开一条真实 memo 再返回。
  *
- * 注意：
- * - 该用例偏“最佳努力”：如果你的主页没有任何数据，点击第一条记录可能不会进入编辑页，但不会影响滚动跑分。
- * - 真正对比时建议固定同一台设备、同一套数据集（或先手动准备一些离线记录）。
+ * fail-fast：无 memo fixture 时明确失败，不接受坐标点击或空数据 best-effort。
  */
 @RunWith(AndroidJUnit4::class)
 class HomeScrollBenchmark {
@@ -38,7 +41,7 @@ class HomeScrollBenchmark {
             },
         ) {
             startActivityAndWait()
-            device.wait(Until.hasObject(By.desc("同步")), 5_000)
+            waitForObject(device, By.desc("同步"), 10_000, "首页同步按钮未出现")
 
             val cx = device.displayWidth / 2
             val startY = (device.displayHeight * 0.82).toInt()
@@ -47,9 +50,33 @@ class HomeScrollBenchmark {
                 device.swipe(cx, startY, cx, endY, 30)
             }
 
-            // 打开第一条记录（在数据为空时可能无效，属于 best-effort）
-            device.click(cx, (device.displayHeight * 0.32).toInt())
-            device.wait(Until.hasObject(By.desc("返回")), 3_000)
+            val memo =
+                waitForObject(
+                    device,
+                    By.res(Pattern.compile("home_memo_item_.*")),
+                    10_000,
+                    "无 memo fixture：未找到 home_memo_item_* 资源 id，请先在设备准备至少一条随笔",
+                )
+            memo.click()
+            assertTrue(
+                "点击 memo 后未进入编辑器（缺少返回）",
+                device.wait(Until.hasObject(By.desc("返回")), 5_000),
+            )
             device.pressBack()
+            assertTrue(
+                "返回后未回到首页（缺少同步）",
+                device.wait(Until.hasObject(By.desc("同步")), 5_000),
+            )
         }
+
+    private fun waitForObject(
+        device: UiDevice,
+        selector: androidx.test.uiautomator.BySelector,
+        timeoutMs: Long,
+        errorMessage: String,
+    ): UiObject2 {
+        val found = device.wait(Until.findObject(selector), timeoutMs)
+        assertNotNull(errorMessage, found)
+        return found!!
+    }
 }
