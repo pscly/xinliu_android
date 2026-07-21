@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -25,6 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.domain.tag.TagStat
 import cc.pscly.onememos.ui.filter.TagMatchMode
+import cc.pscly.onememos.ui.theme.PaperInkModalBottomSheet
 
 @Composable
 fun TagFilterBottomSheet(
@@ -49,7 +49,7 @@ fun TagFilterBottomSheet(
         }
     }
 
-    ModalBottomSheet(
+    PaperInkModalBottomSheet(
         onDismissRequest = onDismiss,
     ) {
         Text(

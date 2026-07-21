@@ -27,7 +27,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,6 +61,7 @@ import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.delay
+import cc.pscly.onememos.ui.theme.PaperInkModalBottomSheet
 
 @Composable
 fun QuickCaptureRoute(
@@ -366,7 +366,7 @@ private fun QuickCaptureHistoryBottomSheet(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
+    PaperInkModalBottomSheet(
         onDismissRequest = onDismiss,
     ) {
         Text(
