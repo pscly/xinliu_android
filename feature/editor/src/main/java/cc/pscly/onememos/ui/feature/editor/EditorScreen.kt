@@ -49,7 +49,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -106,11 +105,15 @@ import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
+import cc.pscly.onememos.ui.component.InkRetryBanner
+import cc.pscly.onememos.navigation.memoSharedBounds
 
 @Composable
 fun EditorScreen(
     onBack: () -> Unit,
     onOpenShareCard: (String) -> Unit,
+    memoUuid: String? = null,
     viewModel: EditorViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -324,7 +327,7 @@ fun EditorScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            PaperInkTopAppBar(
                 title = {
                     val titleText =
                         when {
@@ -378,8 +381,11 @@ fun EditorScreen(
         },
     ) { padding ->
         Box(
+            // shared bounds 使用路由 UUID（memoUuid），不依赖异步 uiState.uuid；
+            // 不含 TopAppBar；null/blank 时 helper no-op。
             modifier = Modifier
                 .fillMaxSize()
+                .memoSharedBounds(memoUuid)
                 .padding(padding)
                 .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12)
                 // minSdk=33（Android 13）：直接用 Compose 的 IME insets 修正布局。
@@ -400,23 +406,11 @@ fun EditorScreen(
                 }
 
                 if (uiState.syncStatus == SyncStatus.FAILED && !uiState.lastSyncError.isNullOrBlank()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "同步失败：${uiState.lastSyncError}",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        TextButton(onClick = viewModel::retrySync) {
-                            Text(text = "重试同步")
-                        }
-                    }
+                    InkRetryBanner(
+                        message = "同步失败：${uiState.lastSyncError}",
+                        retryLabel = "重试同步",
+                        onRetry = viewModel::retrySync,
+                    )
                 }
 
                 if (isReadonlyViewing) {

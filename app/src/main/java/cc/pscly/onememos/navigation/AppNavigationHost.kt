@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -178,14 +179,19 @@ fun AppNavigationHost(
     val reducedMotion = ReducedMotion.current
 
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
-        NavDisplay(
-            entries = decoratedEntries,
-            onBack = ::handleBack,
-            sharedTransitionScope = if (reducedMotion) null else this,
-            transitionSpec = pageTransitionSpec(reducedMotion),
-            popTransitionSpec = pagePopTransitionSpec(reducedMotion),
-            predictivePopTransitionSpec = pagePredictivePopTransitionSpec(reducedMotion),
-        )
+        // 与 NavDisplay.sharedTransitionScope 共用同一 nullable scope：
+        // Reduced Motion 时为 null，业务 memoSharedBounds no-op。
+        val memoSharedScope = if (reducedMotion) null else this
+        CompositionLocalProvider(LocalMemoSharedTransitionScope provides memoSharedScope) {
+            NavDisplay(
+                entries = decoratedEntries,
+                onBack = ::handleBack,
+                sharedTransitionScope = memoSharedScope,
+                transitionSpec = pageTransitionSpec(reducedMotion),
+                popTransitionSpec = pagePopTransitionSpec(reducedMotion),
+                predictivePopTransitionSpec = pagePredictivePopTransitionSpec(reducedMotion),
+            )
+        }
     }
 }
 

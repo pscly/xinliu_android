@@ -27,6 +27,7 @@ object EditorEntryContributor : FeatureEntryContributor {
             EditorScreen(
                 onBack = { navigator.back() },
                 onOpenShareCard = { uuid -> navigator.push(ShareCardKey(uuid = uuid)) },
+                memoUuid = editorKey.uuid,
                 viewModel = viewModel,
             )
         }

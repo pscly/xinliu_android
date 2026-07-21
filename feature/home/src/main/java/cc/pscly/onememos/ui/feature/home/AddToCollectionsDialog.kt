@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,6 +40,7 @@ import cc.pscly.onememos.ui.component.InkLoading
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.launch
+import cc.pscly.onememos.ui.theme.PaperInkModalBottomSheet
 
 @Composable
 internal fun AddToCollectionsDialog(
@@ -63,7 +63,7 @@ internal fun AddToCollectionsDialog(
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
     }
 
-    ModalBottomSheet(
+    PaperInkModalBottomSheet(
         onDismissRequest = { if (!busy) onDismiss() },
     ) {
         Column(

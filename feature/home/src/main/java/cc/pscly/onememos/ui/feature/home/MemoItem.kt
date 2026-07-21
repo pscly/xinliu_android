@@ -69,6 +69,7 @@ internal fun MemoItem(
     onLongShare: () -> Unit,
     onToggleTag: (String) -> Unit,
     onMoreActions: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     // 选中态视觉统一：primary 8% 底色 + 同色系描边环，所有选中卡片观感一致。
     // 通过局部覆盖 colorScheme.surface 实现底色，避免给 InkCard 增加参数、也避免遮罩盖住正文。
@@ -107,8 +108,10 @@ internal fun MemoItem(
         MemoItemTalkBack.statusLabel(memo.serverState, memo.syncStatus)
 
     InkCard(
+        // modifier 顺序写死：外层 shared bounds → 选中描边 → testTag
         modifier =
-            (if (selected) Modifier.border(selectedBorder, cardShape) else Modifier)
+            modifier
+                .then(if (selected) Modifier.border(selectedBorder, cardShape) else Modifier)
                 .testTag("home_memo_item_${memo.uuid}"),
         onClick = onOpenMemo,
         onLongClick = onLongShare,

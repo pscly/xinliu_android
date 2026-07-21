@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 
 package cc.pscly.onememos.ui.feature.home
 
@@ -53,9 +53,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
@@ -66,7 +64,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,6 +74,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -87,6 +85,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
@@ -143,6 +142,10 @@ import cc.pscly.onememos.ui.theme.LocalThemeDensity
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import cc.pscly.onememos.ui.theme.PaperInkModalBottomSheet
+import cc.pscly.onememos.ui.theme.PaperInkSnackbarHost
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
+import cc.pscly.onememos.navigation.memoSharedBounds
 
 @Composable
 fun HomeScreen(
@@ -331,10 +334,11 @@ fun HomeScreen(
     val isSyncing = globalSyncState.isSyncing
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
+        snackbarHost = { PaperInkSnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Column {
-                TopAppBar(
+                PaperInkTopAppBar(
                     title = {
                         Text(
                             text = if (selectionMode) "已选 ${selectionState.selectedIds.size}" else title,
@@ -360,7 +364,7 @@ fun HomeScreen(
                         }
                     },
                     actions = {
-                        if (selectionMode) return@TopAppBar
+                        if (selectionMode) return@PaperInkTopAppBar
                         IconButton(onClick = viewModel::requestSync, enabled = !isSyncing) {
                             if (isSyncing) {
                                 // 顶栏同步按钮加载态：转圈尺寸为结构常量，非间距尺度（M4 豁免保留）
@@ -554,7 +558,7 @@ fun HomeScreen(
         },
     ) { padding ->
         moreActionsTarget?.let { target ->
-            ModalBottomSheet(
+            PaperInkModalBottomSheet(
                 onDismissRequest = { moreActionsTarget = null },
             ) {
                 Column(
@@ -1021,6 +1025,13 @@ private fun GroupedItemContent(
                 haptics = haptics,
                 onSwipeAction = { action -> viewModel.performSwipeAction(memo, action) },
             ) {
+            // 仅 ACTIVE 已有随笔参与 shared bounds；Archived/新建不配对。
+            val sharedModifier =
+                if (mode == HomeScreenMode.ACTIVE) {
+                    Modifier.memoSharedBounds(memo.uuid)
+                } else {
+                    Modifier
+                }
             MemoItem(
                 memo = memo,
                 serverBase = uiState.serverBase,
@@ -1057,6 +1068,7 @@ private fun GroupedItemContent(
                             onMoreActions(memo)
                         }
                     },
+                modifier = sharedModifier,
             )
             }
         }
