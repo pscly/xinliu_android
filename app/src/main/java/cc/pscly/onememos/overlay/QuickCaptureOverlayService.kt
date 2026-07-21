@@ -7,6 +7,7 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams
 import android.widget.Toast
@@ -434,20 +435,7 @@ class QuickCaptureOverlayService : Service() {
             }
 
         val params =
-            LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.TYPE_APPLICATION_OVERLAY,
-                LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                android.graphics.PixelFormat.TRANSLUCENT,
-            ).apply {
-                gravity = Gravity.TOP or Gravity.START
-                // 让输入法可用：不要加 NOT_FOCUSABLE
-                // 双信号避让键盘：优先由 ADJUST_RESIZE 直接缩放窗口（OEM 兼容最好），
-                // WindowInsets.ime.bottom 作为兜底信号，几何层取较小自由带、不重复扣减
-                @Suppress("DEPRECATION")
-                softInputMode = LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-            }
+            buildQuickCaptureOverlayLayoutParams()
 
         runCatching {
             wm.addView(view, params)
@@ -1012,6 +1000,32 @@ class QuickCaptureOverlayService : Service() {
         }
     }
 }
+
+/**
+ * 悬浮速记窗口参数工厂。
+ *
+ * HyperOS 上 `TYPE_APPLICATION_OVERLAY` 默认 [LayoutParams.fitInsetsTypes] 仅含
+ * 导航栏/标题栏，**不包含 IME**，导致 `SOFT_INPUT_ADJUST_RESIZE` 与
+ * `WindowInsets.ime` 双信号均无法形成自由带。此处在保留平台默认类型的基础上
+ * 显式 OR 入 [WindowInsets.Type.ime]，让系统用真实键盘区域裁剪窗口。
+ */
+internal fun buildQuickCaptureOverlayLayoutParams(): LayoutParams =
+    LayoutParams(
+        LayoutParams.MATCH_PARENT,
+        LayoutParams.MATCH_PARENT,
+        LayoutParams.TYPE_APPLICATION_OVERLAY,
+        LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+        android.graphics.PixelFormat.TRANSLUCENT,
+    ).apply {
+        gravity = Gravity.TOP or Gravity.START
+        // 让输入法可用：不要加 NOT_FOCUSABLE
+        // 双信号避让键盘：优先由 ADJUST_RESIZE 直接缩放窗口（OEM 兼容最好），
+        // WindowInsets.ime.bottom 作为兜底信号，几何层取较小自由带、不重复扣减
+        @Suppress("DEPRECATION")
+        softInputMode = LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        // 保留平台默认 fitTypes（设备侧常见 NAVIGATION_BARS | CAPTION_BAR），追加 IME
+        fitInsetsTypes = fitInsetsTypes or WindowInsets.Type.ime()
+    }
 
 @Composable
 private fun QuickCaptureOverlayContent(

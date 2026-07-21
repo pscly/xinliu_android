@@ -315,7 +315,7 @@ M1.1 起，原语禁止裸 `dp` / `sp` / 硬编码 `Color(0x…)`（色板字面
 - `ScrollPaper` + `BasicTextField` / 只读可选文本；行高 `LinePitch`；占位用 `outline`。
 - 无统一校验错误 / 加载原语外观。
 - **M6 悬浮速记层接入**（`QuickCaptureOverlayService`）：`ScrollTextField` + `InkShape.Card`（圆角 14dp）+ `colorScheme.scrim` 全屏遮罩 + `InkCard`，形成纸墨悬浮输入体验。
-  - **窗口**：`MATCH_PARENT × MATCH_PARENT` 全屏、`TYPE_APPLICATION_OVERLAY`、`FLAG_LAYOUT_IN_SCREEN`、可获焦；`softInputMode = SOFT_INPUT_ADJUST_RESIZE`（主信号：窗口随键盘缩放，OEM 兼容最好），`WindowInsets.ime.bottom` 为兜底信号（部分 OEM 不向 overlay 窗口派发，恒为 0）。
+  - **窗口**：`MATCH_PARENT × MATCH_PARENT` 全屏、`TYPE_APPLICATION_OVERLAY`、`FLAG_LAYOUT_IN_SCREEN`、可获焦；`softInputMode = SOFT_INPUT_ADJUST_RESIZE`（主信号：窗口随键盘缩放）；`fitInsetsTypes = 平台默认 | WindowInsets.Type.ime()`（1.15.2：HyperOS 默认 fitTypes 不含 IME，导致 ADJUST_RESIZE 与 insets 双信号均失效，故显式 OR 入 IME）；`WindowInsets.ime.bottom` 为兜底信号。
   - **几何**（`QuickCaptureOverlayGeometry`，双信号）：自由带 = `min(窗口实际高度, 全屏视口 − 钳制后的 IME 高度)`，两信号任一生效都把卡片限制在键盘上方，同时到达时不重复扣减；底部避让 = 窗口高度 − 自由带（仅窗口未被缩放时补偿）；卡片高度上限 = `min(全屏视口 × OverlayCardMaxHeightFraction, 自由带 − 2×OverlayCardMarginV)`；水平边距 `OverlayCardMarginH`。
   - **高度与键盘态**：卡片**内容自适应**、不超过上限（常态上限为视口 50%，`OverlayCardMaxHeightFraction = 0.5f`），居中于自由带；键盘升起时自由带收窄，卡片随之上移并进一步压缩上限。
   - **卡片内部结构**：主体（标题 → 草稿条）置于可滚动区，滚动区高度上限 = 卡高上限 − 底栏预留（卡片上下内边距 + 底栏上间距 + SealButton 高度）；底部「续写 / 取消 / 盖」动作行固定在卡片底边，不可随正文滚走。
