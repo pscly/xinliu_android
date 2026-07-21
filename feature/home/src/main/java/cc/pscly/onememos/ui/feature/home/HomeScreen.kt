@@ -53,9 +53,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
@@ -66,7 +64,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -143,6 +140,9 @@ import cc.pscly.onememos.ui.theme.LocalThemeDensity
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import cc.pscly.onememos.ui.theme.PaperInkModalBottomSheet
+import cc.pscly.onememos.ui.theme.PaperInkSnackbarHost
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 
 @Composable
 fun HomeScreen(
@@ -331,10 +331,10 @@ fun HomeScreen(
     val isSyncing = globalSyncState.isSyncing
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = { PaperInkSnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Column {
-                TopAppBar(
+                PaperInkTopAppBar(
                     title = {
                         Text(
                             text = if (selectionMode) "已选 ${selectionState.selectedIds.size}" else title,
@@ -360,7 +360,7 @@ fun HomeScreen(
                         }
                     },
                     actions = {
-                        if (selectionMode) return@TopAppBar
+                        if (selectionMode) return@PaperInkTopAppBar
                         IconButton(onClick = viewModel::requestSync, enabled = !isSyncing) {
                             if (isSyncing) {
                                 // 顶栏同步按钮加载态：转圈尺寸为结构常量，非间距尺度（M4 豁免保留）
@@ -554,7 +554,7 @@ fun HomeScreen(
         },
     ) { padding ->
         moreActionsTarget?.let { target ->
-            ModalBottomSheet(
+            PaperInkModalBottomSheet(
                 onDismissRequest = { moreActionsTarget = null },
             ) {
                 Column(
