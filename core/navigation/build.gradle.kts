@@ -33,7 +33,10 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
     implementation(libs.kotlinx.serialization.json)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
 
