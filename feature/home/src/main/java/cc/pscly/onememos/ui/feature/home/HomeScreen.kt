@@ -143,6 +143,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import cc.pscly.onememos.ui.theme.PaperInkModalBottomSheet
 import cc.pscly.onememos.ui.theme.PaperInkSnackbarHost
 import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
+import cc.pscly.onememos.navigation.memoSharedBounds
 
 @Composable
 fun HomeScreen(
@@ -1021,6 +1022,13 @@ private fun GroupedItemContent(
                 haptics = haptics,
                 onSwipeAction = { action -> viewModel.performSwipeAction(memo, action) },
             ) {
+            // 仅 ACTIVE 已有随笔参与 shared bounds；Archived/新建不配对。
+            val sharedModifier =
+                if (mode == HomeScreenMode.ACTIVE) {
+                    Modifier.memoSharedBounds(memo.uuid)
+                } else {
+                    Modifier
+                }
             MemoItem(
                 memo = memo,
                 serverBase = uiState.serverBase,
@@ -1057,6 +1065,7 @@ private fun GroupedItemContent(
                             onMoreActions(memo)
                         }
                     },
+                modifier = sharedModifier,
             )
             }
         }

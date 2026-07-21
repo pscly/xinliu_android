@@ -107,11 +107,13 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 import cc.pscly.onememos.ui.component.InkRetryBanner
+import cc.pscly.onememos.navigation.memoSharedBounds
 
 @Composable
 fun EditorScreen(
     onBack: () -> Unit,
     onOpenShareCard: (String) -> Unit,
+    memoUuid: String? = null,
     viewModel: EditorViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -379,8 +381,11 @@ fun EditorScreen(
         },
     ) { padding ->
         Box(
+            // shared bounds 使用路由 UUID（memoUuid），不依赖异步 uiState.uuid；
+            // 不含 TopAppBar；null/blank 时 helper no-op。
             modifier = Modifier
                 .fillMaxSize()
+                .memoSharedBounds(memoUuid)
                 .padding(padding)
                 .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12)
                 // minSdk=33（Android 13）：直接用 Compose 的 IME insets 修正布局。
