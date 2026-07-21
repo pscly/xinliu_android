@@ -32,7 +32,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +54,7 @@ import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
 import kotlin.math.max
 import kotlin.math.min
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 
 @Composable
 fun ShareCardScreen(
@@ -82,7 +82,7 @@ fun ShareCardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            PaperInkTopAppBar(
                 title = { Text("墨迹卡片") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

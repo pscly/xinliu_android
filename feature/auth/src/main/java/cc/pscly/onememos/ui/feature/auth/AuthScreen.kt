@@ -28,7 +28,6 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +42,7 @@ import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkSpacing
 import kotlinx.coroutines.flow.collectLatest
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 
 @Composable
 fun AuthScreen(
@@ -66,7 +66,7 @@ fun AuthScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            PaperInkTopAppBar(
                 title = { Text("登录") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
