@@ -61,6 +61,8 @@
 
 **无 ADB 设备时**：人工 TalkBack 与系统字体最大档截图统一标记 **SKIPPED_NO_DEVICE**，不以设备 PASS 宣称。
 
+**2026-07-22 设备状态**：ADB 设备在线但锁屏（`mDreamingLockscreen=true`），交互 TalkBack/转场/宏基准标 **SKIPPED_DEVICE_LOCKED**；unit/Roborazzi 仍以自动化结果为准。
+
 ## 4. 系统字体最大档截图
 
 建议目录：`docs/qa/screenshots/m3-2-a11y/`（真机截图本交付可不提交二进制）。
