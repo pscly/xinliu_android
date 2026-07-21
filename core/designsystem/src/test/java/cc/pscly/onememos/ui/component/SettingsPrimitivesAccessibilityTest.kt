@@ -219,26 +219,168 @@ class SettingsPrimitivesAccessibilityTest {
     }
 
     @Test
-    fun tagChip_compact_keepsTagContentDescription() {
-        // 紧凑视觉契约：memo 卡内标签为次要交互，整卡可点进详情，
-        // 产品决策视觉高度≈文字行高（不再断言 48dp 最小触控目标）；
-        // 无障碍语义 contentDescription/stateDescription 必须保留。
+    fun clickableTagChip_hasAtLeast48TouchTarget_selectedSemanticsAndDescription() {
+        // 可点击 TagChip：外层 ≥48dp 触控区 + Selected/stateDescription；内层保持紧凑视觉。
+        var clicks = 0
         composeRule.setContent {
             OneMemosTheme {
                 TagChip(
                     tag = "工作",
                     selected = true,
-                    onClick = {},
-                    modifier = Modifier.testTag("tag_chip"),
+                    onClick = { clicks += 1 },
+                    modifier = Modifier.testTag("tag_chip_clickable"),
                 )
             }
         }
-        val node = composeRule.onNodeWithTag("tag_chip")
+        val node = composeRule.onNodeWithTag("tag_chip_clickable")
         node.assertIsDisplayed()
+        node.assertWidthIsAtLeast(48.dp)
+        node.assertHeightIsAtLeast(48.dp)
+        assertEquals(true, node.isSelectedSemantics())
+        assertEquals("已选中", node.stateDescription())
         val desc = node.contentDescription()
         assertNotNull(desc)
         assertTrue(desc!!.contains("工作"))
+        node.performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun clickableTagChip_unselected_exposesSelectedFalse() {
+        composeRule.setContent {
+            OneMemosTheme {
+                TagChip(
+                    tag = "生活",
+                    selected = false,
+                    onClick = {},
+                    modifier = Modifier.testTag("tag_chip_unselected"),
+                )
+            }
+        }
+        val node = composeRule.onNodeWithTag("tag_chip_unselected")
+        node.assertIsDisplayed()
+        node.assertWidthIsAtLeast(48.dp)
+        node.assertHeightIsAtLeast(48.dp)
+        assertEquals(false, node.isSelectedSemantics())
+        assertEquals("未选中", node.stateDescription())
+    }
+
+    @Test
+    fun staticTagChip_unselected_hasNoClickActionOrSelectionSemantics() {
+        // 静态未选 TagChip：不伪装按钮、不朗读“未选中”，无 click action。
+        composeRule.setContent {
+            OneMemosTheme {
+                TagChip(
+                    tag = "静态",
+                    selected = false,
+                    onClick = null,
+                    modifier = Modifier.testTag("tag_chip_static"),
+                )
+            }
+        }
+        val node = composeRule.onNodeWithTag("tag_chip_static")
+        node.assertIsDisplayed()
+        assertFalse(node.hasClickAction())
+        assertEquals(null, node.isSelectedSemantics())
+        assertEquals(null, node.stateDescription())
+        val desc = node.contentDescription()
+        assertNotNull(desc)
+        assertTrue(desc!!.contains("静态"))
+        assertFalse(desc.contains("未选中"))
+    }
+
+    @Test
+    fun staticTagChip_selected_exposesSelectionWithoutButtonRole() {
+        composeRule.setContent {
+            OneMemosTheme {
+                TagChip(
+                    tag = "已标",
+                    selected = true,
+                    onClick = null,
+                    modifier = Modifier.testTag("tag_chip_static_selected"),
+                )
+            }
+        }
+        val node = composeRule.onNodeWithTag("tag_chip_static_selected")
+        node.assertIsDisplayed()
+        assertFalse(node.hasClickAction())
+        assertEquals(true, node.isSelectedSemantics())
         assertEquals("已选中", node.stateDescription())
+    }
+
+    @Test
+    fun inkChip_enabled_hasAtLeast48TouchTargetAndSelectedSemantics() {
+        var clicks = 0
+        composeRule.setContent {
+            OneMemosTheme {
+                InkChip(
+                    label = "全部",
+                    selected = true,
+                    enabled = true,
+                    onClick = { clicks += 1 },
+                    modifier = Modifier.testTag("ink_chip_selected"),
+                )
+            }
+        }
+        val node = composeRule.onNodeWithTag("ink_chip_selected")
+        node.assertIsDisplayed()
+        node.assertWidthIsAtLeast(48.dp)
+        node.assertHeightIsAtLeast(48.dp)
+        node.assertIsEnabled()
+        assertEquals(true, node.isSelectedSemantics())
+        assertEquals("已选中", node.stateDescription())
+        node.performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun inkChip_unselected_exposesSelectedFalse() {
+        composeRule.setContent {
+            OneMemosTheme {
+                InkChip(
+                    label = "筛选",
+                    selected = false,
+                    enabled = true,
+                    onClick = {},
+                    modifier = Modifier.testTag("ink_chip_unselected"),
+                )
+            }
+        }
+        val node = composeRule.onNodeWithTag("ink_chip_unselected")
+        node.assertIsDisplayed()
+        node.assertWidthIsAtLeast(48.dp)
+        node.assertHeightIsAtLeast(48.dp)
+        assertEquals(false, node.isSelectedSemantics())
+        assertEquals("未选中", node.stateDescription())
+    }
+
+    @Test
+    fun inkChip_disabled_hasAtLeast48TouchTarget_andSelectedSemantics() {
+        var clicks = 0
+        composeRule.setContent {
+            OneMemosTheme {
+                InkChip(
+                    label = "待办",
+                    selected = false,
+                    enabled = false,
+                    onClick = { clicks += 1 },
+                    modifier = Modifier.testTag("ink_chip_disabled_size"),
+                )
+            }
+        }
+        val node = composeRule.onNodeWithTag("ink_chip_disabled_size")
+        node.assertIsDisplayed()
+        node.assertWidthIsAtLeast(48.dp)
+        node.assertHeightIsAtLeast(48.dp)
+        node.assertIsNotEnabled()
+        assertTrue(node.isDisabledSemantics())
+        assertEquals(false, node.isSelectedSemantics())
+        assertEquals("未选中", node.stateDescription())
+        node.performClick()
+        composeRule.waitForIdle()
+        assertEquals(0, clicks)
     }
 
     @Test
@@ -283,5 +425,15 @@ class SettingsPrimitivesAccessibilityTest {
     private fun SemanticsNodeInteraction.stateDescription(): String? {
         val config = fetchSemanticsNode().config
         return config.getOrNull(SemanticsProperties.StateDescription)
+    }
+
+    private fun SemanticsNodeInteraction.isSelectedSemantics(): Boolean? {
+        val config = fetchSemanticsNode().config
+        return config.getOrNull(SemanticsProperties.Selected)
+    }
+
+    private fun SemanticsNodeInteraction.hasClickAction(): Boolean {
+        val config = fetchSemanticsNode().config
+        return config.contains(androidx.compose.ui.semantics.SemanticsActions.OnClick)
     }
 }

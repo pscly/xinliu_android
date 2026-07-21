@@ -4,21 +4,26 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.graphics.Color
 import cc.pscly.onememos.ui.accessibility.PaperInkFocusIndicator
 import cc.pscly.onememos.ui.theme.InkBorder
 import cc.pscly.onememos.ui.theme.InkShape
@@ -76,34 +81,53 @@ fun TagChip(
     val a11yDescription = if (selected) "标签 $displayLabel，已选中" else "标签 $displayLabel"
     val clickable = onClick != null
     val shape = InkShape.Tag
+    // 选择语义：可点击 TagChip 始终暴露 Selected；静态仅在已选中时暴露，
+    // 静态未选中不伪装按钮、不朗读“未选中”。
+    val exposeSelection = clickable || selected
 
-    Surface(
-        // 视觉高度由内容决定（文字行高 + TagPaddingV×2 ≈ 24dp）：memo 卡内标签为次要交互，
-        // 整卡可点进详情，产品决策不套用 48dp 最小触控目标；无障碍语义由下方 semantics 保留。
+    // 外层 ≥48dp 触控/语义区（仅可点击）；内层 Surface 保持紧凑视觉色块。
+    Box(
         modifier =
             modifier
+                .then(
+                    if (clickable) {
+                        Modifier
+                            .minimumInteractiveComponentSize()
+                            .defaultMinSize(
+                                minWidth = InkSpacing.TouchTargetMin,
+                                minHeight = InkSpacing.TouchTargetMin,
+                            )
+                    } else {
+                        Modifier
+                    },
+                )
                 .semantics(mergeDescendants = true) {
                     contentDescription = a11yDescription
-                    if (selected) {
-                        stateDescription = "已选中"
+                    if (exposeSelection) {
+                        this.selected = selected
+                        stateDescription = if (selected) "已选中" else "未选中"
                     }
                     if (clickable) {
                         role = Role.Button
                     }
                 }
                 .then(
-                    if (clickable) {
+                    if (onClick != null) {
                         Modifier.clickable(
                             interactionSource = interactionSource,
                             indication = null,
                             role = Role.Button,
-                            onClick = onClick!!,
+                            onClick = onClick,
                         )
                     } else {
                         Modifier
                     },
-                )
-                .then(
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier =
+                Modifier.then(
                     with(PaperInkFocusIndicator) {
                         Modifier.paperInkFocusBorder(
                             focused = focused && clickable,
@@ -111,17 +135,24 @@ fun TagChip(
                         )
                     },
                 ),
-        color = bg,
-        contentColor = fg,
-        // 标签视觉：更接近“色块”，避免太像胶囊。
-        shape = shape,
-        border = BorderStroke(InkBorder.Hairline, borderColor),
-    ) {
-        Text(
-            modifier = Modifier.padding(PaddingValues(horizontal = InkSpacing.TagPaddingH, vertical = InkSpacing.TagPaddingV)),
-            text = displayLabel,
-            style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
-        )
+            color = bg,
+            contentColor = fg,
+            // 标签视觉：更接近“色块”，避免太像胶囊。
+            shape = shape,
+            border = BorderStroke(InkBorder.Hairline, borderColor),
+        ) {
+            Text(
+                modifier =
+                    Modifier.padding(
+                        PaddingValues(
+                            horizontal = InkSpacing.TagPaddingH,
+                            vertical = InkSpacing.TagPaddingV,
+                        ),
+                    ),
+                text = displayLabel,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+            )
+        }
     }
 }
