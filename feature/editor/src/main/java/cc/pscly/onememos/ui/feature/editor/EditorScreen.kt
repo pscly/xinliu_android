@@ -49,7 +49,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -106,6 +105,8 @@ import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
+import cc.pscly.onememos.ui.component.InkRetryBanner
 
 @Composable
 fun EditorScreen(
@@ -324,7 +325,7 @@ fun EditorScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            PaperInkTopAppBar(
                 title = {
                     val titleText =
                         when {
@@ -400,23 +401,11 @@ fun EditorScreen(
                 }
 
                 if (uiState.syncStatus == SyncStatus.FAILED && !uiState.lastSyncError.isNullOrBlank()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "同步失败：${uiState.lastSyncError}",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        TextButton(onClick = viewModel::retrySync) {
-                            Text(text = "重试同步")
-                        }
-                    }
+                    InkRetryBanner(
+                        message = "同步失败：${uiState.lastSyncError}",
+                        retryLabel = "重试同步",
+                        onRetry = viewModel::retrySync,
+                    )
                 }
 
                 if (isReadonlyViewing) {

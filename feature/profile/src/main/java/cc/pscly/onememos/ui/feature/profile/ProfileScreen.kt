@@ -35,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +65,7 @@ import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import java.time.LocalDate
 import java.time.YearMonth
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 
 @Composable
 fun ProfileScreen(
@@ -86,7 +86,7 @@ fun ProfileScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            PaperInkTopAppBar(
                 title = {
                     Text(
                         text = title,

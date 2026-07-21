@@ -54,7 +54,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -110,6 +109,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 
 private data class ColorOption(
     val label: String,
@@ -329,7 +329,7 @@ fun CollectionsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            PaperInkTopAppBar(
                 title = {
                     Column {
                         Text(text = "锦囊")
@@ -366,7 +366,7 @@ fun CollectionsScreen(
                     }
                 },
                 actions = {
-                    if (!uiState.enabled) return@TopAppBar
+                    if (!uiState.enabled) return@PaperInkTopAppBar
 
                     val filterEntryEnabled = !(selectionMode || reorderMode || busy)
                     val hasTagFilter = selectedTags.isNotEmpty()
@@ -429,7 +429,7 @@ fun CollectionsScreen(
                         ) {
                             Icon(imageVector = Icons.Filled.Close, contentDescription = "取消选择")
                         }
-                        return@TopAppBar
+                        return@PaperInkTopAppBar
                     }
 
                     IconButton(
