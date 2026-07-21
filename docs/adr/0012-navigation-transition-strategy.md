@@ -33,26 +33,21 @@
 - 不引入 Navigation 2 依赖作为转场实现。
 - 本 ADR 不触发 versionCode / APK 变更（纯文档）。
 
-## 实现状态（2026-07-21 设计冻结）
+## 实现状态（2026-07-21 UI 债务收口）
 
 ### 已完成（宿主）
 
 - `AppNavigationHost` 已用 `SharedTransitionLayout` 包裹 `NavDisplay`。
 - `NavDisplay.sharedTransitionScope = if (reducedMotion) null else this`；页面级 `transitionSpec` / `popTransitionSpec` / `predictivePopTransitionSpec`（fade + 共享轴）已接线。
 - Reduced Motion 与「关闭页面转场」共用门控，不另起共享元素专用开关。
+- 宿主注入：`CompositionLocalProvider(LocalMemoSharedTransitionScope provides (if (reducedMotion) null else this))`，与 `NavDisplay.sharedTransitionScope` 同一 nullable 值。
 
-### 未完成（业务 bounds，属 UI 债务）
+### 已完成（业务 bounds，产品 Todo 1/8）
 
-- Home `MemoItem` / 分组内容与 Editor 内容根**尚未**挂 `sharedBounds`。
-- 尚无仓库级统一 key / Modifier helper。
+1. `core:navigation`：`LocalMemoSharedTransitionScope` + `Modifier.memoSharedBounds(uuid)`；key = `memo/<uuid>`（null/blank 不产生 key）。
+2. 配对：仅 Home **活跃**分区已有 memo → `EditorKey(uuid!=null)` 内容根（路由 `memoUuid`，非 `uiState.uuid`）；新建、归档、跨顶层分区、进程恢复不参与。
+3. API：null scope 时 **不得** 条件调用 `rememberSharedContentState`；使用 `with(scope)` + `LocalNavAnimatedContentScope.current`。
+4. 守卫：`MemoSharedTransitionWiringTest`；不引入 Navigation 2 或社区 `SharedEntryInSceneNavEntryDecorator`。
+5. 降级条件仍适用本节「M2.9 实施边界」第 5 条。
 
-### 收口设计裁决（计划 `.omo/plans/2026-07-21-ui-debt-closeout.md`，双审通过，实现待办）
-
-1. 仅在 `core:navigation` 提供 nullable `LocalMemoSharedTransitionScope` 与 `modifier.memoSharedBounds(uuid)`；key = `memo/<uuid>`（null/blank 不产生 key）。
-2. 宿主注入：`CompositionLocalProvider(LocalMemoSharedTransitionScope provides (if (reducedMotion) null else this))`，与 `NavDisplay.sharedTransitionScope` 使用同一 nullable 值。
-3. 配对：仅 Home **活跃**分区已有 memo → `EditorKey(uuid!=null)`；新建、归档、跨顶层分区、进程恢复不参与。
-4. API 形态要求：null scope 时 **不得** 条件调用 `rememberSharedContentState`（Compose slot 稳定性）；使用 `with(scope)` receiver + `LocalNavAnimatedContentScope.current`。
-5. 不引入 Navigation 2，不引入社区 `SharedEntryInSceneNavEntryDecorator` / `localNavSharedTransitionScope` 命名，不发明第二套 Reduced Motion 状态。
-6. 降级条件仍适用本节「M2.9 实施边界」第 5 条。
-
-**说明**：本段描述的是**已批准的目标契约**。在产品 Todo 1/8 落地前，不得在 QA 或 Release 说明中宣称「shared bounds 已接线」。本 ADR 更新仍为纯文档，不触发 versionCode。
+**说明**：代码层 shared bounds 已接线。真机 Reduced Motion / 往返录屏仍属设备 QA（计划 Todo 15），未完成前不得在 Release 说明中写「真机转场已验收」。本 ADR 文档更新本身不触发 versionCode。
