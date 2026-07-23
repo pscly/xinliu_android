@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -35,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,14 +44,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -76,6 +79,42 @@ fun ProfileScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = rememberOneMemosHaptics()
 
+    ProfileScreenContent(
+        uiState = uiState,
+        onOpenDrawer = onOpenDrawer,
+        onOpenMemo = onOpenMemo,
+        onSetMonth = viewModel::setMonth,
+        onPrevMonth = viewModel::prevMonth,
+        onNextMonth = viewModel::nextMonth,
+        onGoToToday = viewModel::goToToday,
+        onSelectSingle = viewModel::selectSingle,
+        onStartRange = { date ->
+            haptics.tick()
+            viewModel.startRange(date)
+        },
+        onUpdateRange = { date ->
+            haptics.tick()
+            viewModel.updateRange(date)
+        },
+    )
+}
+
+/**
+ * 可测入口：无 Hilt。参数为 uiState + 9 个回调，共 10 个。
+ */
+@Composable
+internal fun ProfileScreenContent(
+    uiState: ProfileUiState,
+    onOpenDrawer: () -> Unit,
+    onOpenMemo: (String) -> Unit,
+    onSetMonth: (YearMonth) -> Unit,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onGoToToday: () -> Unit,
+    onSelectSingle: (LocalDate) -> Unit,
+    onStartRange: (LocalDate) -> Unit,
+    onUpdateRange: (LocalDate) -> Unit,
+) {
     val selection = uiState.selection
     val start = selection.start
     val end = selection.end
@@ -107,48 +146,61 @@ fun ProfileScreen(
                 onDismiss = { showMonthPicker = false },
                 onPick = { picked ->
                     showMonthPicker = false
-                    viewModel.setMonth(picked)
+                    onSetMonth(picked)
                 },
             )
         }
 
         LazyColumn(
             modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(horizontal = InkSpacing.X16, vertical = InkSpacing.X14),
+            // 水平边距改由各 item 控制：热力图卡收紧至 X12，其余保持 X16
+            contentPadding = PaddingValues(vertical = InkSpacing.X14),
             verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
         ) {
             item {
-                InkCard(onClick = null) {
+                InkCard(
+                    modifier =
+                        Modifier
+                            .padding(horizontal = InkSpacing.X12)
+                            .testTag("profile_heatmap_card"),
+                    onClick = null,
+                    // 零水平内边距：W360 下内容宽 360−24=336dp → 7×48 单元格
+                    contentPadding = PaddingValues(vertical = InkSpacing.CardPadding),
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
                         MonthHeader(
+                            modifier = Modifier.padding(horizontal = InkSpacing.CardPadding),
                             month = month,
-                            onPrev = viewModel::prevMonth,
-                            onNext = viewModel::nextMonth,
+                            onPrev = onPrevMonth,
+                            onNext = onNextMonth,
                             onPick = { showMonthPicker = true },
-                            onToday = viewModel::goToToday,
+                            onToday = onGoToToday,
                         )
 
                         HeatmapGrid(
                             model = uiState.heatmap,
                             selection = selection,
-                            onTapDate = { date -> viewModel.selectSingle(date) },
-                            onDragStart = { date ->
-                                haptics.tick()
-                                viewModel.startRange(date)
-                            },
-                            onDragUpdate = { date ->
-                                haptics.tick()
-                                viewModel.updateRange(date)
-                            },
+                            onTapDate = onSelectSingle,
+                            onDragStart = onStartRange,
+                            onDragUpdate = onUpdateRange,
                         )
 
-                        HeatmapLegend(maxCount = uiState.heatmap.maxCount)
+                        HeatmapLegend(
+                            modifier = Modifier.padding(horizontal = InkSpacing.CardPadding),
+                            maxCount = uiState.heatmap.maxCount,
+                        )
                     }
                 }
             }
 
             item {
-                InkCard(onClick = null) {
+                InkCard(
+                    modifier =
+                        Modifier
+                            .padding(horizontal = InkSpacing.X16)
+                            .testTag("profile_selection_card"),
+                    onClick = null,
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X6)) {
                         Text(
                             text = "选中范围：${start} ～ ${end}",
@@ -166,7 +218,13 @@ fun ProfileScreen(
 
             if (uiState.sections.isEmpty()) {
                 item {
-                    InkCard(onClick = null) {
+                    InkCard(
+                        modifier =
+                            Modifier
+                                .padding(horizontal = InkSpacing.X16)
+                                .testTag("profile_empty_card"),
+                        onClick = null,
+                    ) {
                         Text(
                             text = "这段时间没有记录。",
                             style = MaterialTheme.typography.bodyMedium,
@@ -177,6 +235,7 @@ fun ProfileScreen(
             } else {
                 items(uiState.sections, key = { it.date.toString() }) { section ->
                     DaySection(
+                        modifier = Modifier.padding(horizontal = InkSpacing.X16),
                         section = section,
                         onOpenMemo = onOpenMemo,
                     )
@@ -193,9 +252,10 @@ private fun MonthHeader(
     onNext: () -> Unit,
     onPick: () -> Unit,
     onToday: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -227,8 +287,12 @@ private fun MonthHeader(
 private fun DaySection(
     section: ProfileDaySection,
     onOpenMemo: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+    ) {
         Text(
             text = "${section.date}（周${section.date.dayOfWeek.toChinese()}）",
             style = MaterialTheme.typography.titleSmall,
@@ -285,14 +349,20 @@ private fun MemoRow(
 }
 
 @Composable
-private fun HeatmapGrid(
+internal fun HeatmapGrid(
     model: HeatmapUiModel,
     selection: DateRangeSelection,
     onTapDate: (LocalDate) -> Unit,
     onDragStart: (LocalDate) -> Unit,
     onDragUpdate: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+    BoxWithConstraints(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag("profile_heatmap_grid"),
+    ) {
         val rowGap = InkSpacing.X6
         // 结构常量：热力图单元格自适应上下界（44~56dp），组件特有几何，非间距尺度
         val maxCell = InkSpacing.CalendarCellMax
@@ -329,7 +399,11 @@ private fun HeatmapGrid(
         }
 
         Column(
-            modifier = Modifier.width(gridWidth).align(Alignment.TopCenter),
+            modifier =
+                Modifier
+                    .wrapContentWidth()
+                    .width(gridWidth)
+                    .align(Alignment.TopCenter),
             verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
         ) {
             // 结构常量：热力图表头/网格零间距贴合，命中与对齐依赖 0dp（禁止令牌化 0/1）
@@ -422,6 +496,7 @@ private fun HeatmapGrid(
                                 selected = selected,
                                 connectLeft = connectLeft,
                                 connectRight = connectRight,
+                                onTapDate = onTapDate,
                             )
                         }
                     }
@@ -432,7 +507,7 @@ private fun HeatmapGrid(
 }
 
 @Composable
-private fun HeatmapCell(
+internal fun HeatmapCell(
     size: Dp,
     date: LocalDate,
     count: Int,
@@ -441,6 +516,7 @@ private fun HeatmapCell(
     selected: Boolean,
     connectLeft: Boolean,
     connectRight: Boolean,
+    onTapDate: (LocalDate) -> Unit = {},
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val container = MaterialTheme.colorScheme.primaryContainer
@@ -460,16 +536,35 @@ private fun HeatmapCell(
             (0.14f + 0.76f * strength).coerceIn(0f, 1f)
         }
 
+    val cellDescription =
+        if (inMonth) {
+            "${date.monthValue}月${date.dayOfMonth}日，${count} 篇${if (selected) "，已选中" else ""}"
+        } else {
+            null
+        }
+
     Box(
-        modifier = Modifier
-            .size(size)
-            .then(
-                if (inMonth) {
-                    Modifier
-                } else {
-                    Modifier
-                },
-            ),
+        modifier =
+            Modifier
+                .size(size)
+                .minimumInteractiveComponentSize()
+                .testTag("heatmap_cell_${date}")
+                .then(
+                    if (inMonth) {
+                        Modifier.semantics {
+                            onClick(
+                                label = "选择 ${date.monthValue}月${date.dayOfMonth}日",
+                                action = {
+                                    onTapDate(date)
+                                    true
+                                },
+                            )
+                            contentDescription = cellDescription.orEmpty()
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
         contentAlignment = Alignment.Center,
     ) {
         if (inMonth) {
@@ -541,10 +636,13 @@ private fun HeatmapCell(
 }
 
 @Composable
-private fun HeatmapLegend(maxCount: Int) {
+private fun HeatmapLegend(
+    maxCount: Int,
+    modifier: Modifier = Modifier,
+) {
     if (maxCount <= 0) return
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End,
     ) {
