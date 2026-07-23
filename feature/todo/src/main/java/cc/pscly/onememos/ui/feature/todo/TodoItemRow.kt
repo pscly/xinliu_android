@@ -5,12 +5,12 @@ package cc.pscly.onememos.ui.feature.todo
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,19 +18,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import cc.pscly.onememos.domain.model.TodoItem
@@ -189,13 +195,12 @@ internal fun TodoItemRow(
 }
 
 @Composable
-private fun TodoDoneMark(
+internal fun TodoDoneMark(
     isDone: Boolean,
     isRecurring: Boolean,
     onClick: () -> Unit,
 ) {
     val shape = InkShape.Tag
-    val interactionSource = remember { MutableInteractionSource() }
     val borderColor =
         if (isDone) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
@@ -209,42 +214,62 @@ private fun TodoDoneMark(
             MaterialTheme.colorScheme.surface
         }
 
-    androidx.compose.material3.Surface(
+    Box(
         modifier =
             Modifier
-                // 结构常量：完成标记边长，组件几何，非间距尺度
-                .size(InkSpacing.TodoStatusIconSize)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onClick,
+                .minimumInteractiveComponentSize()
+                .defaultMinSize(
+                    minHeight = InkSpacing.TouchTargetMin,
+                    minWidth = InkSpacing.TouchTargetMin,
+                ).then(
+                    if (isRecurring) {
+                        Modifier
+                            .clickable(role = Role.Button, onClick = onClick)
+                            .semantics { contentDescription = "完成下次循环任务" }
+                    } else {
+                        Modifier
+                            .toggleable(
+                                value = isDone,
+                                role = Role.Checkbox,
+                                onValueChange = { onClick() },
+                            ).semantics { stateDescription = if (isDone) "已完成" else "未完成" }
+                    },
                 ),
-        shape = shape,
-        color = bgColor,
-        // 结构常量：1dp 描边线宽禁止令牌化
-        border = BorderStroke(InkBorder.Hairline, borderColor),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
+        androidx.compose.material3.Surface(
+            modifier =
+                Modifier
+                    .size(InkSpacing.TodoStatusIconSize)
+                    .clearAndSetSemantics {},
+            shape = shape,
+            color = bgColor,
+            border = BorderStroke(InkBorder.Hairline, borderColor),
         ) {
-            when {
-                isDone -> {
-                    androidx.compose.material3.Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = "已完成",
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.90f),
-                    )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    isDone -> {
+                        androidx.compose.material3.Icon(
+                            modifier = Modifier.clearAndSetSemantics {},
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.90f),
+                        )
+                    }
+                    isRecurring -> {
+                        Text(
+                            modifier = Modifier.clearAndSetSemantics {},
+                            text = "循环",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    else -> Unit
                 }
-                isRecurring -> {
-                    Text(
-                        text = "循环",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-                else -> Unit
             }
         }
     }

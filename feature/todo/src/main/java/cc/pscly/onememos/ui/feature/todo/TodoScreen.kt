@@ -140,7 +140,6 @@ fun TodoScreen(
 
     var stampVisible by remember { mutableStateOf(false) }
     var lastDeletedItemId by remember { mutableStateOf<String?>(null) }
-    var undoVisible by remember { mutableStateOf(false) }
 
     val listNameMap = remember(uiState.lists) { uiState.lists.associate { it.id to it.name } }
     val sections = remember(uiState.items) { buildTodoSections(uiState.items) }
@@ -161,14 +160,6 @@ fun TodoScreen(
                 }
             }
         }
-
-    // 撤销条：显示 6 秒后自动隐藏（每次删除都会刷新）。
-    LaunchedEffect(lastDeletedItemId) {
-        if (lastDeletedItemId == null) return@LaunchedEffect
-        undoVisible = true
-        delay(6_000)
-        undoVisible = false
-    }
 
     // 盖章：短暂显示即可（避免持续遮挡）。
     LaunchedEffect(stampVisible) {
@@ -397,37 +388,20 @@ fun TodoScreen(
                 }
             }
 
-            if (undoVisible && !lastDeletedItemId.isNullOrBlank()) {
-                InkCard(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.TopCenter)
-                            .offset(y = InkSpacing.X8),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "已删除 1 项",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        TextButton(
-                            onClick = {
-                                val id = lastDeletedItemId ?: return@TextButton
-                                viewModel.restoreItem(id)
-                                undoVisible = false
-                                lastDeletedItemId = null
-                            },
-                        ) {
-                            Text("撤销")
-                        }
-                    }
-                }
-            }
+            TodoUndoHost(
+                deletedItemId = lastDeletedItemId,
+                onUndo = { id ->
+                    viewModel.restoreItem(id)
+                    lastDeletedItemId = null
+                },
+                onExpired = { id ->
+                    if (lastDeletedItemId == id) lastDeletedItemId = null
+                },
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .offset(y = InkSpacing.X8),
+            )
 
             SealStampOverlay(
                 visible = stampVisible,
