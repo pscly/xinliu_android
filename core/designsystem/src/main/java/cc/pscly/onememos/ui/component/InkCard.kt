@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -38,6 +39,7 @@ fun InkCard(
     onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
     contentDescription: String? = null,
+    contentPadding: PaddingValues = PaddingValues(InkSpacing.CardPadding),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = InkShape.Card
@@ -115,6 +117,6 @@ fun InkCard(
         color = MaterialTheme.colorScheme.surface,
         border = border,
     ) {
-        Column(modifier = Modifier.padding(InkSpacing.CardPadding), content = content)
+        Column(modifier = Modifier.padding(contentPadding), content = content)
     }
 }
