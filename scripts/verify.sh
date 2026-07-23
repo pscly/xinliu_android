@@ -78,6 +78,27 @@ fi
 ./gradlew :core:diagnostics:testDebugUnitTest "${common_args[@]}" "$@"
 ./gradlew :feature:home:testDebugUnitTest "${common_args[@]}" "$@"
 ./gradlew :feature:collections:testDebugUnitTest "${common_args[@]}" "$@"
+# 7 个此前遗漏的既有单元测试模块
+./gradlew :core:data:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :core:designsystem:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :core:domain:test "${common_args[@]}" "$@"                      # JVM 模块不能使用 Android 的 :testDebugUnitTest
+./gradlew :core:sync:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :feature:editor:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :feature:profile:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :feature:todo:testDebugUnitTest "${common_args[@]}" "$@"
+# 本计划新增的 4 个功能模块单元测试
+./gradlew :feature:auth:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :feature:welcome:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :feature:quickcapture:testDebugUnitTest "${common_args[@]}" "$@"
+./gradlew :feature:sharecard:testDebugUnitTest "${common_args[@]}" "$@"
+# 7 个 Roborazzi 金图校验任务
+./gradlew :core:designsystem:verifyRoborazziDebug "${common_args[@]}" "$@"
+./gradlew :feature:home:verifyRoborazziDebug "${common_args[@]}" "$@"
+./gradlew :feature:auth:verifyRoborazziDebug "${common_args[@]}" "$@"
+./gradlew :feature:welcome:verifyRoborazziDebug "${common_args[@]}" "$@"
+./gradlew :feature:quickcapture:verifyRoborazziDebug "${common_args[@]}" "$@"
+./gradlew :feature:profile:verifyRoborazziDebug "${common_args[@]}" "$@"
+./gradlew :feature:sharecard:verifyRoborazziDebug "${common_args[@]}" "$@"
 ./gradlew :app:lintDebug "${common_args[@]}" "$@"
 
 # 经验坑：lint/debug 等任务跑完后，Gradle daemon 可能因内存碎片化导致 benchmark 的 D8 mergeDex OOM。
