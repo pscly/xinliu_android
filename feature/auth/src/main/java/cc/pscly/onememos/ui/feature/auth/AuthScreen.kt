@@ -3,6 +3,7 @@
 package cc.pscly.onememos.ui.feature.auth
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
@@ -34,6 +38,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,6 +73,39 @@ fun AuthScreen(
         }
     }
 
+    AuthScreenContent(
+        uiState = uiState,
+        onBack = onBack,
+        onTabSelected = viewModel::switchTab,
+        onUsernameChanged = viewModel::updateUsername,
+        onPasswordChanged = viewModel::updatePassword,
+        onConfirmPasswordChanged = viewModel::updateConfirmPassword,
+        onPasswordVisibleToggle = viewModel::togglePasswordVisible,
+        onBackendFormSwitch = viewModel::switchBackendForm,
+        onBackendSubmit = viewModel::submitBackend,
+        onTokenChanged = viewModel::updateCustomToken,
+        onTokenVisibleToggle = viewModel::toggleTokenVisible,
+        onCustomServerUrlChanged = viewModel::updateCustomServerUrl,
+        onCustomSave = viewModel::saveCustom,
+    )
+}
+
+@Composable
+internal fun AuthScreenContent(
+    uiState: AuthUiState,
+    onBack: () -> Unit,
+    onTabSelected: (AuthTab) -> Unit,
+    onUsernameChanged: (String) -> Unit,
+    onPasswordChanged: (String) -> Unit,
+    onConfirmPasswordChanged: (String) -> Unit,
+    onPasswordVisibleToggle: () -> Unit,
+    onBackendFormSwitch: (BackendForm) -> Unit,
+    onBackendSubmit: () -> Unit,
+    onTokenChanged: (String) -> Unit,
+    onTokenVisibleToggle: () -> Unit,
+    onCustomServerUrlChanged: (String) -> Unit,
+    onCustomSave: () -> Unit,
+) {
     Scaffold(
         topBar = {
             PaperInkTopAppBar(
@@ -79,6 +121,8 @@ fun AuthScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(padding)
                 .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12),
             verticalArrangement = Arrangement.spacedBy(InkSpacing.X14),
@@ -86,19 +130,37 @@ fun AuthScreen(
             TabRow(selectedTabIndex = if (uiState.tab == AuthTab.BACKEND) 0 else 1) {
                 Tab(
                     selected = uiState.tab == AuthTab.BACKEND,
-                    onClick = { viewModel.switchTab(AuthTab.BACKEND) },
+                    onClick = { onTabSelected(AuthTab.BACKEND) },
                     text = { Text("账号登录") },
                 )
                 Tab(
                     selected = uiState.tab == AuthTab.CUSTOM,
-                    onClick = { viewModel.switchTab(AuthTab.CUSTOM) },
+                    onClick = { onTabSelected(AuthTab.CUSTOM) },
                     text = { Text("访问令牌") },
                 )
             }
 
             when (uiState.tab) {
-                AuthTab.BACKEND -> BackendPane(uiState = uiState, viewModel = viewModel)
-                AuthTab.CUSTOM -> CustomPane(uiState = uiState, viewModel = viewModel)
+                AuthTab.BACKEND ->
+                    BackendPane(
+                        uiState = uiState,
+                        onTabSelected = onTabSelected,
+                        onUsernameChanged = onUsernameChanged,
+                        onPasswordChanged = onPasswordChanged,
+                        onConfirmPasswordChanged = onConfirmPasswordChanged,
+                        onPasswordVisibleToggle = onPasswordVisibleToggle,
+                        onBackendFormSwitch = onBackendFormSwitch,
+                        onBackendSubmit = onBackendSubmit,
+                    )
+
+                AuthTab.CUSTOM ->
+                    CustomPane(
+                        uiState = uiState,
+                        onTokenChanged = onTokenChanged,
+                        onTokenVisibleToggle = onTokenVisibleToggle,
+                        onCustomServerUrlChanged = onCustomServerUrlChanged,
+                        onCustomSave = onCustomSave,
+                    )
             }
         }
     }
@@ -107,7 +169,13 @@ fun AuthScreen(
 @Composable
 private fun BackendPane(
     uiState: AuthUiState,
-    viewModel: AuthViewModel,
+    onTabSelected: (AuthTab) -> Unit,
+    onUsernameChanged: (String) -> Unit,
+    onPasswordChanged: (String) -> Unit,
+    onConfirmPasswordChanged: (String) -> Unit,
+    onPasswordVisibleToggle: () -> Unit,
+    onBackendFormSwitch: (BackendForm) -> Unit,
+    onBackendSubmit: () -> Unit,
 ) {
     InkCard(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
@@ -125,7 +193,7 @@ private fun BackendPane(
 
             OutlinedTextField(
                 value = uiState.username,
-                onValueChange = viewModel::updateUsername,
+                onValueChange = onUsernameChanged,
                 label = { Text("用户名") },
                 placeholder = { Text("abc123") },
                 modifier = Modifier.fillMaxWidth(),
@@ -135,7 +203,7 @@ private fun BackendPane(
 
             OutlinedTextField(
                 value = uiState.password,
-                onValueChange = viewModel::updatePassword,
+                onValueChange = onPasswordChanged,
                 label = { Text("密码") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -145,7 +213,7 @@ private fun BackendPane(
                 trailingIcon = {
                     IconButton(
                         enabled = !uiState.loading,
-                        onClick = viewModel::togglePasswordVisible,
+                        onClick = onPasswordVisibleToggle,
                     ) {
                         Icon(
                             imageVector = if (uiState.passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
@@ -158,7 +226,7 @@ private fun BackendPane(
             if (uiState.backendForm == BackendForm.REGISTER) {
                 OutlinedTextField(
                     value = uiState.confirmPassword,
-                    onValueChange = viewModel::updateConfirmPassword,
+                    onValueChange = onConfirmPasswordChanged,
                     label = { Text("确认密码") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -169,11 +237,20 @@ private fun BackendPane(
             }
 
             if (!uiState.error.isNullOrBlank()) {
-                Text(
-                    text = uiState.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+                Box(
+                    modifier =
+                        Modifier
+                            .semantics {
+                                error(uiState.error.orEmpty())
+                                liveRegion = LiveRegionMode.Assertive
+                            }.testTag("auth_error_backend"),
+                ) {
+                    Text(
+                        text = uiState.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(InkSpacing.X4))
@@ -186,7 +263,7 @@ private fun BackendPane(
                 Button(
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.loading,
-                    onClick = viewModel::submitBackend,
+                    onClick = onBackendSubmit,
                 ) {
                     if (uiState.loading) {
                         // 按钮内加载态：豁免状态原语；尺寸为结构常量
@@ -200,7 +277,7 @@ private fun BackendPane(
                 }
                 OutlinedButton(
                     enabled = !uiState.loading,
-                    onClick = { viewModel.switchTab(AuthTab.CUSTOM) },
+                    onClick = { onTabSelected(AuthTab.CUSTOM) },
                 ) {
                     Text("其他方式")
                 }
@@ -211,15 +288,15 @@ private fun BackendPane(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 if (uiState.backendForm == BackendForm.LOGIN) {
-                    TextButton(enabled = !uiState.loading, onClick = { viewModel.switchBackendForm(BackendForm.REGISTER) }) {
+                    TextButton(enabled = !uiState.loading, onClick = { onBackendFormSwitch(BackendForm.REGISTER) }) {
                         Text("没有账号？去注册")
                     }
                 } else {
-                    TextButton(enabled = !uiState.loading, onClick = { viewModel.switchBackendForm(BackendForm.LOGIN) }) {
+                    TextButton(enabled = !uiState.loading, onClick = { onBackendFormSwitch(BackendForm.LOGIN) }) {
                         Text("已有账号？去登录")
                     }
                 }
-                TextButton(enabled = !uiState.loading, onClick = { viewModel.switchTab(AuthTab.CUSTOM) }) {
+                TextButton(enabled = !uiState.loading, onClick = { onTabSelected(AuthTab.CUSTOM) }) {
                     Text("填写 Token")
                 }
             }
@@ -230,7 +307,10 @@ private fun BackendPane(
 @Composable
 private fun CustomPane(
     uiState: AuthUiState,
-    viewModel: AuthViewModel,
+    onTokenChanged: (String) -> Unit,
+    onTokenVisibleToggle: () -> Unit,
+    onCustomServerUrlChanged: (String) -> Unit,
+    onCustomSave: () -> Unit,
 ) {
     InkCard(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
@@ -244,7 +324,7 @@ private fun CustomPane(
             if (uiState.dev2Unlocked) {
                 OutlinedTextField(
                     value = uiState.customServerUrl,
-                    onValueChange = viewModel::updateCustomServerUrl,
+                    onValueChange = onCustomServerUrlChanged,
                     label = { Text("服务器地址") },
                     placeholder = { Text("https://example.com/") },
                     modifier = Modifier.fillMaxWidth(),
@@ -255,7 +335,7 @@ private fun CustomPane(
 
             OutlinedTextField(
                 value = uiState.customToken,
-                onValueChange = viewModel::updateCustomToken,
+                onValueChange = onTokenChanged,
                 label = { Text("访问令牌（Token）") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -265,7 +345,7 @@ private fun CustomPane(
                 trailingIcon = {
                     IconButton(
                         enabled = !uiState.loading,
-                        onClick = viewModel::toggleTokenVisible,
+                        onClick = onTokenVisibleToggle,
                     ) {
                         Icon(
                             imageVector = if (uiState.tokenVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
@@ -276,11 +356,20 @@ private fun CustomPane(
             )
 
             if (!uiState.error.isNullOrBlank()) {
-                Text(
-                    text = uiState.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+                Box(
+                    modifier =
+                        Modifier
+                            .semantics {
+                                error(uiState.error.orEmpty())
+                                liveRegion = LiveRegionMode.Assertive
+                            }.testTag("auth_error_custom"),
+                ) {
+                    Text(
+                        text = uiState.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(InkSpacing.X4))
@@ -288,7 +377,7 @@ private fun CustomPane(
             Button(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.loading,
-                onClick = viewModel::saveCustom,
+                onClick = onCustomSave,
             ) {
                 if (uiState.loading) {
                     // 按钮内加载态：豁免状态原语；尺寸为结构常量
