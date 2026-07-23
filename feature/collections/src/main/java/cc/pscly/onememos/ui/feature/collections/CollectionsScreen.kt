@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
@@ -557,13 +559,11 @@ fun CollectionsScreen(
                     return@Column
                 }
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().nestedScroll(paperScrollConnection),
+                CollectionsItemsList(
+                    items = itemsToRender,
                     state = listState,
-                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
-                    contentPadding = PaddingValues(bottom = InkSpacing.X12),
-                ) {
-                    items(itemsToRender, key = { it.id }) { item ->
+                    modifier = Modifier.fillMaxWidth().nestedScroll(paperScrollConnection),
+                ) { item ->
                         val selected = selectedIds.contains(item.id)
                         val index = reorderIndex[item.id] ?: -1
 
@@ -660,7 +660,6 @@ fun CollectionsScreen(
                                 selectedIds = selectedIds + item.id
                             },
                         )
-                    }
                 }
             }
         }
@@ -870,7 +869,25 @@ private fun BreadcrumbBar(
 }
 
 @Composable
-private fun CollectionItemCard(
+internal fun CollectionsItemsList(
+    items: List<CollectionItem>,
+    state: LazyListState,
+    modifier: Modifier = Modifier,
+    itemContent: @Composable LazyItemScope.(CollectionItem) -> Unit,
+) {
+    LazyColumn(
+        modifier = modifier,
+        state = state,
+        verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+        contentPadding = PaddingValues(bottom = InkSpacing.X12),
+    ) {
+        items(items, key = { it.id }, itemContent = itemContent)
+    }
+}
+
+@Composable
+internal fun CollectionItemCard(
+    modifier: Modifier = Modifier,
     item: CollectionItem,
     noteRefTargetId: String?,
     noteRefMemo: Memo?,
@@ -923,6 +940,7 @@ private fun CollectionItemCard(
         }
 
     InkCard(
+        modifier = modifier,
         onClick = onClick,
         onLongClick = if (selectionMode || reorderMode) null else onLongClick,
     ) {
