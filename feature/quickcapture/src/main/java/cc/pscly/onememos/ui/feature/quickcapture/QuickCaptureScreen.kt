@@ -10,13 +10,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -27,9 +31,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -46,7 +52,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -128,7 +139,7 @@ fun QuickCaptureRoute(
 }
 
 @Composable
-private fun QuickCaptureScreen(
+internal fun QuickCaptureScreen(
     uiState: QuickCaptureUiState,
     focusRequester: FocusRequester,
     onClose: () -> Unit,
@@ -178,7 +189,10 @@ private fun QuickCaptureScreen(
             onClick = null,
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding(),
                 verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
             ) {
                 Row(
@@ -241,17 +255,27 @@ private fun QuickCaptureScreen(
                 )
 
                 if (!uiState.error.isNullOrBlank()) {
-                    Text(
-                        text = uiState.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .semantics {
+                                error(uiState.error.orEmpty())
+                                liveRegion = LiveRegionMode.Assertive
+                            }
+                            .testTag("qc_error"),
+                    ) {
+                        Text(
+                            text = uiState.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
 
                 if (uiState.draftBannerVisible) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .semantics { liveRegion = LiveRegionMode.Polite }
                             .clip(InkShape.Chip)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(horizontal = InkSpacing.X12, vertical = InkSpacing.X10),
@@ -417,28 +441,39 @@ private fun QuickCaptureHistoryBottomSheet(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun QuickCaptureTextAction(
+internal fun QuickCaptureTextAction(
     text: String,
     enabled: Boolean,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    Text(
-        text = text,
+    Box(
         modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .defaultMinSize(
+                minHeight = InkSpacing.TouchTargetMin,
+                minWidth = InkSpacing.TouchTargetMin,
+            )
             .combinedClickable(
                 enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick,
-                onLongClick = onLongClick,
+                onLongClick = onLongClick ?: {},
             )
-            .padding(horizontal = InkSpacing.X10, vertical = InkSpacing.X8),
-        style = MaterialTheme.typography.labelLarge,
-        color =
-            MaterialTheme.colorScheme.primary.copy(
-                alpha = if (enabled) 1f else 0.45f,
-            ),
-    )
+            .semantics { contentDescription = text },
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .padding(horizontal = InkSpacing.X10, vertical = InkSpacing.X8)
+                .clearAndSetSemantics { },
+            style = MaterialTheme.typography.labelLarge,
+            color =
+                MaterialTheme.colorScheme.primary.copy(
+                    alpha = if (enabled) 1f else 0.45f,
+                ),
+        )
+    }
 }
