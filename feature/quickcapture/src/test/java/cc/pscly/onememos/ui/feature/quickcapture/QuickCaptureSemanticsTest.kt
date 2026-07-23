@@ -1,15 +1,13 @@
 package cc.pscly.onememos.ui.feature.quickcapture
 
 import android.app.Application
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
@@ -17,15 +15,11 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.theme.OneMemosTheme
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
@@ -54,7 +48,7 @@ class QuickCaptureSemanticsTest {
         quickInsertTimeEnabled = true,
     )
 
-    private val errorUiState = readyUiState.copy(error = "保存失败")
+    private val errorUiState = readyUiState.copy(error = "测试模拟错误")
 
     @Test
     fun errorNode_hasAssertiveLiveRegion_andErrorText() {
@@ -79,15 +73,10 @@ class QuickCaptureSemanticsTest {
             }
         }
 
-        val errorNode = composeRule.onNodeWithTag("qc_error", useUnmergedTree = true)
-        errorNode.assertExists()
-
-        val config = errorNode.fetchSemanticsNode().config
-        val liveRegion = config.getOrNull(SemanticsProperties.LiveRegion)
-        assertEquals(LiveRegionMode.Assertive, liveRegion)
-
-        val errorText = config.getOrNull(SemanticsProperties.Error)
-        assertEquals("保存失败", errorText)
+        composeRule
+            .onNodeWithTag("qc_error", useUnmergedTree = true)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Error, "测试模拟错误"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Assertive))
     }
 
     @Test
