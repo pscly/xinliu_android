@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -272,8 +273,7 @@ fun TodoScreen(
                     return@ScrollPaperSurface
                 }
 
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                TodoItemsList(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     if (hasAnyReminders && !notificationPermissionGranted) {
@@ -614,4 +614,17 @@ internal fun showDateTimePicker(
         initial.monthValue - 1,
         initial.dayOfMonth,
     ).show()
+}
+
+
+@Composable
+internal fun TodoItemsList(
+    modifier: Modifier = Modifier,
+    content: LazyListScope.() -> Unit,
+) {
+    LazyColumn(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+        content = content,
+    )
 }
