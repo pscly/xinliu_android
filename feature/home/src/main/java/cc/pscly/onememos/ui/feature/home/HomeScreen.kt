@@ -83,7 +83,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.semantics.traversalIndex
@@ -1212,7 +1215,7 @@ private fun swipeActionIcon(action: SwipeAction): ImageVector =
     }
 
 @Composable
-private fun FilterStatusBanner(
+internal fun FilterStatusBanner(
     visible: Boolean,
     query: String,
     tags: List<String>,
@@ -1222,9 +1225,25 @@ private fun FilterStatusBanner(
     onEditQuery: () -> Unit,
     onToggleTag: (String) -> Unit,
 ) {
+    val hasQuery = query.isNotBlank()
+    val hasTags = tags.isNotEmpty()
+    val built =
+        when {
+            hasQuery && hasTags -> "筛选：${tags.size} 标签, 搜索中"
+            hasTags -> "筛选：${tags.size} 标签"
+            hasQuery -> "搜索中"
+            else -> ""
+        }
+
     AnimatedVisibility(visible = visible) {
         Surface(
-            modifier = Modifier.padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X8),
+            modifier =
+                Modifier
+                    .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X8)
+                    .semantics {
+                        liveRegion = LiveRegionMode.Polite
+                        contentDescription = built
+                    },
             shape = InkShape.SkeletonCard,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = InkSpacing.X2,
@@ -1235,8 +1254,6 @@ private fun FilterStatusBanner(
                 verticalArrangement = Arrangement.spacedBy(InkSpacing.X8),
             ) {
                 val q = query.trim()
-                val hasQuery = q.isNotBlank()
-                val hasTags = tags.isNotEmpty()
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
