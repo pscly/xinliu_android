@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+)
 
 package cc.pscly.onememos.ui.feature.sharecard
 
@@ -8,6 +11,8 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.ui.component.InkCard
@@ -52,9 +58,11 @@ import cc.pscly.onememos.ui.component.InkLoading
 import cc.pscly.onememos.ui.component.TagChip
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 import kotlin.math.max
 import kotlin.math.min
-import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
+
+// region Production wrapper (Hilt, Context, Toast, Intents, LaunchedEffect)
 
 @Composable
 fun ShareCardScreen(
@@ -80,6 +88,96 @@ fun ShareCardScreen(
         }
     }
 
+    ShareCardScreenContent(
+        uiState = uiState,
+        selectedTabIndex = tabIndex,
+        onTabSelected = { tabIndex = it },
+        onBack = onBack,
+        onSaveToGallery = {
+            viewModel.exportAndSaveToGallery { count ->
+                toast(if (count > 0) "已保存到相册（$count 张）" else "保存失败")
+            }
+        },
+        onShare = {
+            viewModel.exportAndShare { payload ->
+                when (payload) {
+                    is IntentPayload.ShareImage -> {
+                        val i =
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = payload.mimeType
+                                putExtra(Intent.EXTRA_STREAM, payload.uri)
+                                clipData = ClipData.newUri(context.contentResolver, "share-card", payload.uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                        runCatching {
+                            context.startActivity(Intent.createChooser(i, "分享墨迹卡片"))
+                        }.onFailure {
+                            toast("没有可用的分享方式")
+                        }
+                    }
+
+                    is IntentPayload.ShareImages -> {
+                        val list = payload.uris
+                        if (list.isEmpty()) {
+                            toast("导出失败")
+                            return@exportAndShare
+                        }
+                        val clip = ClipData.newUri(context.contentResolver, "share-card", list.first())
+                        list.drop(1).forEach { u -> clip.addItem(ClipData.Item(u)) }
+
+                        val i =
+                            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                type = payload.mimeType
+                                putParcelableArrayListExtra(
+                                    Intent.EXTRA_STREAM,
+                                    ArrayList(list),
+                                )
+                                clipData = clip
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                        runCatching {
+                            context.startActivity(Intent.createChooser(i, "分享墨迹卡片（多张）"))
+                        }.onFailure {
+                            toast("没有可用的分享方式")
+                        }
+                    }
+                }
+            }
+        },
+        onThemeSelected = viewModel::setTheme,
+        onRatioSelected = viewModel::setRatio,
+        onFontSizeSelected = viewModel::setFontSize,
+        onAlignSelected = viewModel::setAlign,
+        onLongModeChanged = viewModel::setLongMode,
+        onLongExportModeChanged = viewModel::setLongExportMode,
+        onAuthorNameChanged = viewModel::setAuthorName,
+        onQrEnabledChanged = viewModel::setQrEnabled,
+        onQrTextChanged = viewModel::setQrText,
+    )
+}
+
+// endregion
+
+// region ShareCardScreenContent (testable, no Hilt/Context dependency)
+
+@Composable
+internal fun ShareCardScreenContent(
+    uiState: ShareCardUiState,
+    selectedTabIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    onBack: () -> Unit,
+    onSaveToGallery: () -> Unit,
+    onShare: () -> Unit,
+    onThemeSelected: (ShareCardTheme) -> Unit,
+    onRatioSelected: (ShareCardRatio) -> Unit,
+    onFontSizeSelected: (ShareCardFontSize) -> Unit,
+    onAlignSelected: (ShareCardAlign) -> Unit,
+    onLongModeChanged: (Boolean) -> Unit,
+    onLongExportModeChanged: (ShareCardLongExportMode) -> Unit,
+    onAuthorNameChanged: (String) -> Unit,
+    onQrEnabledChanged: (Boolean) -> Unit,
+    onQrTextChanged: (String) -> Unit,
+) {
     Scaffold(
         topBar = {
             PaperInkTopAppBar(
@@ -92,62 +190,13 @@ fun ShareCardScreen(
                 actions = {
                     IconButton(
                         enabled = !uiState.loading && uiState.error == null && !uiState.saving,
-                        onClick = {
-                            viewModel.exportAndSaveToGallery { count ->
-                                toast(if (count > 0) "已保存到相册（$count 张）" else "保存失败")
-                            }
-                        },
+                        onClick = onSaveToGallery,
                     ) {
                         Icon(imageVector = Icons.Filled.Download, contentDescription = "保存到相册")
                     }
                     IconButton(
                         enabled = !uiState.loading && uiState.error == null && !uiState.saving,
-                        onClick = {
-                            viewModel.exportAndShare { payload ->
-                                when (payload) {
-                                    is IntentPayload.ShareImage -> {
-                                        val i =
-                                            Intent(Intent.ACTION_SEND).apply {
-                                                type = payload.mimeType
-                                                putExtra(Intent.EXTRA_STREAM, payload.uri)
-                                                clipData = ClipData.newUri(context.contentResolver, "share-card", payload.uri)
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                        runCatching {
-                                            context.startActivity(Intent.createChooser(i, "分享墨迹卡片"))
-                                        }.onFailure {
-                                            toast("没有可用的分享方式")
-                                        }
-                                    }
-
-                                    is IntentPayload.ShareImages -> {
-                                        val list = payload.uris
-                                        if (list.isEmpty()) {
-                                            toast("导出失败")
-                                            return@exportAndShare
-                                        }
-                                        val clip = ClipData.newUri(context.contentResolver, "share-card", list.first())
-                                        list.drop(1).forEach { u -> clip.addItem(ClipData.Item(u)) }
-
-                                        val i =
-                                            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                                                type = payload.mimeType
-                                                putParcelableArrayListExtra(
-                                                    Intent.EXTRA_STREAM,
-                                                    ArrayList(list),
-                                                )
-                                                clipData = clip
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                        runCatching {
-                                            context.startActivity(Intent.createChooser(i, "分享墨迹卡片（多张）"))
-                                        }.onFailure {
-                                            toast("没有可用的分享方式")
-                                        }
-                                    }
-                                }
-                            }
-                        },
+                        onClick = onShare,
                     ) {
                         Icon(imageVector = Icons.Filled.Share, contentDescription = "分享")
                     }
@@ -160,7 +209,8 @@ fun ShareCardScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12),
+                    .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12)
+                    .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(InkSpacing.X12),
         ) {
             if (uiState.loading) {
@@ -171,7 +221,6 @@ fun ShareCardScreen(
             }
 
             if (!uiState.error.isNullOrBlank()) {
-                // 错误在本屏为终态（记录不存在/参数错误），唯一可行动作是返回上一页。
                 InkError(
                     message = uiState.error.orEmpty(),
                     onRetry = onBack,
@@ -180,7 +229,7 @@ fun ShareCardScreen(
                 return@Column
             }
 
-            // 预览区（支持缩放），不引入过多复杂控件：保持“克制的美感”
+            // 预览区（支持缩放）
             InkCard {
                 var scale by remember { mutableStateOf(1f) }
                 val transformState =
@@ -191,7 +240,6 @@ fun ShareCardScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            // 一次性布局常量：预览区固定高度（屏幕预览专用，与导出位图尺寸无关）。
                             .height(InkSpacing.ShareCardPreviewHeight)
                             .clip(InkShape.Card)
                             .transformable(transformState),
@@ -214,27 +262,36 @@ fun ShareCardScreen(
                 )
             }
 
-            TabRow(selectedTabIndex = tabIndex) {
-                Tab(selected = tabIndex == 0, onClick = { tabIndex = 0 }, text = { Text("模板") })
-                Tab(selected = tabIndex == 1, onClick = { tabIndex = 1 }, text = { Text("样式") })
-                Tab(selected = tabIndex == 2, onClick = { tabIndex = 2 }, text = { Text("更多") })
+            TabRow(selectedTabIndex = selectedTabIndex) {
+                Tab(selected = selectedTabIndex == 0, onClick = { onTabSelected(0) }, text = { Text("模板") })
+                Tab(selected = selectedTabIndex == 1, onClick = { onTabSelected(1) }, text = { Text("样式") })
+                Tab(selected = selectedTabIndex == 2, onClick = { onTabSelected(2) }, text = { Text("更多") })
             }
 
-            when (tabIndex) {
-                0 -> ThemesPanel(state = uiState, onSelect = viewModel::setTheme)
-                1 -> StylesPanel(state = uiState, onRatio = viewModel::setRatio, onSize = viewModel::setFontSize, onAlign = viewModel::setAlign)
+            when (selectedTabIndex) {
+                0 -> ThemesPanel(state = uiState, onSelect = onThemeSelected)
+                1 -> StylesPanel(
+                    state = uiState,
+                    onRatio = onRatioSelected,
+                    onSize = onFontSizeSelected,
+                    onAlign = onAlignSelected,
+                )
                 else -> MorePanel(
                     state = uiState,
-                    onLongMode = viewModel::setLongMode,
-                    onLongExportMode = viewModel::setLongExportMode,
-                    onAuthorName = viewModel::setAuthorName,
-                    onQrEnabled = viewModel::setQrEnabled,
-                    onQrText = viewModel::setQrText,
+                    onLongMode = onLongModeChanged,
+                    onLongExportMode = onLongExportModeChanged,
+                    onAuthorName = onAuthorNameChanged,
+                    onQrEnabled = onQrEnabledChanged,
+                    onQrText = onQrTextChanged,
                 )
             }
         }
     }
 }
+
+// endregion
+
+// region Panels (callback-based, FlowRow for chip groups)
 
 @Composable
 private fun ThemesPanel(
@@ -244,7 +301,7 @@ private fun ThemesPanel(
     InkCard {
         Text(text = "主题", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(InkSpacing.X10))
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
         ) {
@@ -277,9 +334,14 @@ private fun StylesPanel(
         InkCard {
             Text(text = "画布比例", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(InkSpacing.X10))
-            Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().testTag("flow_row_ratios"),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                maxItemsInEachRow = 2,
+            ) {
                 ShareCardRatio.entries.forEach { r ->
                     TagChip(
+                        modifier = Modifier.testTag("chip_ratio_${r.name}"),
                         tag = r.name,
                         label = r.displayName,
                         selected = state.ratio == r,
@@ -292,9 +354,13 @@ private fun StylesPanel(
         InkCard {
             Text(text = "字体大小", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(InkSpacing.X10))
-            Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().testTag("flow_row_font_sizes"),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+            ) {
                 ShareCardFontSize.entries.forEach { s ->
                     TagChip(
+                        modifier = Modifier.testTag("chip_font_size_${s.name}"),
                         tag = s.name,
                         label = s.displayName,
                         selected = state.fontSize == s,
@@ -307,9 +373,13 @@ private fun StylesPanel(
         InkCard {
             Text(text = "对齐方式", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(InkSpacing.X10))
-            Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().testTag("flow_row_aligns"),
+                horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+            ) {
                 ShareCardAlign.entries.forEach { a ->
                     TagChip(
+                        modifier = Modifier.testTag("chip_align_${a.name}"),
                         tag = a.name,
                         label = a.displayName,
                         selected = state.align == a,
@@ -330,7 +400,9 @@ private fun MorePanel(
     onQrEnabled: (Boolean) -> Unit,
     onQrText: (String) -> Unit,
 ) {
-    InkCard {
+    InkCard(
+        modifier = Modifier.testTag("more_panel"),
+    ) {
         Text(text = "更多", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(InkSpacing.X10))
 
@@ -338,7 +410,7 @@ private fun MorePanel(
             InkLoading(message = state.exportProgressText ?: "正在生成图片…")
         } else {
             Text(
-                text = "导出说明：默认截断长文；开启“长文模式”会导出长图（过长会自动分页）。",
+                text = "导出说明：默认截断长文；开启\u201C长文模式\u201D会导出长图（过长会自动分页）。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -357,7 +429,7 @@ private fun MorePanel(
                 )
             }
             Text(
-                text = if (state.longMode) "提示：仅“自适应”比例会按内容导出长图。" else "提示：开启后更适合分享长文/清单。",
+                text = if (state.longMode) "提示：仅\u201C自适应\u201D比例会按内容导出长图。" else "提示：开启后更适合分享长文/清单。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -369,9 +441,13 @@ private fun MorePanel(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(modifier = Modifier.height(InkSpacing.X8))
-                Row(horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10)) {
+                FlowRow(
+                    modifier = Modifier.testTag("flow_row_long_export_modes"),
+                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X10),
+                ) {
                     ShareCardLongExportMode.entries.forEach { m ->
                         TagChip(
+                            modifier = Modifier.testTag("chip_long_export_${m.name}"),
                             tag = m.name,
                             label = m.displayName,
                             selected = state.longExportMode == m,
@@ -441,3 +517,5 @@ private fun MorePanel(
         }
     }
 }
+
+// endregion
