@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.hilt.navigation.compose.hiltViewModel
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.theme.InkSpacing
@@ -32,6 +36,27 @@ fun WelcomeScreen(
     // 首次引导页禁止返回，避免“没点按钮就进入首页”导致引导失效。
     BackHandler(enabled = true) {}
 
+    WelcomeScreenContent(
+        onEnterLocal = {
+            viewModel.completeWelcome()
+            onEnterLocal()
+        },
+        onGoBindServer = {
+            viewModel.completeWelcome()
+            onGoBindServer()
+        },
+    )
+}
+
+/**
+ * 欢迎页可测内容层：无 Hilt / ViewModel，便于 compact 视口与大字体布局回归。
+ * 滚动状态在内部 [rememberScrollState]，不对外暴露参数。
+ */
+@Composable
+internal fun WelcomeScreenContent(
+    onEnterLocal: () -> Unit,
+    onGoBindServer: () -> Unit,
+) {
     Scaffold(
         topBar = {
             PaperInkTopAppBar(
@@ -43,7 +68,10 @@ fun WelcomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12),
+                .padding(horizontal = InkSpacing.X16, vertical = InkSpacing.X12)
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .testTag("welcome_scroll"),
             verticalArrangement = Arrangement.spacedBy(InkSpacing.X16),
         ) {
             InkCard(modifier = Modifier.fillMaxWidth()) {
@@ -66,21 +94,17 @@ fun WelcomeScreen(
             Spacer(modifier = Modifier.height(InkSpacing.X4))
 
             Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    viewModel.completeWelcome()
-                    onEnterLocal()
-                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("welcome_enter_local"),
+                onClick = onEnterLocal,
             ) {
                 Text("立即体验（离线）")
             }
 
             OutlinedButton(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    viewModel.completeWelcome()
-                    onGoBindServer()
-                },
+                onClick = onGoBindServer,
             ) {
                 Text("登录/同步")
             }
