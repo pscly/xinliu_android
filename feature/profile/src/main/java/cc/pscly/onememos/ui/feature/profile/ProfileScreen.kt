@@ -101,7 +101,8 @@ fun ProfileScreen(
 }
 
 /**
- * 可测入口：无 Hilt。参数为 uiState + 9 个回调，共 10 个。
+ * 可测入口：无 Hilt。
+ * [today] 可注入以稳定热力图“今天”描边（避免 Roborazzi 金图随系统日期漂移）。
  */
 @Composable
 internal fun ProfileScreenContent(
@@ -115,6 +116,7 @@ internal fun ProfileScreenContent(
     onSelectSingle: (LocalDate) -> Unit,
     onStartRange: (LocalDate) -> Unit,
     onUpdateRange: (LocalDate) -> Unit,
+    today: LocalDate = LocalDate.now(),
 ) {
     val selection = uiState.selection
     val start = selection.start
@@ -184,6 +186,7 @@ internal fun ProfileScreenContent(
                             onTapDate = onSelectSingle,
                             onDragStart = onStartRange,
                             onDragUpdate = onUpdateRange,
+                            today = today,
                         )
 
                         HeatmapLegend(
@@ -357,6 +360,7 @@ internal fun HeatmapGrid(
     onDragStart: (LocalDate) -> Unit,
     onDragUpdate: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
+    today: LocalDate = LocalDate.now(),
 ) {
     BoxWithConstraints(
         modifier =
@@ -498,6 +502,7 @@ internal fun HeatmapGrid(
                                 connectLeft = connectLeft,
                                 connectRight = connectRight,
                                 onTapDate = onTapDate,
+                                today = today,
                             )
                         }
                     }
@@ -518,6 +523,7 @@ internal fun HeatmapCell(
     connectLeft: Boolean,
     connectRight: Boolean,
     onTapDate: (LocalDate) -> Unit = {},
+    today: LocalDate = LocalDate.now(),
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val container = MaterialTheme.colorScheme.primaryContainer
@@ -569,7 +575,7 @@ internal fun HeatmapCell(
         contentAlignment = Alignment.Center,
     ) {
         if (inMonth) {
-            val isToday = date == LocalDate.now()
+            val isToday = date == today
             val dayColor = if (selected) onContainer else MaterialTheme.colorScheme.onSurface
 
             // MIUI 风格：范围选中时，背景连成片（按左右是否相邻决定“圆角端点”）。

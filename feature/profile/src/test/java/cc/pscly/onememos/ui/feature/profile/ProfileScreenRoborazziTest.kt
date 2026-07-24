@@ -126,6 +126,7 @@ class ProfileScreenRoborazziTest {
                             onSelectSingle = {},
                             onStartRange = {},
                             onUpdateRange = {},
+                            today = today,
                         )
                     }
                 }
