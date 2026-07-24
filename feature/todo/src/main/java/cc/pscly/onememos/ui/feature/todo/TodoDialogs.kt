@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.RestoreFromTrash
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,6 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -63,6 +64,7 @@ import org.json.JSONObject
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.absoluteValue
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 @Composable
 internal fun TodoManageListDialog(
@@ -74,8 +76,16 @@ internal fun TodoManageListDialog(
     var name by remember(list.id) { mutableStateOf(list.name) }
     var archived by remember(list.id) { mutableStateOf(list.archived) }
     var showDeleteConfirm by remember(list.id) { mutableStateOf(false) }
+    val deleteListFocusRequester = remember { FocusRequester() }
+    var restoreDeleteListFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(showDeleteConfirm, restoreDeleteListFocus) {
+        if (!showDeleteConfirm && restoreDeleteListFocus) {
+            deleteListFocusRequester.requestFocus()
+            restoreDeleteListFocus = false
+        }
+    }
 
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("管理清单") },
         text = {
@@ -105,7 +115,10 @@ internal fun TodoManageListDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(InkSpacing.X2))
-                TextButton(onClick = { showDeleteConfirm = true }) {
+                TextButton(
+                    onClick = { showDeleteConfirm = true },
+                    modifier = Modifier.focusRequester(deleteListFocusRequester),
+                ) {
                     Text("删除清单", color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -134,13 +147,17 @@ internal fun TodoManageListDialog(
     )
 
     if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
+        PaperInkAlertDialog(
+            onDismissRequest = {
+                restoreDeleteListFocus = true
+                showDeleteConfirm = false
+            },
             title = { Text("确认删除清单？") },
             text = { Text("删除后清单会进入“已删除清单”，可随时恢复。") },
             confirmButton = {
                 Button(
                     onClick = {
+                        restoreDeleteListFocus = true
                         onDelete(list)
                         showDeleteConfirm = false
                         onDismiss()
@@ -150,7 +167,12 @@ internal fun TodoManageListDialog(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
+                TextButton(
+                    onClick = {
+                        restoreDeleteListFocus = true
+                        showDeleteConfirm = false
+                    },
+                ) {
                     Text("取消")
                 }
             },
@@ -164,7 +186,7 @@ internal fun TodoDeletedListsDialog(
     onRestore: (TodoList) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("已删除清单") },
         text = {
@@ -223,7 +245,7 @@ internal fun TodoDeletedItemsDialog(
     onRestore: (TodoItem) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("已删除任务") },
         text = {
@@ -295,7 +317,7 @@ internal fun TodoCreateItemDialog(
     var title by remember { mutableStateOf("") }
     var selectedListId by remember(initialListId, lists) { mutableStateOf(initialListId ?: lists.firstOrNull()?.id) }
 
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("新增任务") },
         text = {
@@ -464,9 +486,17 @@ internal fun TodoEditItemDialog(
     }
 
     var showDeleteConfirm by remember(item.id) { mutableStateOf(false) }
+    val deleteItemFocusRequester = remember { FocusRequester() }
+    var restoreDeleteItemFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(showDeleteConfirm, restoreDeleteItemFocus) {
+        if (!showDeleteConfirm && restoreDeleteItemFocus) {
+            deleteItemFocusRequester.requestFocus()
+            restoreDeleteItemFocus = false
+        }
+    }
     val scrollState = rememberScrollState()
 
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("编辑任务") },
         text = {
@@ -910,7 +940,10 @@ internal fun TodoEditItemDialog(
                     }
                 }
 
-                TextButton(onClick = { showDeleteConfirm = true }) {
+                TextButton(
+                    onClick = { showDeleteConfirm = true },
+                    modifier = Modifier.focusRequester(deleteItemFocusRequester),
+                ) {
                     Text("删除任务", color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -960,13 +993,17 @@ internal fun TodoEditItemDialog(
     )
 
     if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
+        PaperInkAlertDialog(
+            onDismissRequest = {
+                restoreDeleteItemFocus = true
+                showDeleteConfirm = false
+            },
             title = { Text("确认删除任务？") },
             text = { Text("删除后可在“已删除任务”中恢复。") },
             confirmButton = {
                 Button(
                     onClick = {
+                        restoreDeleteItemFocus = true
                         onDelete(item)
                         showDeleteConfirm = false
                         onDismiss()
@@ -976,7 +1013,12 @@ internal fun TodoEditItemDialog(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
+                TextButton(
+                    onClick = {
+                        restoreDeleteItemFocus = true
+                        showDeleteConfirm = false
+                    },
+                ) {
                     Text("取消")
                 }
             },

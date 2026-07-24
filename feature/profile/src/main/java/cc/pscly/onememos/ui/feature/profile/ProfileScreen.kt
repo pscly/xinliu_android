@@ -69,6 +69,7 @@ import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import java.time.LocalDate
 import java.time.YearMonth
 import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 @Composable
 fun ProfileScreen(
@@ -694,7 +695,7 @@ private fun MonthPickerDialog(
             }
         }
 
-    androidx.compose.material3.AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = "跳转月份") },
         text = {

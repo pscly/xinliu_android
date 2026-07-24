@@ -16,7 +16,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +52,7 @@ import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.ScrollPaperSurface
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 /**
  * 关于与高级能力页：单列纸墨布局，最大内容宽 720dp。
@@ -287,7 +287,7 @@ fun AboutAdvancedContent(
     }
 
     if (showRebuildConfirm) {
-        AlertDialog(
+        PaperInkAlertDialog(
             onDismissRequest = callbacks.onDismissRebuildConfirm,
             title = { Text(stringResource(R.string.settings_about_rebuild_confirm_title)) },
             text = { Text(stringResource(R.string.settings_about_rebuild_confirm_body)) },
@@ -315,7 +315,7 @@ fun AboutAdvancedContent(
 
     if (showUnlockDialog) {
         val passwordErrorText = stringResource(R.string.settings_about_developer_unlock_error)
-        AlertDialog(
+        PaperInkAlertDialog(
             onDismissRequest = { showUnlockDialog = false },
             title = { Text(stringResource(R.string.settings_about_developer_unlock_title)) },
             text = {

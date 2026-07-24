@@ -16,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -51,6 +50,7 @@ import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.ByteSizeFormatter
 import kotlin.math.roundToInt
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 sealed interface StorageOfflineUiAction {
     data class SetImagePrefetchEnabled(val enabled: Boolean) : StorageOfflineUiAction
@@ -518,7 +518,7 @@ private fun StorageCleanupConfirmation(
     onDismiss: () -> Unit,
 ) {
     val copy = confirmation?.storageConfirmationCopy() ?: return
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(copy.titleRes)) },
         text = { Text(stringResource(copy.detailRes)) },

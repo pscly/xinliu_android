@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -34,6 +33,7 @@ import cc.pscly.onememos.feature.settings.R
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.feature.settings.common.SettingsConfirmation
 import cc.pscly.onememos.ui.theme.InkSpacing
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 @Composable
 fun AdvancedSyncScreen(
@@ -174,7 +174,7 @@ fun AdvancedSyncContent(
 
     if (showConfirmation) {
         val isRetry = snapshot.health is AccountSyncHealth.FullResyncFailed
-        AlertDialog(
+        PaperInkAlertDialog(
             onDismissRequest = {
                 restoreFocus = true
                 onDismissConfirmation()

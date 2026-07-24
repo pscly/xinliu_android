@@ -24,7 +24,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -73,6 +72,7 @@ import cc.pscly.onememos.ui.util.DateTimeFormatter
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import kotlinx.coroutines.delay
 import cc.pscly.onememos.ui.theme.PaperInkModalBottomSheet
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 @Composable
 fun QuickCaptureRoute(
@@ -368,7 +368,7 @@ internal fun QuickCaptureScreen(
         }
 
         if (uiState.draftOverwriteDialogVisible) {
-            AlertDialog(
+            PaperInkAlertDialog(
                 onDismissRequest = onDismissOverwrite,
                 confirmButton = {
                     TextButton(onClick = onConfirmOverwrite) { Text(text = "覆盖") }

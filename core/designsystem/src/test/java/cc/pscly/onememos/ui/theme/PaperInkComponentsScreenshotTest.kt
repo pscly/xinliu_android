@@ -34,7 +34,10 @@ import androidx.compose.ui.unit.Density
 import cc.pscly.onememos.domain.model.ThemeMode
 import cc.pscly.onememos.domain.model.ThemePalette
 import cc.pscly.onememos.ui.component.InkChip
+import cc.pscly.onememos.ui.component.SealButton
+import cc.pscly.onememos.ui.component.SealIconButton
 import cc.pscly.onememos.ui.component.TagChip
+import androidx.compose.material.icons.filled.Add
 import com.github.takahirom.roborazzi.RoborazziRule
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -47,7 +50,7 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * 纸墨系统组件 + Chip 截图矩阵（UI 债务收口 Todo 3）。
  *
- * - matrix：TopAppBar / Snackbar / BottomSheet 表面 / Dialog 令牌面 / TagChip / InkChip
+ * - matrix：TopAppBar / Snackbar / BottomSheet 表面 / Dialog 令牌面 / TagChip / InkChip / SealButton / SealIconButton
  * - dialog：[PaperInkAlertDialog] 显式包装 + 全局默认 AlertDialog 令牌路径
  * - 矩阵覆盖 light、dark、fontScale=2.0
  *
@@ -255,6 +258,33 @@ class PaperInkComponentsScreenshotTest {
                     InkChip(label = "全部", selected = false, onClick = {})
                     InkChip(label = "进行中", selected = true, onClick = {})
                     InkChip(label = "禁用", selected = false, onClick = {}, enabled = false)
+                }
+            }
+
+            // 印章：大字体下固定尺寸与文案裁切契约（§8.2 字体放大组件证据）
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = InkSpacing.CardPadding),
+                verticalArrangement = Arrangement.spacedBy(InkSpacing.X8),
+            ) {
+                Text(
+                    text = "印章",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(InkSpacing.X12),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SealButton(text = "记", onClick = {})
+                    SealButton(text = "盖", onClick = {}, enabled = false)
+                    SealIconButton(
+                        icon = Icons.Filled.Add,
+                        contentDescription = "新增",
+                        onClick = {},
+                    )
                 }
             }
         }

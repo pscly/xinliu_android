@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -71,6 +70,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 @Composable
 fun TodoScreen(
@@ -421,7 +421,7 @@ fun TodoScreen(
     }
 
     if (showCreateList) {
-        AlertDialog(
+        PaperInkAlertDialog(
             onDismissRequest = {
                 showCreateList = false
                 newListName = ""
@@ -463,7 +463,7 @@ fun TodoScreen(
     }
 
     if (showTagInput) {
-        AlertDialog(
+        PaperInkAlertDialog(
             onDismissRequest = { showTagInput = false },
             title = { Text("筛选标签") },
             text = {
@@ -518,7 +518,7 @@ fun TodoScreen(
                 TodoItemUnavailableReason.DELETED -> "该待办已删除"
                 TodoItemUnavailableReason.NOT_FOUND_OR_ACCOUNT_MISMATCH -> "待办不存在或账号不匹配"
             }
-        AlertDialog(
+        PaperInkAlertDialog(
             onDismissRequest = {
                 targetUnavailableShown = false
                 onTargetDismiss?.invoke()

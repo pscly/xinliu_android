@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Unarchive
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +57,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -108,6 +109,7 @@ import kotlinx.coroutines.delay
 import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 import cc.pscly.onememos.ui.component.InkRetryBanner
 import cc.pscly.onememos.navigation.memoSharedBounds
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 @Composable
 fun EditorScreen(
@@ -124,6 +126,22 @@ fun EditorScreen(
     var stampText by remember { mutableStateOf("已记") }
     var showArchiveConfirm by remember { mutableStateOf(false) }
     var showUnarchiveConfirm by remember { mutableStateOf(false) }
+    val archiveFocusRequester = remember { FocusRequester() }
+    val unarchiveFocusRequester = remember { FocusRequester() }
+    var restoreArchiveFocus by remember { mutableStateOf(false) }
+    var restoreUnarchiveFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(showArchiveConfirm, restoreArchiveFocus) {
+        if (!showArchiveConfirm && restoreArchiveFocus) {
+            archiveFocusRequester.requestFocus()
+            restoreArchiveFocus = false
+        }
+    }
+    LaunchedEffect(showUnarchiveConfirm, restoreUnarchiveFocus) {
+        if (!showUnarchiveConfirm && restoreUnarchiveFocus) {
+            unarchiveFocusRequester.requestFocus()
+            restoreUnarchiveFocus = false
+        }
+    }
 
     var showFilterSheet by remember { mutableStateOf(false) }
     var filterSelectedTags by remember { mutableStateOf(emptySet<String>()) }
@@ -248,39 +266,57 @@ fun EditorScreen(
     }
 
     if (showArchiveConfirm) {
-        AlertDialog(
-            onDismissRequest = { showArchiveConfirm = false },
+        PaperInkAlertDialog(
+            onDismissRequest = {
+                restoreArchiveFocus = true
+                showArchiveConfirm = false
+            },
             title = { Text("确认归档？") },
             text = { Text("归档后将从“随笔”隐藏，可在“已归档”中恢复。") },
             confirmButton = {
                 TextButton(
                     onClick = {
+                        restoreArchiveFocus = true
                         showArchiveConfirm = false
                         viewModel.archive()
                     },
                 ) { Text("归档") }
             },
             dismissButton = {
-                TextButton(onClick = { showArchiveConfirm = false }) { Text("取消") }
+                TextButton(
+                    onClick = {
+                        restoreArchiveFocus = true
+                        showArchiveConfirm = false
+                    },
+                ) { Text("取消") }
             },
         )
     }
 
     if (showUnarchiveConfirm) {
-        AlertDialog(
-            onDismissRequest = { showUnarchiveConfirm = false },
+        PaperInkAlertDialog(
+            onDismissRequest = {
+                restoreUnarchiveFocus = true
+                showUnarchiveConfirm = false
+            },
             title = { Text("恢复到随笔？") },
             text = { Text("恢复后会重新出现在“随笔”列表，并会自动同步到服务器。") },
             confirmButton = {
                 TextButton(
                     onClick = {
+                        restoreUnarchiveFocus = true
                         showUnarchiveConfirm = false
                         viewModel.unarchive()
                     },
                 ) { Text("恢复") }
             },
             dismissButton = {
-                TextButton(onClick = { showUnarchiveConfirm = false }) { Text("取消") }
+                TextButton(
+                    onClick = {
+                        restoreUnarchiveFocus = true
+                        showUnarchiveConfirm = false
+                    },
+                ) { Text("取消") }
             },
         )
     }
@@ -364,14 +400,20 @@ fun EditorScreen(
                     }
                     if (isReadonlyViewing) {
                         if (isArchived) {
-                            IconButton(onClick = { showUnarchiveConfirm = true }) {
+                            IconButton(
+                                onClick = { showUnarchiveConfirm = true },
+                                modifier = Modifier.focusRequester(unarchiveFocusRequester),
+                            ) {
                                 Icon(imageVector = Icons.Filled.Unarchive, contentDescription = "恢复")
                             }
                         } else {
                             IconButton(onClick = viewModel::enableEdit) {
                                 Icon(imageVector = Icons.Filled.Edit, contentDescription = "编辑")
                             }
-                            IconButton(onClick = { showArchiveConfirm = true }) {
+                            IconButton(
+                                onClick = { showArchiveConfirm = true },
+                                modifier = Modifier.focusRequester(archiveFocusRequester),
+                            ) {
                                 Icon(imageVector = Icons.Filled.Archive, contentDescription = "归档")
                             }
                         }

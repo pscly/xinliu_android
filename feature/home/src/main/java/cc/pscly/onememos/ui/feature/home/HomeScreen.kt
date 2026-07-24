@@ -45,7 +45,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
@@ -149,6 +148,7 @@ import cc.pscly.onememos.ui.theme.PaperInkModalBottomSheet
 import cc.pscly.onememos.ui.theme.PaperInkSnackbarHost
 import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
 import cc.pscly.onememos.navigation.memoSharedBounds
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 @Composable
 fun HomeScreen(
@@ -171,6 +171,14 @@ fun HomeScreen(
     var showAddToCollectionsBatchDialog by remember { mutableStateOf(false) }
     var showCollectionsDisabledDialog by remember { mutableStateOf(false) }
     var showBatchArchiveOrRestoreConfirm by remember { mutableStateOf(false) }
+    val batchArchiveFocusRequester = remember { FocusRequester() }
+    var restoreBatchArchiveFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(showBatchArchiveOrRestoreConfirm, restoreBatchArchiveFocus) {
+        if (!showBatchArchiveOrRestoreConfirm && restoreBatchArchiveFocus) {
+            batchArchiveFocusRequester.requestFocus()
+            restoreBatchArchiveFocus = false
+        }
+    }
     var selectionState by remember { mutableStateOf(HomeSelectionState()) }
     val snackbarHostState = remember { SnackbarHostState() }
     val (initialIndex, initialOffset) = viewModel.peekListPosition()
@@ -482,6 +490,7 @@ fun HomeScreen(
                             haptics.tick()
                             showBatchArchiveOrRestoreConfirm = true
                         },
+                        modifier = Modifier.focusRequester(batchArchiveFocusRequester),
                     ) {
                         Text(if (mode == HomeScreenMode.ACTIVE) "归档" else "恢复")
                     }
@@ -674,8 +683,13 @@ fun HomeScreen(
                     "恢复后会重新出现在“随笔”列表，并会自动同步到服务器。（共 $count 条）"
                 }
 
-            AlertDialog(
-                onDismissRequest = { if (!batchBusy) showBatchArchiveOrRestoreConfirm = false },
+            PaperInkAlertDialog(
+                onDismissRequest = {
+                    if (!batchBusy) {
+                        restoreBatchArchiveFocus = true
+                        showBatchArchiveOrRestoreConfirm = false
+                    }
+                },
                 title = { Text(titleText) },
                 text = { Text(bodyText) },
                 confirmButton = {
@@ -702,7 +716,10 @@ fun HomeScreen(
                 dismissButton = {
                     TextButton(
                         enabled = !batchBusy,
-                        onClick = { showBatchArchiveOrRestoreConfirm = false },
+                        onClick = {
+                            restoreBatchArchiveFocus = true
+                            showBatchArchiveOrRestoreConfirm = false
+                        },
                     ) {
                         Text("取消")
                     }
@@ -711,7 +728,7 @@ fun HomeScreen(
         }
 
         if (showCollectionsDisabledDialog) {
-            AlertDialog(
+            PaperInkAlertDialog(
                 onDismissRequest = { showCollectionsDisabledDialog = false },
                 title = { Text("锦囊不可用") },
                 text = { Text("请先使用 Flow Backend 登录后再使用锦囊；自定义服务器模式暂不支持。") },

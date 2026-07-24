@@ -45,7 +45,6 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -112,6 +111,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import cc.pscly.onememos.ui.theme.PaperInkTopAppBar
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 private data class ColorOption(
     val label: String,
@@ -1296,7 +1296,7 @@ private fun SimpleTextInputDialog(
     onConfirm: (String) -> Unit,
 ) {
     var draft by remember(initial) { mutableStateOf(initial) }
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
@@ -1337,7 +1337,7 @@ private fun ConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(text) },
@@ -1369,7 +1369,7 @@ private fun MoveToFolderDialog(
     onConfirm: (String?) -> Unit,
 ) {
     var selectedParentId by remember { mutableStateOf<String?>(null) }
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("移动到") },
         text = {
@@ -1452,7 +1452,7 @@ private fun ColorPickerDialog(
     onDismiss: () -> Unit,
     onPick: (String?) -> Unit,
 ) {
-    AlertDialog(
+    PaperInkAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("选择颜色") },
         text = {

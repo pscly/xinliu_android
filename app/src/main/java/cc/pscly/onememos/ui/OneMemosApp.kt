@@ -15,7 +15,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,6 +61,7 @@ import cc.pscly.onememos.ui.settings.AppSettingsPlatformActionDispatcher
 import cc.pscly.onememos.update.AppUpdatePhase
 import cc.pscly.onememos.update.AppUpdateUiState
 import kotlinx.coroutines.launch
+import cc.pscly.onememos.ui.theme.PaperInkAlertDialog
 
 @Composable
 fun OneMemosApp(
@@ -265,7 +265,7 @@ fun OneMemosApp(
             )
 
             if (showCollectionsDisabledDialog) {
-                AlertDialog(
+                PaperInkAlertDialog(
                     onDismissRequest = { showCollectionsDisabledDialog = false },
                     title = { Text("锦囊不可用") },
                     text = { Text("锦囊目前仅支持 Flow Backend 登录模式（自定义服务器模式暂不支持）。") },
@@ -305,7 +305,7 @@ private fun AppUpdateDialog(
     val release = state.release ?: return
     when (state.phase) {
         AppUpdatePhase.AVAILABLE ->
-            AlertDialog(
+            PaperInkAlertDialog(
                 onDismissRequest = onLater,
                 title = { Text("发现新版本 ${release.versionName}") },
                 text = {
@@ -333,7 +333,7 @@ private fun AppUpdateDialog(
                 },
             )
         AppUpdatePhase.DOWNLOADING ->
-            AlertDialog(
+            PaperInkAlertDialog(
                 onDismissRequest = onDismiss,
                 title = { Text("正在下载 ${release.versionName}") },
                 text = {
@@ -351,7 +351,7 @@ private fun AppUpdateDialog(
                 },
             )
         AppUpdatePhase.READY_TO_INSTALL ->
-            AlertDialog(
+            PaperInkAlertDialog(
                 onDismissRequest = onDismiss,
                 title = { Text("更新已准备好") },
                 text = { Text("${release.versionName} 已下载并通过安全校验，可以交给系统安装。") },
