@@ -115,6 +115,7 @@ fun AppearanceInteractionContent(
     AdvancedSection(snapshot, uiState.controlsEnabled, onIntent)
     TagColorSection(snapshot, uiState.controlsEnabled, onIntent)
     ReadingSection(snapshot, uiState.controlsEnabled, onIntent)
+    ListMarkdownSection(snapshot, uiState.controlsEnabled, onIntent)
     OverlaySection(snapshot, uiState.controlsEnabled, onIntent)
     DurationSection(snapshot.sealStampDurationMs, uiState.controlsEnabled, onIntent)
 }
@@ -319,6 +320,50 @@ private fun TagColorSection(snapshot: AppearanceInteractionSettingsSnapshot, ena
                 Text(status, color = appearanceInk(MaterialTheme.colorScheme), fontWeight = FontWeight.SemiBold)
                 Text(stringResource(R.string.settings_appearance_tag_color_description),
                     style = MaterialTheme.typography.bodySmall, color = appearanceInk(MaterialTheme.colorScheme))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListMarkdownSection(
+    snapshot: AppearanceInteractionSettingsSnapshot,
+    enabled: Boolean,
+    onIntent: (AppearanceInteractionUserIntent) -> Unit,
+) {
+    val nextEnabled = !snapshot.listMarkdownImmediateLoad
+    val statusRes =
+        if (snapshot.listMarkdownImmediateLoad) {
+            R.string.settings_appearance_enabled
+        } else {
+            R.string.settings_appearance_disabled
+        }
+    val status = stringResource(statusRes)
+    SettingsSection(title = stringResource(R.string.settings_appearance_list_md_title)) {
+        OnSurfaceFocus {
+            InkCard(
+                onClick = {
+                    onIntent(AppearanceInteractionUserIntent.SetListMarkdownImmediateLoad(nextEnabled))
+                },
+                enabled = enabled,
+                contentDescription =
+                    stringResource(R.string.settings_appearance_list_md_semantics, status),
+                modifier =
+                    Modifier
+                        .heightIn(min = InkSpacing.TouchTargetMin)
+                        .semantics { stateDescription = status }
+                        .testTag("settings_appearance_list_md"),
+            ) {
+                Text(
+                    status,
+                    color = appearanceInk(MaterialTheme.colorScheme),
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    stringResource(R.string.settings_appearance_list_md_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = appearanceInk(MaterialTheme.colorScheme),
+                )
             }
         }
     }

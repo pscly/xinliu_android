@@ -77,6 +77,12 @@ data class AppSettings(
     val readingFontScale: ReadingFontScale = ReadingFontScale.STANDARD,
     /** 阅读行距档。 */
     val lineHeight: ReadingLineHeight = ReadingLineHeight.STANDARD,
+    /**
+     * 列表 Markdown 是否立即渲染富预览。
+     * false（默认）= 滚动中用纯文本，停稳后再切 Markdown（更省滚动性能，但可能“跳一下”）；
+     * true = 始终直接加载 Markdown，避免滚停后切换跳动。
+     */
+    val listMarkdownImmediateLoad: Boolean = false,
 
     // ----------------------------
     // 同步（轻量状态）

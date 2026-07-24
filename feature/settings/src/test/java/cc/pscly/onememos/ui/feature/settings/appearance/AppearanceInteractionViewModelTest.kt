@@ -41,6 +41,8 @@ class AppearanceInteractionViewModelTest {
                     AppearanceInteractionSettingsCommand.SetQuickCaptureOverlayEnabled(false),
                     AppearanceInteractionSettingsCommand.SetTagChipColorful(true),
                     AppearanceInteractionSettingsCommand.SetTagChipColorful(false),
+                    AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad(true),
+                    AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad(false),
                     AppearanceInteractionSettingsCommand.SetSealStampDurationMs(200),
                     AppearanceInteractionSettingsCommand.SetSealStampDurationMs(600),
                     AppearanceInteractionSettingsCommand.SetSealStampDurationMs(2_000),
@@ -257,6 +259,8 @@ class AppearanceInteractionViewModelTest {
             AppearanceInteractionUserIntent.SetReadingLineHeight(lineHeight)
         is AppearanceInteractionSettingsCommand.SetTagChipColorful ->
             AppearanceInteractionUserIntent.SetTagChipColorful(enabled)
+        is AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad ->
+            AppearanceInteractionUserIntent.SetListMarkdownImmediateLoad(enabled)
     }
 
     private suspend fun await(condition: () -> Boolean) = withTimeout(2_000) { while (!condition()) delay(10) }

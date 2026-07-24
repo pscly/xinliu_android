@@ -61,6 +61,7 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             assertEquals(ReadingFontScale.LARGE, snap.readingFontScale)
             assertEquals(ReadingLineHeight.RELAXED, snap.lineHeight)
             assertEquals(true, snap.tagChipColorful)
+            assertEquals(false, snap.listMarkdownImmediateLoad)
             assertEquals(null, snap.commandInFlight)
         }
 
@@ -85,6 +86,29 @@ class AppearanceInteractionSettingsCapabilityImplTest {
                 cap.execute(AppearanceInteractionSettingsCommand.SetTagChipColorful(true)),
             )
             assertEquals(true, cap.observe().first().tagChipColorful)
+        }
+
+    @Test
+    fun listMarkdownImmediateLoad_defaultsFalse_andSetRoundTrips() =
+        runBlocking {
+            val repo = FakeSettingsRepository(AppSettings())
+            val cap = AppearanceInteractionSettingsCapabilityImpl(repo, FakeOverlayGateway(granted = true))
+
+            assertEquals(false, cap.observe().first().listMarkdownImmediateLoad)
+
+            assertEquals(
+                AppearanceInteractionSettingsResult.Success,
+                cap.execute(AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad(true)),
+            )
+            assertEquals(1, repo.listMarkdownImmediateLoadCalls.get())
+            assertEquals(true, repo.flow.value.listMarkdownImmediateLoad)
+            assertEquals(true, cap.observe().first().listMarkdownImmediateLoad)
+
+            assertEquals(
+                AppearanceInteractionSettingsResult.Success,
+                cap.execute(AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad(false)),
+            )
+            assertEquals(false, cap.observe().first().listMarkdownImmediateLoad)
         }
 
     @Test
@@ -156,6 +180,15 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             )
             assertEquals(1, repo.readingLineCalls.get())
             assertEquals(ReadingLineHeight.COMPACT, repo.flow.value.lineHeight)
+
+            assertEquals(
+                AppearanceInteractionSettingsResult.Success,
+                cap.execute(
+                    AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad(true),
+                ),
+            )
+            assertEquals(1, repo.listMarkdownImmediateLoadCalls.get())
+            assertEquals(true, repo.flow.value.listMarkdownImmediateLoad)
         }
 
     @Test
@@ -276,6 +309,7 @@ class AppearanceInteractionSettingsCapabilityImplTest {
         val readingFontCalls = AtomicInteger(0)
         val readingLineCalls = AtomicInteger(0)
         val tagChipColorfulCalls = AtomicInteger(0)
+        val listMarkdownImmediateLoadCalls = AtomicInteger(0)
 
         override val settings: Flow<AppSettings> = flow
 
@@ -357,6 +391,13 @@ class AppearanceInteractionSettingsCapabilityImplTest {
             maybeHold()
             maybeFail()
             flow.value = flow.value.copy(tagChipColorful = enabled)
+        }
+
+        override suspend fun setListMarkdownImmediateLoad(enabled: Boolean) {
+            listMarkdownImmediateLoadCalls.incrementAndGet()
+            maybeHold()
+            maybeFail()
+            flow.value = flow.value.copy(listMarkdownImmediateLoad = enabled)
         }
 
         override suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean) = Unit

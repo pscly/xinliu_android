@@ -60,6 +60,8 @@ sealed interface AppearanceInteractionUserIntent {
 
     data class SetTagChipColorful(val enabled: Boolean) : AppearanceInteractionUserIntent
 
+    data class SetListMarkdownImmediateLoad(val enabled: Boolean) : AppearanceInteractionUserIntent
+
     data class ApplyPlatformResult(val result: SettingsPlatformResult) : AppearanceInteractionUserIntent
 }
 
@@ -116,6 +118,8 @@ class AppearanceInteractionViewModel @Inject constructor(
                 submit(AppearanceInteractionSettingsCommand.SetReadingLineHeight(intent.lineHeight))
             is AppearanceInteractionUserIntent.SetTagChipColorful ->
                 submit(AppearanceInteractionSettingsCommand.SetTagChipColorful(intent.enabled))
+            is AppearanceInteractionUserIntent.SetListMarkdownImmediateLoad ->
+                submit(AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad(intent.enabled))
             is AppearanceInteractionUserIntent.ApplyPlatformResult ->
                 applyPlatformResult(intent.result)
         }

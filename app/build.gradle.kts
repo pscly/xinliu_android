@@ -31,8 +31,8 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
 
-        versionCode = 170
-        versionName = "1.16.2"
+        versionCode = 171
+        versionName = "1.16.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "FLOW_BACKEND_BASE_URL", "\"https://xl.pscly.cc/\"")

@@ -160,8 +160,12 @@ fun CollectionsScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
-    var enableRichPreview by remember { mutableStateOf(false) }
-    LaunchedEffect(listState) {
+    var enableRichPreview by remember { mutableStateOf(uiState.listMarkdownImmediateLoad) }
+    LaunchedEffect(listState, uiState.listMarkdownImmediateLoad) {
+        if (uiState.listMarkdownImmediateLoad) {
+            enableRichPreview = true
+            return@LaunchedEffect
+        }
         snapshotFlow { listState.isScrollInProgress }
             .distinctUntilChanged()
             .collectLatest { scrolling ->

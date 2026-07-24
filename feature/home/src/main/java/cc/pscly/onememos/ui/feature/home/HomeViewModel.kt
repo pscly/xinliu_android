@@ -80,6 +80,8 @@ data class HomeUiState(
     val swipeRightAction: SwipeAction = SwipeAction.ADD_TO_TODO,
     /** 左滑动作（默认收藏）。 */
     val swipeLeftAction: SwipeAction = SwipeAction.FAVORITE,
+    /** 列表 Markdown 是否立即渲染（true=始终富预览，避免滚停跳动）。 */
+    val listMarkdownImmediateLoad: Boolean = false,
 ) {
     val isFiltering: Boolean get() = filter.query.isNotBlank() || filter.selectedTags.isNotEmpty()
 }
@@ -230,6 +232,7 @@ class HomeViewModel @Inject constructor(
                 swipeEnabled = settings.swipeEnabled,
                 swipeRightAction = settings.swipeRightAction,
                 swipeLeftAction = settings.swipeLeftAction,
+                listMarkdownImmediateLoad = settings.listMarkdownImmediateLoad,
             )
         }
             .stateIn(

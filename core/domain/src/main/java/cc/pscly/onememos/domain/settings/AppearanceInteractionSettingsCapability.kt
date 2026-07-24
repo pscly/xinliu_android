@@ -26,6 +26,8 @@ data class AppearanceInteractionSettingsSnapshot(
     val readingFontScale: ReadingFontScale = ReadingFontScale.STANDARD,
     val lineHeight: ReadingLineHeight = ReadingLineHeight.STANDARD,
     val tagChipColorful: Boolean = true,
+    /** 列表 Markdown 立即加载（默认 false：滚动停稳后再渲染）。 */
+    val listMarkdownImmediateLoad: Boolean = false,
     val commandInFlight: AppearanceInteractionSettingsCommand? = null,
 ) {
     val themePalette: ThemePalette
@@ -48,6 +50,8 @@ sealed interface AppearanceInteractionSettingsCommand {
     data class SetReadingLineHeight(val lineHeight: ReadingLineHeight) : AppearanceInteractionSettingsCommand
 
     data class SetTagChipColorful(val enabled: Boolean) : AppearanceInteractionSettingsCommand
+
+    data class SetListMarkdownImmediateLoad(val enabled: Boolean) : AppearanceInteractionSettingsCommand
 }
 
 sealed interface AppearanceInteractionSettingsResult {

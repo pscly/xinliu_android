@@ -148,6 +148,7 @@ class ThemeDescriptorMigrationTest {
             assertEquals(true, s.pageTransitionsEnabled)
             assertEquals(cc.pscly.onememos.domain.model.ReadingFontScale.STANDARD, s.readingFontScale)
             assertEquals(cc.pscly.onememos.domain.model.ReadingLineHeight.STANDARD, s.lineHeight)
+            assertEquals(false, s.listMarkdownImmediateLoad)
             assertEquals(ThemeDescriptor.WENMO_ZHUSHA, s.themeDescriptor)
         }
 

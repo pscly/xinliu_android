@@ -251,8 +251,13 @@ fun HomeScreen(
 
     // 1B：滚动中仅渲染纯文本预览，停稳 ~200ms 后再切回 Markdown 样式预览。
     // 单列/双列各持有一份滚动状态，任一滚动都视为“滚动中”。
-    var enableRichPreview by remember { mutableStateOf(false) }
-    LaunchedEffect(listState, gridState) {
+    // 列表 Markdown：默认滚动停稳后再富渲染；用户开启「立即加载」则始终 true。
+    var enableRichPreview by remember { mutableStateOf(uiState.listMarkdownImmediateLoad) }
+    LaunchedEffect(listState, gridState, uiState.listMarkdownImmediateLoad) {
+        if (uiState.listMarkdownImmediateLoad) {
+            enableRichPreview = true
+            return@LaunchedEffect
+        }
         snapshotFlow { listState.isScrollInProgress || gridState.isScrollInProgress }
             .distinctUntilChanged()
             .collectLatest { scrolling ->

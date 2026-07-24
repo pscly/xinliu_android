@@ -50,6 +50,8 @@ data class CollectionsUiState(
     val memoByRefTargetId: Map<String, Memo> = emptyMap(),
     val folderOptions: List<FolderOption> = emptyList(),
     val folderParentById: Map<String, String?> = emptyMap(),
+    /** 列表 Markdown 是否立即渲染（true=始终富预览）。 */
+    val listMarkdownImmediateLoad: Boolean = false,
 )
 
 @HiltViewModel
@@ -66,6 +68,11 @@ class CollectionsViewModel @Inject constructor(
     private val devAutoTagLineConfigFlow =
         settingsRepository.settings
             .map { s -> s.devAutoTagLineKeywords to s.devShowAutoTagLineInHome }
+            .distinctUntilChanged()
+
+    private val listMarkdownImmediateLoadFlow =
+        settingsRepository.settings
+            .map { it.listMarkdownImmediateLoad }
             .distinctUntilChanged()
 
     private val _currentParentId = MutableStateFlow<String?>(null)
@@ -137,11 +144,13 @@ class CollectionsViewModel @Inject constructor(
             },
             memoByRefTargetId,
             devAutoTagLineConfigFlow,
-        ) { base, memosByTargetId, (keywordsRaw, showInHome) ->
+            listMarkdownImmediateLoadFlow,
+        ) { base, memosByTargetId, (keywordsRaw, showInHome), listMarkdownImmediateLoad ->
             base.copy(
                 memoByRefTargetId = memosByTargetId,
                 devAutoTagLineKeywordsRaw = keywordsRaw,
                 devShowAutoTagLineInHome = showInHome,
+                listMarkdownImmediateLoad = listMarkdownImmediateLoad,
             )
         }
             .stateIn(

@@ -39,6 +39,7 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
                 readingFontScale = settings.readingFontScale,
                 lineHeight = settings.lineHeight,
                 tagChipColorful = settings.tagChipColorful,
+                listMarkdownImmediateLoad = settings.listMarkdownImmediateLoad,
                 commandInFlight = inFlight,
             )
         }
@@ -97,6 +98,10 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
                     settingsRepository.setTagChipColorful(command.enabled)
                     AppearanceInteractionSettingsResult.Success
                 }
+                is AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad -> {
+                    settingsRepository.setListMarkdownImmediateLoad(command.enabled)
+                    AppearanceInteractionSettingsResult.Success
+                }
             }
         } catch (t: Throwable) {
             val mapped = SettingsCapabilityErrorMapper.map(t)
@@ -125,5 +130,7 @@ class AppearanceInteractionSettingsCapabilityImpl @Inject constructor(
             is AppearanceInteractionSettingsCommand.SetReadingFontScale -> "SetReadingFontScale"
             is AppearanceInteractionSettingsCommand.SetReadingLineHeight -> "SetReadingLineHeight"
             is AppearanceInteractionSettingsCommand.SetTagChipColorful -> "SetTagChipColorful"
+            is AppearanceInteractionSettingsCommand.SetListMarkdownImmediateLoad ->
+                "SetListMarkdownImmediateLoad"
         }
 }

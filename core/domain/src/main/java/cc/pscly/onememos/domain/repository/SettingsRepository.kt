@@ -67,6 +67,12 @@ interface SettingsRepository {
      */
     suspend fun setReadingLineHeight(lineHeight: ReadingLineHeight) = Unit
 
+    /**
+     * 列表 Markdown 是否立即渲染富预览（主页/收藏夹等）。
+     * 默认空实现：既有测试 Fake 无需逐一覆写；正式实现见 SettingsRepositoryImpl。
+     */
+    suspend fun setListMarkdownImmediateLoad(enabled: Boolean) = Unit
+
     suspend fun setOfflineImagePrefetchEnabled(enabled: Boolean)
 
     suspend fun setOfflineImagePrefetchMaxMemos(count: Int)
