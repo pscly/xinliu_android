@@ -1,6 +1,7 @@
 package cc.pscly.onememos.domain.derived
 
 import cc.pscly.onememos.domain.tag.TagExtractor
+import cc.pscly.onememos.domain.util.XinliuRelationMarker
 
 data class MemoDerivedFields(
     val plainPreview: String,
@@ -19,8 +20,10 @@ object MemoDerivedFieldsDeriver {
         now: Long = System.currentTimeMillis(),
         previewMaxChars: Int = 320,
     ): MemoDerivedFields {
-        val preview = MarkdownDeriver.plainPreview(markdown = content, maxChars = previewMaxChars)
-        val tagsText = TagsTextCodec.encode(TagExtractor.extractAll(content))
+        // 读路径：plainPreview 不暴露关系注释（ADR 0013）。
+        val forPreview = XinliuRelationMarker.stripAllForRead(content)
+        val preview = MarkdownDeriver.plainPreview(markdown = forPreview, maxChars = previewMaxChars)
+        val tagsText = TagsTextCodec.encode(TagExtractor.extractAll(forPreview))
         return MemoDerivedFields(
             plainPreview = preview,
             tagsText = tagsText,

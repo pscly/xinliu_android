@@ -162,6 +162,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val favoritedMemoUuids by viewModel.favoritedMemoUuids.collectAsStateWithLifecycle()
     val globalSyncState by viewModel.globalSyncState.collectAsStateWithLifecycle()
     val batchBusy by viewModel.batchBusy.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -859,6 +860,7 @@ fun HomeScreen(
                                 selectionState = selectionState,
                                 onSelectionStateChange = { selectionState = it },
                                 viewModel = viewModel,
+                                favoritedMemoUuids = favoritedMemoUuids,
                                 haptics = haptics,
                                 capturePosition = ::captureCurrentListPosition,
                                 onOpenMemo = onOpenMemo,
@@ -927,6 +929,7 @@ fun HomeScreen(
                             selectionState = selectionState,
                             onSelectionStateChange = { selectionState = it },
                             viewModel = viewModel,
+                                favoritedMemoUuids = favoritedMemoUuids,
                             haptics = haptics,
                             capturePosition = ::captureCurrentListPosition,
                             onOpenMemo = onOpenMemo,
@@ -1017,6 +1020,7 @@ private fun GroupedItemContent(
     selectionState: HomeSelectionState,
     onSelectionStateChange: (HomeSelectionState) -> Unit,
     viewModel: HomeViewModel,
+    favoritedMemoUuids: Set<String>,
     haptics: OneMemosHaptics,
     capturePosition: () -> Unit,
     onOpenMemo: (String) -> Unit,
@@ -1065,6 +1069,8 @@ private fun GroupedItemContent(
                 enableRichPreview = renderRichPreview,
                 selectionMode = selectionMode,
                 selected = selectionState.selectedIds.contains(memo.uuid),
+                isTodoLinked = viewModel.isTodoLinked(memo),
+                isFavorited = viewModel.isFavorited(memo, favoritedMemoUuids),
                 onOpenMemo = {
                     if (selectionMode) {
                         haptics.tick()

@@ -1,6 +1,7 @@
 package cc.pscly.onememos.ui.feature.home
 
 import cc.pscly.onememos.domain.derived.MarkdownDeriver
+import cc.pscly.onememos.domain.util.XinliuRelationMarker
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoServerState
 import cc.pscly.onememos.domain.model.SyncStatus
@@ -21,11 +22,16 @@ internal object MemoItemTalkBack {
             if (memo.tags.isNotEmpty()) {
                 memo.tags
             } else {
-                TagExtractor.extractAll(memo.content)
+                TagExtractor.extractAll(XinliuRelationMarker.stripAllForRead(memo.content))
             }
         val preview =
             memo.plainPreview
-                .ifBlank { MarkdownDeriver.plainPreview(memo.content, maxChars = 80) }
+                .ifBlank {
+                    MarkdownDeriver.plainPreview(
+                        XinliuRelationMarker.stripAllForRead(memo.content),
+                        maxChars = 80,
+                    )
+                }
                 .ifBlank { "无文字内容" }
                 .replace('\n', ' ')
                 .take(80)

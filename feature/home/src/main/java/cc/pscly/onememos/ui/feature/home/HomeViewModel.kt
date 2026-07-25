@@ -9,7 +9,6 @@ import androidx.paging.cachedIn
 import androidx.paging.filter
 import cc.pscly.onememos.feature.home.BuildConfig
 import cc.pscly.onememos.core.network.MemosUrls
-import cc.pscly.onememos.domain.derived.MarkdownDeriver
 import cc.pscly.onememos.domain.model.AppSettings
 import cc.pscly.onememos.domain.model.CollectionItemType
 import cc.pscly.onememos.domain.model.GlobalSyncState
@@ -18,7 +17,6 @@ import cc.pscly.onememos.domain.model.LoginMode
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.SwipeAction
-import cc.pscly.onememos.domain.model.TodoItem
 import cc.pscly.onememos.domain.repository.CollectionsRepository
 import cc.pscly.onememos.domain.repository.MemoBrowseScope
 import cc.pscly.onememos.domain.repository.MemoRepository
@@ -34,7 +32,10 @@ import cc.pscly.onememos.domain.tag.TagStats
 import cc.pscly.onememos.ui.filter.MemoFilter
 import cc.pscly.onememos.ui.filter.MemoFilterStore
 import cc.pscly.onememos.ui.filter.TagMatchMode
-import cc.pscly.onememos.ui.util.AutoTagLineHider
+import cc.pscly.onememos.domain.util.todoToast
+import cc.pscly.onememos.domain.util.favoriteToast
+import cc.pscly.onememos.domain.util.XinliuRelationMarker
+import cc.pscly.onememos.domain.util.MemoRelationToggle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -55,8 +56,6 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.ZoneId
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -100,6 +99,48 @@ class HomeViewModel @Inject constructor(
     syncStatusMonitor: SyncStatusMonitor,
 ) : ViewModel() {
     private var creatorHintPushed: Boolean = false
+
+    private val relationToggle =
+        MemoRelationToggle(
+            memoRepository = memoRepository,
+            todoRepository = todoRepository,
+            collectionsRepository = collectionsRepository,
+        )
+
+    /** 内置「收藏」夹中的 memo uuid 集合，供列表角标（实体反查，ADR 0013）。 */
+    val favoritedMemoUuids: StateFlow<Set<String>> =
+        collectionsRepository
+            .observeAll()
+            .map { items ->
+                val folderId =
+                    items
+                        .firstOrNull {
+                            it.itemType == CollectionItemType.FOLDER &&
+                                it.deletedAt == null &&
+                                it.name.trim() == FAVORITE_FOLDER_NAME
+                        }
+                        ?.id
+                if (folderId == null) {
+                    emptySet()
+                } else {
+                    items
+                        .asSequence()
+                        .filter {
+                            it.deletedAt == null &&
+                                it.parentId == folderId &&
+                                it.itemType == CollectionItemType.NOTE_REF
+                        }
+                        .mapNotNull { it.refId ?: it.refLocalUuid }
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .toSet()
+                }
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptySet(),
+            )
 
     // 主页富预览“粘住”：仅缓存 memo uuid，用于减缓滚动中 rich/plain 切换造成的“跳动”。
     // - limit=0 时完全禁用（清空 + mark no-op）
@@ -391,12 +432,20 @@ class HomeViewModel @Inject constructor(
                         _events.tryEmit(HomeEvent.SwipeArchived(memo.uuid))
                     }
                     SwipeAction.ADD_TO_TODO -> {
-                        addMemoToTodo(memo)
-                        _events.tryEmit(HomeEvent.SwipeActionMessage("已加入待办"))
+                        val outcome =
+                            withContext(Dispatchers.IO) { relationToggle.toggleTodo(memo.uuid) }
+                        todoSyncScheduler.requestSync()
+                        todoReminderScheduler.requestReschedule()
+                        _events.tryEmit(HomeEvent.SwipeActionMessage(outcome.todoToast()))
                     }
                     SwipeAction.FAVORITE -> {
-                        withContext(Dispatchers.IO) { collectionsRepository.addMemoToFavorites(memo.uuid) }
-                        _events.tryEmit(HomeEvent.SwipeActionMessage("已收藏"))
+                        val settings = settingsRepository.settings.first()
+                        val collectionsAvailable =
+                            settings.loginMode == LoginMode.BACKEND && settings.token.isNotBlank()
+                        if (!collectionsAvailable) throw CollectionsUnavailableException()
+                        val outcome =
+                            withContext(Dispatchers.IO) { relationToggle.toggleFavorite(memo.uuid) }
+                        _events.tryEmit(HomeEvent.SwipeActionMessage(outcome.favoriteToast()))
                     }
                     SwipeAction.PIN -> {
                         val target = !memo.pinned
@@ -419,80 +468,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 把 memo 的首行预览写入首个待办清单；没有清单时自动建一个默认清单。 */
-    private suspend fun addMemoToTodo(memo: Memo) {
-        val listId =
-            withContext(Dispatchers.IO) {
-                val existing =
-                    todoRepository.observeLists(includeArchived = false).first()
-                        .firstOrNull { it.deletedAt == null }
-                        ?.id
-                existing ?: todoRepository.createList(name = "待办")
-            }
+    fun isTodoLinked(memo: Memo): Boolean =
+        XinliuRelationMarker.has(memo.content, XinliuRelationMarker.Kind.TODO)
 
-        val title =
-            memo.plainPreview.trim().ifBlank { memo.content.trim() }
-                .lineSequence().firstOrNull().orEmpty()
-                .take(40)
-                .ifBlank { "未命名任务" }
-
-        val tzid = runCatching { ZoneId.systemDefault().id }.getOrNull().orEmpty()
-        withContext(Dispatchers.IO) {
-            todoRepository.createItem(
-                TodoItem(
-                    id = UUID.randomUUID().toString(),
-                    listId = listId,
-                    title = title,
-                    tzid = tzid,
-                ),
-            )
-        }
-        todoSyncScheduler.requestSync()
-        todoReminderScheduler.requestReschedule()
-    }
-
-    /** 收藏=把 memo 收进锦囊内置「收藏」文件夹（找不到则创建）。 */
-    private suspend fun favoriteMemo(memo: Memo) {
-        val settings = settingsRepository.settings.first()
-        val collectionsAvailable = settings.loginMode == LoginMode.BACKEND && settings.token.isNotBlank()
-        if (!collectionsAvailable) throw CollectionsUnavailableException()
-
-        val folderId =
-            withContext(Dispatchers.IO) {
-                val existing =
-                    collectionsRepository.observeAll().first()
-                        .firstOrNull {
-                            it.itemType == CollectionItemType.FOLDER &&
-                                it.deletedAt == null &&
-                                !it.localOnly &&
-                                it.name.trim() == FAVORITE_FOLDER_NAME
-                        }
-                        ?.id
-                existing
-                    ?: collectionsRepository.createFolder(
-                        parentId = null,
-                        name = FAVORITE_FOLDER_NAME,
-                        color = null,
-                    )
-            }
-
-        val keywords = AutoTagLineHider.parseKeywords(settings.devAutoTagLineKeywords)
-        val displayName =
-            MarkdownDeriver.plainPreviewSkippingLinesEndingWithKeywords(
-                markdown = memo.content,
-                keywords = keywords,
-                maxChars = 80,
-            ).trim().ifBlank { "随笔" }
-
-        withContext(Dispatchers.IO) {
-            collectionsRepository.addMemoRef(
-                parentId = folderId,
-                memo = memo,
-                color = null,
-                displayName = displayName,
-            )
-        }
-    }
+    fun isFavorited(memo: Memo, favoritedUuids: Set<String>): Boolean =
+        XinliuRelationMarker.has(memo.content, XinliuRelationMarker.Kind.FAV) ||
+            favoritedUuids.contains(memo.uuid) ||
+            (!memo.serverId.isNullOrBlank() && favoritedUuids.contains(memo.serverId))
 
     private class CollectionsUnavailableException : IllegalStateException("collections unavailable")
 

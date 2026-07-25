@@ -1,6 +1,7 @@
 package cc.pscly.onememos.ui.feature.home
 
 import cc.pscly.onememos.domain.model.Memo
+import cc.pscly.onememos.domain.util.XinliuRelationMarker
 import cc.pscly.onememos.ui.util.DateTimeFormatter
 
 internal object HomeShareTextBuilder {
@@ -15,7 +16,7 @@ internal object HomeShareTextBuilder {
                 if (index > 0) append(DELIMITER)
                 append(DateTimeFormatter.formatYmdHm(memo.createdAt))
                 append('\n')
-                append(memo.content)
+                append(XinliuRelationMarker.stripAllForRead(memo.content))
             }
         }
     }

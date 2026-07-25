@@ -182,15 +182,11 @@ internal fun AddToCollectionsBatchDialog(
                                 }
                                 selectedParentId = folderId
                                 newFolderName = ""
-                                val success = viewModel.addMemoRefs(parentId = folderId, memos = selectedMemos)
-                                val failed = (totalSelectedCount - success).coerceAtLeast(0)
-                                if (success >= totalSelectedCount && totalSelectedCount > 0) {
-                                    val hasLocalOnly = selectedMemos.any { it.serverId.isNullOrBlank() }
-                                    toast(if (hasLocalOnly) "已放入锦囊（待同步）" else "已放入锦囊")
+                                val result = viewModel.addMemoRefs(parentId = folderId, memos = selectedMemos)
+                                toast(result.message)
+                                if (result.ok && result.failedCount == 0 && result.successCount > 0) {
                                     onAllSuccess()
                                     onDismiss()
-                                } else {
-                                    toast("成功 $success 条，失败 $failed 条")
                                 }
                             } finally {
                                 busy = false
@@ -213,15 +209,11 @@ internal fun AddToCollectionsBatchDialog(
                                     onDismiss()
                                     return@launch
                                 }
-                                val success = viewModel.addMemoRefs(parentId = selectedParentId, memos = selectedMemos)
-                                val failed = (totalSelectedCount - success).coerceAtLeast(0)
-                                if (success >= totalSelectedCount && totalSelectedCount > 0) {
-                                    val hasLocalOnly = selectedMemos.any { it.serverId.isNullOrBlank() }
-                                    toast(if (hasLocalOnly) "已放入锦囊（待同步）" else "已放入锦囊")
+                                val result = viewModel.addMemoRefs(parentId = selectedParentId, memos = selectedMemos)
+                                toast(result.message)
+                                if (result.ok && result.failedCount == 0 && result.successCount > 0) {
                                     onAllSuccess()
                                     onDismiss()
-                                } else {
-                                    toast("成功 $success 条，失败 $failed 条")
                                 }
                             } finally {
                                 busy = false

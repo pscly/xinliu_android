@@ -133,6 +133,25 @@ class MemoRepositoryImpl @Inject constructor(
         syncScheduler.requestSync()
     }
 
+    override suspend fun updateMemoContentSilent(uuid: String, content: String) {
+        val existing = memoDao.getMemo(uuid)?.memo ?: return
+        val now = System.currentTimeMillis()
+        val derived = MemoDerivedFieldsDeriver.derive(content = content, now = now)
+        memoDao.upsertMemo(
+            existing.copy(
+                content = content,
+                plainPreview = derived.plainPreview,
+                tagsText = derived.tagsText,
+                derivedVersion = derived.derivedVersion,
+                derivedAt = derived.derivedAt,
+                // 保持 updatedAt，避免关系注释写/剥把随笔顶到时间线顶部（ADR 0013）。
+                syncStatus = nextSyncStatus(existing.serverId),
+                lastSyncError = null,
+            ),
+        )
+        syncScheduler.requestSync()
+    }
+
     override suspend fun createLocalMemo(
         content: String,
         resourceUris: List<String>,

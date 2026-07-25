@@ -373,6 +373,43 @@ class CollectionsRepositoryImpl @Inject constructor(
         return id
     }
 
+    override suspend fun findFavoriteRefId(memoUuid: String): String? {
+        val uuid = memoUuid.trim()
+        if (uuid.isBlank()) return null
+        val ownerKey = currentOwnerKeyOrNull() ?: LOCAL_OWNER_KEY
+        val folderId =
+            collectionDao.listAll(ownerKey = ownerKey)
+                .firstOrNull {
+                    it.itemType == ITEM_TYPE_FOLDER &&
+                        it.deletedAt == null &&
+                        it.name.trim() == FAVORITE_FOLDER_NAME
+                }
+                ?.id
+                ?: return null
+        return collectionDao.listChildren(ownerKey = ownerKey, parentId = folderId)
+            .firstOrNull {
+                it.deletedAt == null &&
+                    it.itemType == ITEM_TYPE_NOTE_REF &&
+                    (it.refLocalUuid == uuid || it.refId == uuid)
+            }
+            ?.id
+    }
+
+    override suspend fun removeMemoFromFavorites(memoUuid: String) {
+        val refId = findFavoriteRefId(memoUuid) ?: return
+        delete(refId)
+    }
+
+    override suspend fun isFavoritesFolder(folderId: String): Boolean {
+        val id = folderId.trim()
+        if (id.isBlank()) return false
+        val ownerKey = currentOwnerKeyOrNull() ?: LOCAL_OWNER_KEY
+        val row = collectionDao.getById(ownerKey = ownerKey, id = id) ?: return false
+        return row.deletedAt == null &&
+            row.itemType == ITEM_TYPE_FOLDER &&
+            row.name.trim() == FAVORITE_FOLDER_NAME
+    }
+
     override suspend fun backfillMemoRefId(
         memoUuid: String,
         memoServerId: String,

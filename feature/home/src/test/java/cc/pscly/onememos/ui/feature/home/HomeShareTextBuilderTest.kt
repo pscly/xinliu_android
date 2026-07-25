@@ -47,6 +47,21 @@ class HomeShareTextBuilderTest {
         assertEquals(expected, text)
     }
 
+    @Test
+    fun `分享文本剥离关系注释`() {
+        val createdAt = 1_700_000_000_000L
+        val memo =
+            fakeMemo(
+                uuid = "m",
+                createdAt = createdAt,
+                content = "正文\n<!-- xinliu:2026-07-20:TODO id=abc -->",
+            )
+        val text = HomeShareTextBuilder.build(listOf(memo))
+        val time = DateTimeFormatter.formatYmdHm(createdAt)
+        assertEquals("$time\n正文", text)
+        assertTrue(!text.contains("xinliu"))
+    }
+
     private fun fakeMemo(
         uuid: String,
         createdAt: Long,

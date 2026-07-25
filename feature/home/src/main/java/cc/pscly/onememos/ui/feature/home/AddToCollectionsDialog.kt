@@ -173,13 +173,13 @@ internal fun AddToCollectionsDialog(
                                     toast("新建失败：请确认已登录 Flow Backend")
                                     return@launch
                                 }
-                                val refId = viewModel.addMemoRef(parentId = folderId, memo = memo)
-                                if (refId.isBlank()) {
-                                    toast("放入失败：请稍后重试")
+                                val result = viewModel.addMemoRef(parentId = folderId, memo = memo)
+                                if (!result.ok) {
+                                    toast(result.message)
                                     return@launch
                                 }
                                 newFolderName = ""
-                                toast(if (memo.serverId.isNullOrBlank()) "已放入锦囊（待同步）" else "已放入锦囊")
+                                toast(result.message)
                                 onDismiss()
                             } finally {
                                 busy = false
@@ -197,12 +197,12 @@ internal fun AddToCollectionsDialog(
                         haptics.confirm()
                         scope.launch {
                             try {
-                                val id = viewModel.addMemoRef(parentId = selectedParentId, memo = memo)
-                                if (id.isBlank()) {
-                                    toast("放入失败：请确认已登录 Flow Backend")
+                                val result = viewModel.addMemoRef(parentId = selectedParentId, memo = memo)
+                                if (!result.ok) {
+                                    toast(result.message)
                                     return@launch
                                 }
-                                toast(if (memo.serverId.isNullOrBlank()) "已放入锦囊（待同步）" else "已放入锦囊")
+                                toast(result.message)
                                 onDismiss()
                             } finally {
                                 busy = false

@@ -45,6 +45,13 @@ interface MemoRepository {
 
     suspend fun updateMemoContent(uuid: String, content: String)
 
+    /**
+     * 更新正文但不刷新用于时间线排序的 [cc.pscly.onememos.domain.model.Memo.updatedAt]
+     *（关系注释写/剥，ADR 0013）。仍会重算 plainPreview/tags 并标记需同步。
+     * 默认空实现：测试 Fake 可不覆写；正式实现见 MemoRepositoryImpl。
+     */
+    suspend fun updateMemoContentSilent(uuid: String, content: String) = Unit
+
     suspend fun createLocalMemo(
         content: String,
         resourceUris: List<String>,

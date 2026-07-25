@@ -25,6 +25,24 @@ interface CollectionsRepository {
     /** 把 memo 收藏到锦囊内置「收藏」文件夹（找不到则创建）。本地优先，不依赖网络。幂等。 */
     suspend fun addMemoToFavorites(memoUuid: String): String
 
+    /**
+     * 查找内置「收藏」文件夹中指向该 memo 的 NOTE_REF id；不存在返回 null。
+     * 默认空实现：测试 Fake 可不覆写。
+     */
+    suspend fun findFavoriteRefId(memoUuid: String): String? = null
+
+    /**
+     * 从内置「收藏」移除该 memo 的引用（软删）。不存在则 no-op。
+     * 默认空实现：测试 Fake 可不覆写。
+     */
+    suspend fun removeMemoFromFavorites(memoUuid: String) = Unit
+
+    /**
+     * 判断 parentId 是否为内置「收藏」文件夹。
+     * 默认 false：测试 Fake 可不覆写。
+     */
+    suspend fun isFavoritesFolder(folderId: String): Boolean = false
+
     suspend fun rename(
         id: String,
         name: String,

@@ -16,12 +16,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +44,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.domain.derived.MarkdownDeriver
+import cc.pscly.onememos.domain.util.XinliuRelationMarker
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.tag.TagExtractor
@@ -65,6 +69,8 @@ internal fun MemoItem(
     enableRichPreview: Boolean,
     selectionMode: Boolean,
     selected: Boolean,
+    isTodoLinked: Boolean = false,
+    isFavorited: Boolean = false,
     onOpenMemo: () -> Unit,
     onLongShare: () -> Unit,
     onToggleTag: (String) -> Unit,
@@ -119,7 +125,7 @@ internal fun MemoItem(
     ) {
         val tags =
             remember(memo.tags, memo.uuid, memo.updatedAt) {
-                if (memo.tags.isNotEmpty()) memo.tags else TagExtractor.extractAll(memo.content)
+                if (memo.tags.isNotEmpty()) memo.tags else TagExtractor.extractAll(XinliuRelationMarker.stripAllForRead(memo.content))
             }
         val visibleTags = remember(tags) { tags.take(5) }
         val moreTags = (tags.size - visibleTags.size).coerceAtLeast(0)
@@ -134,6 +140,24 @@ internal fun MemoItem(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (isTodoLinked) {
+                Spacer(modifier = Modifier.width(InkSpacing.X4))
+                Icon(
+                    imageVector = Icons.Outlined.TaskAlt,
+                    contentDescription = "已加入待办",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(InkSpacing.X16),
+                )
+            }
+            if (isFavorited) {
+                Spacer(modifier = Modifier.width(InkSpacing.X4))
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = "已收藏",
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(InkSpacing.X16),
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             if (selectionMode) {
                 Icon(
@@ -206,7 +230,7 @@ internal fun MemoItem(
         val basePlainPreview =
             // 同上：用稳定的 uuid/updatedAt 作为触发条件即可。
             remember(memo.plainPreview, memo.uuid, memo.updatedAt) {
-                memo.plainPreview.ifBlank { MarkdownDeriver.plainPreview(memo.content, maxChars = 320) }
+                memo.plainPreview.ifBlank { MarkdownDeriver.plainPreview(XinliuRelationMarker.stripAllForRead(memo.content), maxChars = 320) }
             }
         val plainPreview =
             remember(basePlainPreview, memo.uuid, memo.updatedAt, showAutoTagLineInHome, autoTagKeywords, contentPlaceholder) {
