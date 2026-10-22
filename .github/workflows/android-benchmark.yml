@@ -39,8 +39,51 @@ jobs:
           java-version: '21'
           cache: gradle
 
+      # 说明（1.17.0）：
+      # 原先用 android-actions/setup-android@v3，该 action 会执行 `sdkmanager tools`，
+      # 而 Google SDK 仓库已不再提供名为 `tools` 的包（Warning: Failed to find package 'tools'），
+      # 导致 CI 在 Setup 阶段直接失败。这里改为显式安装本工程固定需要的 SDK 组件，
+      # 不再依赖第三方 action 的内部行为；签名相关步骤未做任何改动。
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          if [[ ! -d "$sdk_root" ]]; then
+            echo "错误：找不到 Android SDK 根目录：$sdk_root" >&2
+            exit 1
+          fi
+
+          sdkmanager="$(find "$sdk_root" -path '*/cmdline-tools/*/bin/sdkmanager' -type f | sort -V | tail -n 1)"
+          if [[ -z "$sdkmanager" || ! -x "$sdkmanager" ]]; then
+            echo "错误：runner 镜像未提供 cmdline-tools/sdkmanager（$sdk_root）" >&2
+            exit 1
+          fi
+
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+          echo "使用 sdkmanager: $sdkmanager"
+
+          # 接受许可（幂等；已接受过也不会失败）
+          yes | "$sdkmanager" --sdk_root="$sdk_root" --licenses > /dev/null 2>&1 || true
+
+          # 与 gradle/libs.versions.toml 对齐：compileSdk 37（platform 37.0）+ build-tools 37.0.0
+          # 额外装 36.0.0：scripts/release-verify-apk.ps1 固定使用它
+          "$sdkmanager" --sdk_root="$sdk_root" \
+            "platforms;android-37.0" \
+            "build-tools;37.0.0" \
+            "build-tools;36.0.0" \
+            "platform-tools"
+
+          # 快速自检：缺包就在这里失败，避免跑到一半才暴露
+          installed="$("$sdkmanager" --sdk_root="$sdk_root" --list_installed)"
+          for pkg in "platforms;android-37.0" "build-tools;37.0.0" "build-tools;36.0.0"; do
+            if ! grep -q "$pkg" <<< "$installed"; then
+              echo "错误：SDK 组件未安装成功：$pkg" >&2
+              exit 1
+            fi
+          done
 
       - name: 授予脚本执行权限
         run: chmod +x ./gradlew ./scripts/*.sh
