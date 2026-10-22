@@ -9,13 +9,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * IPv4/IPv6 策略：设置关闭时只返回 IPv4，开启时保持系统原始结果，
- * 只有 AAAA 没有 A 时回退为原始结果（避免纯 IPv6 站点不可用）。
+ * IPv4/IPv6 顺序策略（1.17.2 起为“自适应”）：
+ * - 默认：IPv4 优先，IPv6 保留在末尾作为兜底（绝不丢地址）；
+ * - 记录过某个 host 实际连通的地址族后，该 host 优先走记录到的族；
+ * - 开启 IPv6 设置：保持系统原始顺序；
+ * - 纯 IPv6 / 纯 IPv4：原样返回。
  */
 class IpFamilyDnsTest {
-    private val ipv4a = InetAddress.getByAddress(byteArrayOf(1, 2, 3, 4))
-    private val ipv4b = InetAddress.getByAddress(byteArrayOf(5, 6, 7, 8))
-    private val ipv6 = InetAddress.getByAddress(ByteArray(16) { 0x20 })
+    private fun ipv4(vararg octets: Int): InetAddress =
+        InetAddress.getByAddress(byteArrayOf(octets[0].toByte(), octets[1].toByte(), octets[2].toByte(), octets[3].toByte()))
+
+    private val ipv4a = ipv4(28, 0, 1, 228)
+    private val ipv4b = ipv4(28, 0, 1, 229)
+    private val ipv6 = InetAddress.getByAddress(ByteArray(16) { 0xfd.toByte() })
 
     private fun dnsReturning(vararg addresses: InetAddress): Dns =
         object : Dns {
@@ -23,37 +29,85 @@ class IpFamilyDnsTest {
         }
 
     @Test
-    fun ipv6Disabled_filtersOutIpv6AndKeepsIpv4() {
+    fun default_prefersIpv4ButKeepsIpv6AsFallback() {
         val resolver = IpFamilyDns(dnsReturning(ipv6, ipv4a, ipv4b))
 
-        val result = resolver.lookup("example.com")
+        val result = resolver.lookup("me.pscly.cc")
 
-        assertEquals(2, result.size)
-        assertTrue(result.all { it is Inet4Address })
-        // 保持上游相对顺序
-        assertEquals(listOf(ipv4a, ipv4b), result)
+        // 地址不能丢：IPv4 在前，IPv6 在末尾
+        assertEquals(3, result.size)
+        assertEquals(ipv4a, result[0])
+        assertEquals(ipv4b, result[1])
+        assertTrue(result[2] is Inet6Address)
     }
 
     @Test
-    fun ipv6Enabled_returnsUpstreamResultUnchanged() {
+    fun afterIpv6Connected_prefersIpv6ForThatHostOnly() {
+        val resolver = IpFamilyDns(dnsReturning(ipv6, ipv4a, ipv4b))
+        resolver.recordConnectedAddress("me.pscly.cc", ipv6)
+
+        val forHost = resolver.lookup("me.pscly.cc")
+        val forOtherHost = resolver.lookup("xl.pscly.cc")
+
+        // 该 host 改走 IPv6 优先，但 IPv4 仍在列表里兜底
+        assertEquals(3, forHost.size)
+        assertTrue(forHost[0] is Inet6Address)
+        assertEquals(ipv4a, forHost[1])
+        // 其它 host 不受影响
+        assertEquals(ipv4a, forOtherHost[0])
+    }
+
+    @Test
+    fun afterIpv4Connected_keepsIpv4First() {
+        val resolver = IpFamilyDns(dnsReturning(ipv6, ipv4a))
+        resolver.recordConnectedAddress("me.pscly.cc", ipv4a)
+
+        val result = resolver.lookup("me.pscly.cc")
+
+        assertEquals(ipv4a, result[0])
+        assertTrue(result[1] is Inet6Address)
+    }
+
+    @Test
+    fun resetPreferences_restoresIpv4First() {
+        val resolver = IpFamilyDns(dnsReturning(ipv6, ipv4a))
+        resolver.recordConnectedAddress("me.pscly.cc", ipv6)
+        resolver.resetPreferences()
+
+        val result = resolver.lookup("me.pscly.cc")
+
+        assertEquals(ipv4a, result[0])
+    }
+
+    @Test
+    fun ipv6Enabled_returnsUpstreamOrderUnchanged() {
         val resolver = IpFamilyDns(dnsReturning(ipv6, ipv4a))
         resolver.ipv6Enabled = true
+        // 即使记录过 IPv4，也应该完全按系统顺序
+        resolver.recordConnectedAddress("me.pscly.cc", ipv4a)
 
-        val result = resolver.lookup("example.com")
+        val result = resolver.lookup("me.pscly.cc")
 
-        assertEquals(2, result.size)
-        assertEquals(ipv6, result[0])
-        assertEquals(ipv4a, result[1])
+        assertEquals(listOf(ipv6, ipv4a), result)
     }
 
     @Test
-    fun ipv6Disabled_fallsBackWhenOnlyIpv6Exists() {
+    fun ipv6Disabled_keepsIpv6OnlyHostUnchanged() {
         val resolver = IpFamilyDns(dnsReturning(ipv6))
 
         val result = resolver.lookup("v6only.example.com")
 
-        // 只有 AAAA 时不能把结果清空，否则纯 IPv6 站点会直接不可用
         assertEquals(1, result.size)
         assertTrue(result[0] is Inet6Address)
+    }
+
+    @Test
+    fun ipv6Disabled_keepsIpv4OnlyHostUnchanged() {
+        val resolver = IpFamilyDns(dnsReturning(ipv4a, ipv4b))
+
+        val result = resolver.lookup("v4only.example.com")
+
+        assertEquals(listOf(ipv4a, ipv4b), result)
+        assertTrue(result.all { it is Inet4Address })
     }
 }

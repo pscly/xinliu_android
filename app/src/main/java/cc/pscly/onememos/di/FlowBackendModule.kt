@@ -3,6 +3,7 @@ package cc.pscly.onememos.di
 import cc.pscly.onememos.BuildConfig
 import cc.pscly.onememos.core.network.FlowBackendApi
 import cc.pscly.onememos.core.network.IpFamilyDns
+import cc.pscly.onememos.core.network.IpFamilyEventListener
 import cc.pscly.onememos.core.network.FlowDeviceHeadersInterceptor
 import cc.pscly.onememos.core.network.FlowDeviceInfoProvider
 import cc.pscly.onememos.core.network.AndroidFlowDeviceInfoProvider
@@ -43,6 +44,7 @@ object FlowBackendModule {
             }
         return OkHttpClient.Builder()
             .dns(ipFamilyDns)
+            .eventListener(IpFamilyEventListener(ipFamilyDns))
             .addInterceptor(flowDeviceHeadersInterceptor)
             .addInterceptor(logging)
             .build()

@@ -75,12 +75,17 @@ class OneMemosApplication : Application(), Configuration.Provider, ImageLoaderFa
             },
         )
 
-        // 网络：把设置里的 IPv6 开关同步给全局 DNS（默认关闭 → 只解析 IPv4）。
-        // 用 Lazy + 延迟收集，避免影响冷启动。
+        // 网络：把设置里的 IPv6 开关同步给全局 DNS（默认关闭 = IPv4 优先，IPv6 兜底）。
+        // 开关变化时清空地址族自适应记忆，避免旧偏好影响新策略。
         appScope.launch {
             runCatching {
+                var lastIpv6Enabled: Boolean? = null
                 settingsRepositoryLazy.get().settings.collect { settings ->
-                    ipFamilyDns.ipv6Enabled = settings.ipv6Enabled
+                    if (lastIpv6Enabled != settings.ipv6Enabled) {
+                        ipFamilyDns.ipv6Enabled = settings.ipv6Enabled
+                        ipFamilyDns.resetPreferences()
+                        lastIpv6Enabled = settings.ipv6Enabled
+                    }
                 }
             }
         }

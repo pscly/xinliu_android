@@ -3,6 +3,7 @@ package cc.pscly.onememos.di
 import cc.pscly.onememos.BuildConfig
 import cc.pscly.onememos.core.network.AuthorizationInterceptor
 import cc.pscly.onememos.core.network.IpFamilyDns
+import cc.pscly.onememos.core.network.IpFamilyEventListener
 import cc.pscly.onememos.core.network.MemosApi
 import dagger.Module
 import dagger.Provides
@@ -18,8 +19,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
     /**
-     * 全局 DNS：按设置决定是否允许 IPv6（默认只走 IPv4，避免 IPv6 路由不通导致同步卡死）。
-     * 开关值由 OneMemosApplication 持续同步。
+     * 全局 DNS：按设置调整 IPv4/IPv6 优先顺序（默认 IPv4 优先，IPv6 保留兜底），
+     * 并记录实际连通的地址族做自适应。开关值由 OneMemosApplication 持续同步。
      */
     @Provides
     @Singleton
@@ -38,6 +39,8 @@ object NetworkModule {
             }
         return OkHttpClient.Builder()
             .dns(ipFamilyDns)
+            // 诊断 + 自适应：记录真正连通的地址族；失败时打 MemoNet warning 日志。
+            .eventListener(IpFamilyEventListener(ipFamilyDns))
             .addInterceptor(authorizationInterceptor)
             .addInterceptor(logging)
             .build()
