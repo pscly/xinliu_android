@@ -7,6 +7,7 @@ import cc.pscly.onememos.core.database.model.MemoWithAttachments
 import cc.pscly.onememos.core.network.MemosApi
 import cc.pscly.onememos.core.network.MemosUrls
 import cc.pscly.onememos.core.network.dto.MemoDto
+import cc.pscly.onememos.core.network.dto.MemoLocationDto
 import cc.pscly.onememos.domain.derived.MemoDerivedFieldsDeriver
 import cc.pscly.onememos.domain.model.FullSyncStage
 import cc.pscly.onememos.domain.model.MemoServerState
@@ -186,8 +187,21 @@ internal suspend fun upsertRemoteMemoFromDtoIfSafe(
     )
 }
 
-internal fun MemoDto.toMemoEntity(existing: MemoEntity?): MemoEntity {
-    val serverId = name ?: ""
+/**
+ * 把本地实体的位置列转成上游 `Location`。
+ * 三列不全（纬度/经度缺失）时返回 null，避免下发半个坐标。
+ */
+internal fun MemoEntity.locationDtoOrNull(): MemoLocationDto? {
+    val latitude = locationLatitude ?: return null
+    val longitude = locationLongitude ?: return null
+    return MemoLocationDto(
+        placeholder = locationPlaceholder,
+        latitude = latitude,
+        longitude = longitude,
+    )
+}
+
+internal fun MemoDto.toMemoEntity(existing: MemoEntity?): MemoEntity {    val serverId = name ?: ""
     val created = parseEpochMillis(displayTime) ?: parseEpochMillis(createTime) ?: System.currentTimeMillis()
     val updated = parseEpochMillis(updateTime) ?: created
     val contentText = content.orEmpty()
@@ -210,6 +224,10 @@ internal fun MemoDto.toMemoEntity(existing: MemoEntity?): MemoEntity {
         pinned = pinned ?: false,
         syncStatus = SyncStatus.SYNCED,
         lastSyncError = null,
+        // 0.31 起服务端会返回 location；老服务端没有该字段时就保持 null。
+        locationLatitude = location?.latitude,
+        locationLongitude = location?.longitude,
+        locationPlaceholder = location?.placeholder,
     )
 }
 

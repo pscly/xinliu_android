@@ -49,6 +49,7 @@ object AppModule {
                 OneMemosDatabase.MIGRATION_8_9,
                 OneMemosDatabase.MIGRATION_9_10,
                 OneMemosDatabase.MIGRATION_10_11,
+                OneMemosDatabase.MIGRATION_11_12,
             )
             .build()
 

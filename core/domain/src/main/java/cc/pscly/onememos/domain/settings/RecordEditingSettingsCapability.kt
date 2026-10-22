@@ -16,6 +16,10 @@ data class RecordEditingSettingsSnapshot(
     val showTagCounts: Boolean,
     val quickInsertTimeEnabled: Boolean,
     val quickInsertTimeFormat: QuickInsertTimeFormat,
+    /** 新建笔记时自动在正文开头插入当前时间（默认开启）。 */
+    val autoInsertTimestamp: Boolean = true,
+    /** 新建笔记时自动附加设备当前位置（默认开启）。 */
+    val autoAppendLocation: Boolean = true,
     val commandInFlight: RecordEditingSettingsCommand? = null,
 )
 
@@ -29,6 +33,10 @@ sealed interface RecordEditingSettingsCommand {
     data class SetQuickInsertTimeEnabled(val enabled: Boolean) : RecordEditingSettingsCommand
 
     data class SetQuickInsertTimeFormat(val format: QuickInsertTimeFormat) : RecordEditingSettingsCommand
+
+    data class SetAutoInsertTimestamp(val enabled: Boolean) : RecordEditingSettingsCommand
+
+    data class SetAutoAppendLocation(val enabled: Boolean) : RecordEditingSettingsCommand
 }
 
 sealed interface RecordEditingSettingsResult {

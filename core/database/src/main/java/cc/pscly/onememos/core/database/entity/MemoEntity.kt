@@ -45,4 +45,11 @@ data class MemoEntity(
     val pinned: Boolean,
     val syncStatus: SyncStatus,
     val lastSyncError: String?,
+    // ----------------------------
+    // 位置信息（上游 memos v0.31.0 `Location`）
+    // 三列同时为 null 表示“该笔记没有位置”；不做 0,0 占位。
+    // ----------------------------
+    val locationLatitude: Double? = null,
+    val locationLongitude: Double? = null,
+    val locationPlaceholder: String? = null,
 )

@@ -401,16 +401,28 @@ class MemosSyncWorker @AssistedInject constructor(
         serverBase: String,
         memo: MemoEntity,
     ): MemoDto {
+        val location = memo.locationDtoOrNull()
         val request =
             CreateMemoRequestDto(
                 state = memo.serverState.name,
                 content = memo.content,
                 visibility = memo.visibility.name,
+                pinned = memo.pinned,
+                location = location,
             )
-        return memosApi.createMemo(
-            url = MemosUrls.createMemo(serverBase),
-            memo = request,
-        )
+        val url = MemosUrls.createMemo(serverBase)
+        if (location == null) {
+            return memosApi.createMemo(url = url, memo = request)
+        }
+        return try {
+            memosApi.createMemo(url = url, memo = request)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 兼容 <0.31 的服务端：protojson 可能因未知字段 location 直接报错。
+            // 去掉 location 重试一次，避免“多带一个字段”把整条笔记同步卡死。
+            memosApi.createMemo(url = url, memo = request.copy(location = null))
+        }
     }
 
     private suspend fun updateMemoOnServer(

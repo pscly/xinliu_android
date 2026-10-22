@@ -15,6 +15,8 @@ import cc.pscly.onememos.domain.repository.CacheRepository
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.navigation.EditorKey
 import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.domain.location.MemoLocationProvider
+import cc.pscly.onememos.domain.location.NoOpMemoLocationProvider
 import cc.pscly.onememos.domain.sync.SyncScheduler
 import cc.pscly.onememos.domain.tag.TagStat
 import cc.pscly.onememos.domain.tag.TagStats
@@ -73,6 +75,10 @@ data class EditorUiState(
     val showTagCountsInFilter: Boolean = true,
     val quickInsertTimeEnabled: Boolean = false,
     val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
+    /** 新建时自动在正文开头插入当前时间（默认开启，来自设置）。 */
+    val autoInsertTimestamp: Boolean = true,
+    /** 新建时自动附加当前位置（默认开启，来自设置）。 */
+    val autoAppendLocation: Boolean = true,
     val sealStampDurationMs: Int = 600,
     val devAutoTagLineKeywords: String = "__Atags",
     val devShowAutoTagLineInView: Boolean = false,
@@ -93,6 +99,7 @@ class EditorViewModel @Inject constructor(
     private val cacheRepository: CacheRepository,
     private val syncScheduler: SyncScheduler,
     private val filterStore: MemoFilterStore,
+    private val locationProvider: MemoLocationProvider = NoOpMemoLocationProvider,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private val uuidArg: String? =
@@ -198,12 +205,16 @@ class EditorViewModel @Inject constructor(
                         showTagCountsInFilter = settings.showTagCountsInFilter,
                         quickInsertTimeEnabled = settings.quickInsertTimeEnabled,
                         quickInsertTimeFormat = settings.quickInsertTimeFormat,
+                        autoInsertTimestamp = settings.autoInsertTimestamp,
+                        autoAppendLocation = settings.autoAppendLocation,
                         sealStampDurationMs = settings.sealStampDurationMs,
                         devAutoTagLineKeywords = keywordsRaw,
                         devShowAutoTagLineInView = showInView,
                         devShowAutoTagLineInEdit = showInEdit,
                     )
                 }
+                // 预热定位：保存时只取缓存，避免阻塞保存动作。
+                if (settings.autoAppendLocation) locationProvider.prime()
                 // 设置变更时尽量“就地切换”显示策略：
                 // - 查看态：直接从 tagSourceText 重新生成展示文本
                 // - 编辑态：在不丢用户当前输入的前提下，来回切换显示/隐藏
@@ -594,9 +605,23 @@ class EditorViewModel @Inject constructor(
 
                 val uuid = state.uuid
                 if (uuid.isNullOrBlank()) {
+                    val now = System.currentTimeMillis()
+                    val contentToSave =
+                        if (state.autoInsertTimestamp) {
+                            QuickInsertTimeFormatter.withLeadingStamp(
+                                content = raw,
+                                epochMillis = now,
+                                format = state.quickInsertTimeFormat,
+                            )
+                        } else {
+                            raw
+                        }
+                    val location =
+                        if (state.autoAppendLocation) locationProvider.latestOrNull() else null
                     memoRepository.createLocalMemo(
-                        content = raw,
+                        content = contentToSave,
                         resourceUris = localUris,
+                        location = location,
                     )
                 } else {
                     memoRepository.updateMemoDraft(

@@ -21,6 +21,11 @@
     <string name="settings_record_format_full">完整日期时间，yyyy-MM-dd HH:mm:ss</string>
     <string name="settings_record_format_time">仅时间，HH:mm:ss</string>
 
+    <string name="settings_record_auto_stamp_title">自动添加当前时间</string>
+    <string name="settings_record_auto_stamp_description">新建记录时在正文开头插入当前时间（使用上面的插入格式，可手动删除）</string>
+    <string name="settings_record_auto_location_title">自动添加位置信息</string>
+    <string name="settings_record_auto_location_description">新建记录时附加设备当前位置，用于服务端地图视图；无定位权限时自动跳过</string>
+
     <string name="settings_record_command_succeeded">设置已保存</string>
     <string name="settings_record_command_failed">设置保存失败</string>
     <string name="settings_record_error_authentication">登录已失效，请重新登录</string>

@@ -15,4 +15,9 @@ data class Memo(
     val syncStatus: SyncStatus,
     val attachments: List<MemoAttachment>,
     val lastSyncError: String?,
+    /**
+     * 创建时附加的位置信息（上游 memos v0.31.0 的 `Location`）。
+     * null 表示该笔记没有位置信息；老数据升级后统一为 null。
+     */
+    val location: MemoLocation? = null,
 )

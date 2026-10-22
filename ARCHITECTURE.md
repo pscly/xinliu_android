@@ -176,7 +176,7 @@ Feature Settings 通过 `SettingsPlatformActionDispatcher` / `SettingsUpdateDeli
 3. 周期同步：`one_memos_periodic_sync`
 4. 派生字段重建：`one_memos_rebuild_memo_derived_fields`
 5. 附件预取：`one_memos_attachment_prefetch`
-6. Room：`version = 11`；库文件 `one_memos.db`
+6. Room：`version = 12`（1.17.0 起新增 memo 位置信息三列）；库文件 `one_memos.db`
 7. FileProvider：`${applicationId}.fileprovider`；路径 `share_cards/`、`screenshots/`、`shared/`
 8. 外部编辑 extra：`cc.pscly.onememos.extra.START_EDITOR_UUID`
 9. `baselineprofile` / `macrobenchmark`：`targetProjectPath = ":app"`

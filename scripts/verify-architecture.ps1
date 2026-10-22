@@ -175,8 +175,9 @@ Assert-Contains 'core/sync/src/main/java/cc/pscly/onememos/worker' 'one_memos_pe
 Assert-Contains 'core/sync/src/main/java/cc/pscly/onememos/worker' 'one_memos_rebuild_memo_derived_fields' '派生字段重建任务名'
 Assert-Contains 'core/sync/src/main/java/cc/pscly/onememos/worker' 'one_memos_attachment_prefetch' '附件预取任务名'
 $db = Get-Content 'core/database/src/main/java/cc/pscly/onememos/core/database/OneMemosDatabase.kt' -Raw
-if ($db -notmatch 'version\s*=\s*11') {
-  Fail 'Room 版本必须为 11'
+# 1.17.0：memo 新增位置信息三列，Room 版本 11 -> 12（MIGRATION_11_12）
+if ($db -notmatch 'version\s*=\s*12') {
+  Fail 'Room 版本必须为 12'
 }
 Assert-Contains 'app/src/main/java/cc/pscly/onememos/di/AppModule.kt' 'one_memos.db' '数据库文件名'
 Assert-Contains 'app/src/main/AndroidManifest.xml' '${applicationId}.fileprovider' 'FileProvider authority'

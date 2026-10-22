@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
 
 /**
- * 记录与编辑深能力：只映射本页五项设置，不触发同步/网络/日历/诊断。
+ * 记录与编辑深能力：只映射本页设置项，不触发同步/网络/日历/诊断。
  */
 @Singleton
 class RecordEditingSettingsCapabilityImpl @Inject constructor(
@@ -33,6 +33,8 @@ class RecordEditingSettingsCapabilityImpl @Inject constructor(
                 showTagCounts = settings.showTagCountsInFilter,
                 quickInsertTimeEnabled = settings.quickInsertTimeEnabled,
                 quickInsertTimeFormat = settings.quickInsertTimeFormat,
+                autoInsertTimestamp = settings.autoInsertTimestamp,
+                autoAppendLocation = settings.autoAppendLocation,
                 commandInFlight = inFlight,
             )
         }
@@ -55,6 +57,10 @@ class RecordEditingSettingsCapabilityImpl @Inject constructor(
                     settingsRepository.setQuickInsertTimeEnabled(command.enabled)
                 is RecordEditingSettingsCommand.SetQuickInsertTimeFormat ->
                     settingsRepository.setQuickInsertTimeFormat(command.format)
+                is RecordEditingSettingsCommand.SetAutoInsertTimestamp ->
+                    settingsRepository.setAutoInsertTimestamp(command.enabled)
+                is RecordEditingSettingsCommand.SetAutoAppendLocation ->
+                    settingsRepository.setAutoAppendLocation(command.enabled)
             }
             RecordEditingSettingsResult.Success
         } catch (t: Throwable) {
@@ -79,5 +85,7 @@ class RecordEditingSettingsCapabilityImpl @Inject constructor(
             is RecordEditingSettingsCommand.SetShowTagCounts -> "SetShowTagCounts"
             is RecordEditingSettingsCommand.SetQuickInsertTimeEnabled -> "SetQuickInsertTimeEnabled"
             is RecordEditingSettingsCommand.SetQuickInsertTimeFormat -> "SetQuickInsertTimeFormat"
+            is RecordEditingSettingsCommand.SetAutoInsertTimestamp -> "SetAutoInsertTimestamp"
+            is RecordEditingSettingsCommand.SetAutoAppendLocation -> "SetAutoAppendLocation"
         }
 }

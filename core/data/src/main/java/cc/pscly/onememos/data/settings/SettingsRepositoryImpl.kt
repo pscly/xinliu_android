@@ -81,6 +81,10 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
         val QUICK_CAPTURE_OVERLAY_ENABLED = booleanPreferencesKey("quick_capture_overlay_enabled")
         val QUICK_INSERT_TIME_ENABLED = booleanPreferencesKey("quick_insert_time_enabled")
         val QUICK_INSERT_TIME_FORMAT = stringPreferencesKey("quick_insert_time_format")
+
+        // 新建笔记时的自动加工（默认开启；key 从未写入时视为 true，老用户升级后同样开启）
+        val AUTO_INSERT_TIMESTAMP = booleanPreferencesKey("auto_insert_timestamp")
+        val AUTO_APPEND_LOCATION = booleanPreferencesKey("auto_append_location")
         val SEAL_STAMP_DURATION_MS = intPreferencesKey("seal_stamp_duration_ms")
         val OFFLINE_IMAGE_PREFETCH_ENABLED = booleanPreferencesKey("offline_image_prefetch_enabled")
         val OFFLINE_IMAGE_PREFETCH_MAX_MEMOS = intPreferencesKey("offline_image_prefetch_max_memos")
@@ -312,6 +316,8 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
                     quickCaptureOverlayEnabled = prefs[Keys.QUICK_CAPTURE_OVERLAY_ENABLED] ?: false,
                     quickInsertTimeEnabled = prefs[Keys.QUICK_INSERT_TIME_ENABLED] ?: false,
                     quickInsertTimeFormat = QuickInsertTimeFormat.fromStorage(prefs[Keys.QUICK_INSERT_TIME_FORMAT]),
+                    autoInsertTimestamp = prefs[Keys.AUTO_INSERT_TIMESTAMP] ?: true,
+                    autoAppendLocation = prefs[Keys.AUTO_APPEND_LOCATION] ?: true,
                     sealStampDurationMs = (prefs[Keys.SEAL_STAMP_DURATION_MS] ?: 600).coerceIn(200, 2000),
                     offlineImagePrefetchEnabled = prefs[Keys.OFFLINE_IMAGE_PREFETCH_ENABLED] ?: true,
                     offlineImagePrefetchMaxMemos = (prefs[Keys.OFFLINE_IMAGE_PREFETCH_MAX_MEMOS] ?: 30).coerceIn(0, 5000),
@@ -467,6 +473,18 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
     override suspend fun setQuickInsertTimeFormat(format: QuickInsertTimeFormat) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.QUICK_INSERT_TIME_FORMAT] = format.name
+        }
+    }
+
+    override suspend fun setAutoInsertTimestamp(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.AUTO_INSERT_TIMESTAMP] = enabled
+        }
+    }
+
+    override suspend fun setAutoAppendLocation(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.AUTO_APPEND_LOCATION] = enabled
         }
     }
 

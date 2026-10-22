@@ -83,6 +83,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoAttachmentDraft
+import cc.pscly.onememos.domain.location.MemoLocationProvider
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.model.SyncStatus
 import cc.pscly.onememos.domain.repository.MemoRepository
@@ -151,6 +152,10 @@ internal data class QuickCaptureOverlayUiState(
     val attachmentsEditable: Boolean = true,
     val quickInsertTimeEnabled: Boolean = false,
     val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
+    /** 新建时自动在正文开头插入当前时间（默认开启，来自设置）。 */
+    val autoInsertTimestamp: Boolean = true,
+    /** 新建时自动附加当前位置（默认开启，来自设置）。 */
+    val autoAppendLocation: Boolean = true,
     val source: QuickCaptureOverlaySource = QuickCaptureOverlaySource.NORMAL,
     val draftBannerVisible: Boolean = false,
     val draftOverwriteDialogVisible: Boolean = false,
@@ -181,6 +186,9 @@ class QuickCaptureOverlayService : Service() {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var locationProvider: MemoLocationProvider
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -223,8 +231,12 @@ class QuickCaptureOverlayService : Service() {
                     it.copy(
                         quickInsertTimeEnabled = settings.quickInsertTimeEnabled,
                         quickInsertTimeFormat = settings.quickInsertTimeFormat,
+                        autoInsertTimestamp = settings.autoInsertTimestamp,
+                        autoAppendLocation = settings.autoAppendLocation,
                     )
                 }
+                // 预热定位：保存时只取缓存，避免阻塞“盖”动作。
+                if (settings.autoAppendLocation) locationProvider.prime()
             }
         }
 
@@ -622,7 +634,24 @@ class QuickCaptureOverlayService : Service() {
             try {
                 withContext(Dispatchers.IO) {
                     if (uuid.isNullOrBlank()) {
-                        memoRepository.createLocalMemo(content = content, resourceUris = localUris)
+                        val now = System.currentTimeMillis()
+                        val contentToSave =
+                            if (state.autoInsertTimestamp) {
+                                QuickInsertTimeFormatter.withLeadingStamp(
+                                    content = content,
+                                    epochMillis = now,
+                                    format = state.quickInsertTimeFormat,
+                                )
+                            } else {
+                                content
+                            }
+                        val location =
+                            if (state.autoAppendLocation) locationProvider.latestOrNull() else null
+                        memoRepository.createLocalMemo(
+                            content = contentToSave,
+                            resourceUris = localUris,
+                            location = location,
+                        )
                     } else {
                         if (state.attachmentsEditable) {
                             memoRepository.updateMemoDraft(

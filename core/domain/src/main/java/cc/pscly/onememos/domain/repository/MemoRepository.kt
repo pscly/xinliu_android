@@ -2,6 +2,7 @@ package cc.pscly.onememos.domain.repository
 
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoAttachmentDraft
+import cc.pscly.onememos.domain.model.MemoLocation
 import kotlinx.coroutines.flow.Flow
 
 interface MemoRepository {
@@ -56,6 +57,18 @@ interface MemoRepository {
         content: String,
         resourceUris: List<String>,
     ): String
+
+    /**
+     * 带位置信息的创建（上游 memos v0.31.0 `Location`）。
+     *
+     * 默认实现忽略 [location]，保证既有测试 Fake 不需要改动；
+     * 正式实现见 MemoRepositoryImpl。
+     */
+    suspend fun createLocalMemo(
+        content: String,
+        resourceUris: List<String>,
+        location: MemoLocation?,
+    ): String = createLocalMemo(content = content, resourceUris = resourceUris)
 
     suspend fun updateLocalMemo(
         uuid: String,

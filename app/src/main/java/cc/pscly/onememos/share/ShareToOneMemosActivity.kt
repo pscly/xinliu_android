@@ -6,9 +6,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import cc.pscly.onememos.MainActivity
+import cc.pscly.onememos.domain.location.MemoLocationProvider
 import cc.pscly.onememos.domain.repository.MemoRepository
+import cc.pscly.onememos.domain.repository.SettingsRepository
+import cc.pscly.onememos.ui.util.QuickInsertTimeFormatter
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -24,8 +28,14 @@ import javax.inject.Inject
 class ShareToOneMemosActivity : ComponentActivity() {
     @Inject lateinit var memoRepository: MemoRepository
 
+    @Inject lateinit var settingsRepository: SettingsRepository
+
+    @Inject lateinit var locationProvider: MemoLocationProvider
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 预热定位：分享进来时即可开始取位置，保存时通常已有缓存。
+        locationProvider.prime()
 
         lifecycleScope.launch {
             val share = ShareIntentParser.parse(intent)
@@ -43,7 +53,25 @@ class ShareToOneMemosActivity : ComponentActivity() {
                 }
 
             val content = share.text.trim()
-            val uuid = memoRepository.createLocalMemo(content = content, resourceUris = resourceUris)
+            val settings = settingsRepository.settings.first()
+            val now = System.currentTimeMillis()
+            val contentToSave =
+                if (settings.autoInsertTimestamp) {
+                    QuickInsertTimeFormatter.withLeadingStamp(
+                        content = content,
+                        epochMillis = now,
+                        format = settings.quickInsertTimeFormat,
+                    )
+                } else {
+                    content
+                }
+            val location = if (settings.autoAppendLocation) locationProvider.latestOrNull() else null
+            val uuid =
+                memoRepository.createLocalMemo(
+                    content = contentToSave,
+                    resourceUris = resourceUris,
+                    location = location,
+                )
 
             val open =
                 Intent(this@ShareToOneMemosActivity, MainActivity::class.java).apply {

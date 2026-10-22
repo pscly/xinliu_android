@@ -6,6 +6,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cc.pscly.onememos.domain.model.Memo
+import cc.pscly.onememos.domain.location.MemoLocationProvider
+import cc.pscly.onememos.domain.location.NoOpMemoLocationProvider
 import cc.pscly.onememos.domain.model.QuickInsertTimeFormat
 import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
@@ -47,6 +49,10 @@ data class QuickCaptureUiState(
     val history: List<QuickCaptureHistoryItem> = emptyList(),
     val quickInsertTimeEnabled: Boolean = false,
     val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
+    /** 新建时自动在正文开头插入当前时间（默认开启，来自设置）。 */
+    val autoInsertTimestamp: Boolean = true,
+    /** 新建时自动附加当前位置（默认开启，来自设置）。 */
+    val autoAppendLocation: Boolean = true,
     val draftBannerVisible: Boolean = false,
     val draftOverwriteDialogVisible: Boolean = false,
 )
@@ -59,6 +65,7 @@ sealed interface QuickCaptureEvent {
 class QuickCaptureViewModel @Inject constructor(
     private val memoRepository: MemoRepository,
     private val settingsRepository: SettingsRepository,
+    private val locationProvider: MemoLocationProvider = NoOpMemoLocationProvider,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     // 只去掉行尾空格/Tab，不吞掉换行（否则用户很难插入换行/空行）。
@@ -93,8 +100,12 @@ class QuickCaptureViewModel @Inject constructor(
                     it.copy(
                         quickInsertTimeEnabled = settings.quickInsertTimeEnabled,
                         quickInsertTimeFormat = settings.quickInsertTimeFormat,
+                        autoInsertTimestamp = settings.autoInsertTimestamp,
+                        autoAppendLocation = settings.autoAppendLocation,
                     )
                 }
+                // 预热定位：保存时只取缓存，避免阻塞“盖”动作。
+                if (settings.autoAppendLocation) locationProvider.prime()
             }
         }
 
@@ -235,9 +246,23 @@ class QuickCaptureViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
                 if (uuid.isNullOrBlank()) {
+                    val now = System.currentTimeMillis()
+                    val contentToSave =
+                        if (state.autoInsertTimestamp) {
+                            QuickInsertTimeFormatter.withLeadingStamp(
+                                content = content,
+                                epochMillis = now,
+                                format = state.quickInsertTimeFormat,
+                            )
+                        } else {
+                            content
+                        }
+                    val location =
+                        if (state.autoAppendLocation) locationProvider.latestOrNull() else null
                     memoRepository.createLocalMemo(
-                        content = content,
+                        content = contentToSave,
                         resourceUris = emptyList(),
+                        location = location,
                     )
                     if (isDraftEnabled(state)) {
                         clearDraftAfterLocalMemoSaved()

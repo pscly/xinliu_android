@@ -53,6 +53,18 @@ interface SettingsRepository {
 
     suspend fun setQuickInsertTimeFormat(format: QuickInsertTimeFormat)
 
+    /**
+     * 新建笔记时自动在正文最开头插入当前时间（默认开启）。
+     * 默认空实现：既有测试 Fake 无需逐一覆写；正式实现见 SettingsRepositoryImpl。
+     */
+    suspend fun setAutoInsertTimestamp(enabled: Boolean) = Unit
+
+    /**
+     * 新建笔记时自动附加设备当前位置（默认开启）。
+     * 默认空实现：既有测试 Fake 无需逐一覆写；正式实现见 SettingsRepositoryImpl。
+     */
+    suspend fun setAutoAppendLocation(enabled: Boolean) = Unit
+
     suspend fun setSealStampDurationMs(durationMs: Int)
 
     /**

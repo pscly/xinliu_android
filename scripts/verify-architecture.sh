@@ -225,8 +225,9 @@ assert_contains "core/sync/src/main/java/cc/pscly/onememos/worker" "followup_syn
 assert_contains "core/sync/src/main/java/cc/pscly/onememos/worker" "one_memos_periodic_sync" "周期同步名"
 assert_contains "core/sync/src/main/java/cc/pscly/onememos/worker" "one_memos_rebuild_memo_derived_fields" "派生字段重建任务名"
 assert_contains "core/sync/src/main/java/cc/pscly/onememos/worker" "one_memos_attachment_prefetch" "附件预取任务名"
-if ! grep -Eq 'version[[:space:]]*=[[:space:]]*11' core/database/src/main/java/cc/pscly/onememos/core/database/OneMemosDatabase.kt; then
-  fail "Room 版本必须为 11"
+# 1.17.0：memo 新增位置信息三列，Room 版本 11 -> 12（MIGRATION_11_12）
+if ! grep -Eq 'version[[:space:]]*=[[:space:]]*12' core/database/src/main/java/cc/pscly/onememos/core/database/OneMemosDatabase.kt; then
+  fail "Room 版本必须为 12"
 fi
 assert_contains "app/src/main/java/cc/pscly/onememos/di/AppModule.kt" "one_memos.db" "数据库文件名"
 assert_contains "app/src/main/AndroidManifest.xml" '${applicationId}.fileprovider' "FileProvider authority"

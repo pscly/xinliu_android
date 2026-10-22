@@ -31,7 +31,7 @@ import cc.pscly.onememos.core.database.entity.TodoSyncStateEntity
 
         CollectionItemEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 @TypeConverters(RoomConverters::class)
@@ -357,6 +357,17 @@ abstract class OneMemosDatabase : RoomDatabase() {
                     db.execSQL(
                         "CREATE INDEX IF NOT EXISTS index_collection_items_ownerKey_refLocalUuid ON collection_items(ownerKey, refLocalUuid)",
                     )
+                }
+            }
+
+        val MIGRATION_11_12 =
+            object : Migration(11, 12) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    // 位置信息（上游 memos v0.31.0 `Location`）：
+                    // 仅新增可空列，旧数据保持 NULL 表示“没有位置”，不需要回填。
+                    db.execSQL("ALTER TABLE memos ADD COLUMN locationLatitude REAL")
+                    db.execSQL("ALTER TABLE memos ADD COLUMN locationLongitude REAL")
+                    db.execSQL("ALTER TABLE memos ADD COLUMN locationPlaceholder TEXT")
                 }
             }
     }

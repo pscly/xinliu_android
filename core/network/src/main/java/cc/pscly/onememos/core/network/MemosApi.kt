@@ -1,13 +1,13 @@
 package cc.pscly.onememos.core.network
 
+import cc.pscly.onememos.core.network.dto.AttachmentDto
 import cc.pscly.onememos.core.network.dto.CreateAttachmentRequestDto
 import cc.pscly.onememos.core.network.dto.CreateMemoRequestDto
 import cc.pscly.onememos.core.network.dto.EmptyDto
+import cc.pscly.onememos.core.network.dto.GetCurrentUserResponseDto
 import cc.pscly.onememos.core.network.dto.ListMemosResponseDto
 import cc.pscly.onememos.core.network.dto.MemoDto
-import cc.pscly.onememos.core.network.dto.AttachmentDto
 import cc.pscly.onememos.core.network.dto.SetMemoAttachmentsRequestDto
-import cc.pscly.onememos.core.network.dto.GetCurrentUserResponseDto
 import cc.pscly.onememos.core.network.dto.UpdateMemoRequestDto
 import com.google.gson.JsonObject
 import okhttp3.RequestBody
@@ -19,6 +19,15 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.Url
 
+/**
+ * 上游 memos 的**核心**客户端接口：认证 + memo 增删改查 + 附件上传/挂载。
+ *
+ * 对齐版本：**v0.31.0**（`/api/v1/...` 路径体系，路径常量见 [MemosUrls]）。
+ *
+ * 说明：只为“当前 App 实际调用”的端点保留在本接口。
+ * 评论/反应/关系/分享/链接预览/附件列表等 0.31 子资源见 [MemosMemoExtrasApi]，
+ * 拆开是为了不打断既有 Fake/测试类的实现。
+ */
 interface MemosApi {
     @GET
     suspend fun authMe(

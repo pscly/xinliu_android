@@ -7,6 +7,7 @@ import cc.pscly.onememos.data.mapper.toDomain
 import cc.pscly.onememos.domain.derived.MemoDerivedFieldsDeriver
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoAttachmentDraft
+import cc.pscly.onememos.domain.model.MemoLocation
 import cc.pscly.onememos.domain.model.MemoServerState
 import cc.pscly.onememos.domain.model.MemoVisibility
 import cc.pscly.onememos.domain.model.SyncStatus
@@ -155,11 +156,18 @@ class MemoRepositoryImpl @Inject constructor(
     override suspend fun createLocalMemo(
         content: String,
         resourceUris: List<String>,
+    ): String = createLocalMemo(content = content, resourceUris = resourceUris, location = null)
+
+    override suspend fun createLocalMemo(
+        content: String,
+        resourceUris: List<String>,
+        location: MemoLocation?,
     ): String {
         val now = System.currentTimeMillis()
         val uuid = UUID.randomUUID().toString()
         val defaultVisibility = defaultVisibilityForNewMemo()
         val derived = MemoDerivedFieldsDeriver.derive(content = content, now = now)
+        val usableLocation = location?.takeIf { it.isUsable }
 
         val memo = MemoEntity(
             uuid = uuid,
@@ -177,6 +185,9 @@ class MemoRepositoryImpl @Inject constructor(
             pinned = false,
             syncStatus = nextSyncStatus(serverId = null),
             lastSyncError = null,
+            locationLatitude = usableLocation?.latitude,
+            locationLongitude = usableLocation?.longitude,
+            locationPlaceholder = usableLocation?.placeholder,
         )
 
         val attachments = resourceUris.mapIndexed { index, uri ->

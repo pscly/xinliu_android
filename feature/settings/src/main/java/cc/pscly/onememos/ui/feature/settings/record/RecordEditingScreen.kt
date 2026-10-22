@@ -1,5 +1,10 @@
 package cc.pscly.onememos.ui.feature.settings.record
 
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -210,6 +216,29 @@ private fun RecordSettings(
         snapshot = snapshot,
         enabled = writesEnabled,
         onSubmit = onSubmit,
+    )
+    SwitchSetting(
+        title = stringResource(R.string.settings_record_auto_stamp_title),
+        description = stringResource(R.string.settings_record_auto_stamp_description),
+        checked = snapshot.autoInsertTimestamp,
+        enabled = writesEnabled,
+        testTag = "settings_record_auto_stamp",
+        onCheckedChange = {
+            onSubmit(RecordEditingSettingsCommand.SetAutoInsertTimestamp(it))
+        },
+    )
+    val context = LocalContext.current
+    SwitchSetting(
+        title = stringResource(R.string.settings_record_auto_location_title),
+        description = stringResource(R.string.settings_record_auto_location_description),
+        checked = snapshot.autoAppendLocation,
+        enabled = writesEnabled,
+        testTag = "settings_record_auto_location",
+        onCheckedChange = { enabled ->
+            onSubmit(RecordEditingSettingsCommand.SetAutoAppendLocation(enabled))
+            // 打开开关时顺手申请定位权限；用户拒绝也不影响保存（保存时会跳过位置）。
+            if (enabled) ensureLocationPermission(context)
+        },
     )
 }
 
@@ -480,3 +509,34 @@ private fun errorText(error: SettingsCapabilityError): String =
         is SettingsCapabilityError.Unknown ->
             stringResource(R.string.settings_record_error_unknown)
     }
+
+/**
+ * 打开“自动添加位置”开关时顺手申请定位权限。
+ *
+ * 约定：
+ * - 已授权、或拿不到 Activity（Compose 预览/单元测试）时静默返回；
+ * - 用户拒绝时不额外打扰：保存路径检测不到定位就跳过位置，不影响笔记保存。
+ */
+private fun ensureLocationPermission(context: Context) {
+    val fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+    val coarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+    if (fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED) return
+    val activity = context.findActivity() ?: return
+    runCatching {
+        activity.requestPermissions(
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            REQUEST_CODE_LOCATION_PERMISSION,
+        )
+    }
+}
+
+private fun Context.findActivity(): Activity? {
+    var current: Context? = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
+}
+
+private const val REQUEST_CODE_LOCATION_PERMISSION = 0x1A0C

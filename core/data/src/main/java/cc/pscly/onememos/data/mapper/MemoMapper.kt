@@ -5,6 +5,7 @@ import cc.pscly.onememos.core.database.model.MemoWithAttachments
 import cc.pscly.onememos.domain.derived.TagsTextCodec
 import cc.pscly.onememos.domain.model.Memo
 import cc.pscly.onememos.domain.model.MemoAttachment
+import cc.pscly.onememos.domain.model.MemoLocation
 
 fun MemoWithAttachments.toDomain(): Memo =
     Memo(
@@ -25,6 +26,12 @@ fun MemoWithAttachments.toDomain(): Memo =
                 .sortedWith(compareBy<MemoAttachmentEntity> { it.sortOrder }.thenBy { it.createdAt }.thenBy { it.id })
                 .map { it.toDomain() },
         lastSyncError = memo.lastSyncError,
+        location =
+            MemoLocation.of(
+                latitude = memo.locationLatitude,
+                longitude = memo.locationLongitude,
+                placeholder = memo.locationPlaceholder.orEmpty(),
+            ),
     )
 
 fun MemoAttachmentEntity.toDomain(): MemoAttachment =

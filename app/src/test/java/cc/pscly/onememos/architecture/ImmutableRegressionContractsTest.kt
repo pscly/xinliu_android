@@ -64,8 +64,10 @@ class ImmutableRegressionContractsTest {
             "core/database/src/main/java/cc/pscly/onememos/core/database/OneMemosDatabase.kt",
         )
         val body = dbFile.readText()
-        // 版本号声明形式：version = 11
-        assertTrue("Room 版本必须为 11", body.contains(Regex("""version\s*=\s*11""")))
+        // 版本号声明形式：version = 12
+        // 1.17.0：新增 memo 位置信息三列（locationLatitude/locationLongitude/locationPlaceholder），
+        // 因此 Room 版本从 11 升到 12，对应 MIGRATION_11_12。
+        assertTrue("Room 版本必须为 12", body.contains(Regex("""version\s*=\s*12""")))
     }
 
     @Test

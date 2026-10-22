@@ -32,6 +32,20 @@ data class AppSettings(
     val quickInsertTimeEnabled: Boolean = false,
     // “一键插入时间”的格式；默认直接使用完整日期时间。
     val quickInsertTimeFormat: QuickInsertTimeFormat = QuickInsertTimeFormat.FULL_DATETIME,
+    /**
+     * 新建笔记时是否自动在正文最开头插入当前时间（形如 `> 2026-10-22 13:05:00`）。
+     *
+     * - 默认开启；老用户升级后同样按开启处理（该 key 从未写入过即视为 true）。
+     * - 格式复用 [quickInsertTimeFormat]，与“一键插入时间”保持一致。
+     * - 插入的是普通 Markdown 文本，用户可以在编辑器里手动删除。
+     */
+    val autoInsertTimestamp: Boolean = true,
+    /**
+     * 新建笔记时是否自动附加设备当前位置（上游 memos `Location`，用于地图视图）。
+     *
+     * - 默认开启；没有定位权限或定位失败时静默跳过，不影响保存。
+     */
+    val autoAppendLocation: Boolean = true,
     // “盖章”浮层停留时长（毫秒）；越大越慢，建议 500~800ms。
     val sealStampDurationMs: Int = 600,
     // 是否自动预取最近随笔的图片附件（用于离线浏览时不“空白”）。
