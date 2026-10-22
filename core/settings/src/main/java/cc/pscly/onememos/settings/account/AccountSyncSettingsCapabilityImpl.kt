@@ -70,7 +70,7 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
         return try {
             when (command) {
                 AccountSyncSettingsCommand.SyncNow -> {
-                    syncScheduler.requestSync()
+                    syncScheduler.requestImmediateSync()
                     AccountSyncSettingsResult.Success
                 }
                 AccountSyncSettingsCommand.FullResync -> {

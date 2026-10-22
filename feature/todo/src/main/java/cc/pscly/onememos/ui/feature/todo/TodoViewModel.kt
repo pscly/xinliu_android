@@ -268,8 +268,9 @@ class TodoViewModel @Inject constructor(
         tagFilter.value = tag.trim()
     }
 
+    /** 待办页手动刷新：忽略退避，立即尝试一次。 */
     fun requestSync() {
-        todoSyncScheduler.requestSync()
+        todoSyncScheduler.requestImmediateSync()
     }
 
     fun requestReminderReschedule() {

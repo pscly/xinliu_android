@@ -318,8 +318,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** 自动同步（启动/保存后）：遵守 KEEP 与退避策略，避免频繁重启同步。 */
     fun requestSync() {
         syncScheduler.requestSync()
+    }
+
+    /** 用户手动重试（横幅/失败块）：忽略退避，立即尝试一次。 */
+    fun requestImmediateSync() {
+        syncScheduler.requestImmediateSync()
     }
 
     fun requestBatchArchiveOrRestore(

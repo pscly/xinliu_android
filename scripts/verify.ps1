@@ -30,9 +30,13 @@ $exitCode = 0
 Push-Location $projectDir
 try {
   # 1) 架构边界
+  # 说明：verify-architecture.ps1 成功时不会执行任何原生程序，$LASTEXITCODE 可能保持为 $null；
+  # 不能用 "$LASTEXITCODE -ne 0" 判断（$null -ne 0 为真，会把成功误判为失败）。
+  # 该脚本失败时走 exit 1，因此这里用“有值且非 0”判定。
   & $architectureScript
-  if ($LASTEXITCODE -ne 0) {
-    throw "verify-architecture.ps1 失败（exit=$LASTEXITCODE）"
+  $architectureExit = $LASTEXITCODE
+  if ($architectureExit -and $architectureExit -ne 0) {
+    throw "verify-architecture.ps1 失败（exit=$architectureExit）"
   }
 
   # 2) Debug 构建与单元测试
@@ -57,7 +61,8 @@ try {
 
   Write-Output 'verify.ps1: OK'
 } catch {
-  $exitCode = if ($LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
+  # 同上：$LASTEXITCODE 可能为 $null（例如架构门禁主动 throw），此时回退为 1。
+  $exitCode = if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
   Write-Output "verify.ps1: FAIL (exit=$exitCode) $($_.Exception.Message)"
 } finally {
   Pop-Location

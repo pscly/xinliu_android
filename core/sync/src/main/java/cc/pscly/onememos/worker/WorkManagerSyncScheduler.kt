@@ -22,6 +22,17 @@ class WorkManagerSyncScheduler @Inject constructor(
     private val arbitration = Mutex()
 
     override fun requestSync() {
+        enqueueSync(ExistingWorkPolicy.KEEP)
+    }
+
+    /**
+     * 手动重试：用 REPLACE 顶掉处于排队/退避中的旧任务，避免用户点“重试”后毫无反应。
+     */
+    override fun requestImmediateSync() {
+        enqueueSync(ExistingWorkPolicy.REPLACE)
+    }
+
+    private fun enqueueSync(policy: ExistingWorkPolicy) {
         val constraints =
             Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -36,7 +47,7 @@ class WorkManagerSyncScheduler @Inject constructor(
 
         workManager.enqueueUniqueWork(
             MemosSyncWorker.UNIQUE_WORK_NAME,
-            ExistingWorkPolicy.KEEP,
+            policy,
             request,
         )
 

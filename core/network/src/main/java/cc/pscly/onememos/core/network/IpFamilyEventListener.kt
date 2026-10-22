@@ -36,11 +36,20 @@ class IpFamilyEventListener(
         protocol: Protocol?,
         ex: IOException,
     ) {
+        val address = inetSocketAddress.address
         Log.w(
             TAG,
-            "connectFailed host=${call.request().url.host} addr=${inetSocketAddress.address} " +
+            "connectFailed host=${call.request().url.host} addr=$address " +
                 "err=${ex.javaClass.simpleName}: ${ex.message}",
         )
+        if (address != null && isProxyFakeIp(address)) {
+            // 这类地址只有 VPN/代理客户端自己认识；它一旦不可用，应用侧无法绕开，只能提示改直连。
+            Log.w(
+                TAG,
+                "检测到代理/VPN 的 fake-ip（$address）：如果持续超时，" +
+                    "请在代理客户端把 ${call.request().url.host} 设为直连（DIRECT），或关闭代理后重试",
+            )
+        }
     }
 
     override fun callFailed(
@@ -52,6 +61,24 @@ class IpFamilyEventListener(
             "callFailed host=${call.request().url.host} path=${call.request().url.encodedPath} " +
                 "err=${ex.javaClass.simpleName}: ${ex.message}",
         )
+    }
+
+    /** Clash/Mihomo 常见 fake-ip 段：IPv4 198.18.0.0/15、IPv6 fdfe:dcba:9876::/48。 */
+    private fun isProxyFakeIp(address: java.net.InetAddress): Boolean {
+        val bytes = address.address
+        return when (bytes.size) {
+            4 ->
+                (bytes[0].toInt() and 0xFF) == 198 &&
+                    ((bytes[1].toInt() and 0xFF) == 18 || (bytes[1].toInt() and 0xFF) == 19)
+            16 ->
+                (bytes[0].toInt() and 0xFF) == 0xFD &&
+                    (bytes[1].toInt() and 0xFF) == 0xFE &&
+                    (bytes[2].toInt() and 0xFF) == 0xDC &&
+                    (bytes[3].toInt() and 0xFF) == 0xBA &&
+                    (bytes[4].toInt() and 0xFF) == 0x98 &&
+                    (bytes[5].toInt() and 0xFF) == 0x76
+            else -> false
+        }
     }
 
     private companion object {

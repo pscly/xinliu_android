@@ -439,7 +439,7 @@ fun HomeScreen(
                 SyncStatusBanner(
                     visible = showSyncBanner,
                     state = globalSyncState,
-                    onRetrySync = viewModel::requestSync,
+                    onRetrySync = viewModel::requestImmediateSync,
                     onOpenAuth = onOpenAuth,
                 )
 
@@ -841,7 +841,7 @@ fun HomeScreen(
                             HomeListErrorItem(
                                 message = refreshError.message ?: "未知错误",
                                 onRetry = { pagingItems.retry() },
-                                onSync = viewModel::requestSync,
+                                onSync = viewModel::requestImmediateSync,
                             )
                         }
                     } else if (isEmpty) {
@@ -915,7 +915,7 @@ fun HomeScreen(
                         HomeListErrorItem(
                             message = refreshError.message ?: "未知错误",
                             onRetry = { pagingItems.retry() },
-                            onSync = viewModel::requestSync,
+                            onSync = viewModel::requestImmediateSync,
                         )
                     }
                 } else if (isEmpty) {

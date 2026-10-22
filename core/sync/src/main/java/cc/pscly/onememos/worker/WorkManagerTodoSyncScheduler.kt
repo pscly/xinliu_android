@@ -17,6 +17,15 @@ class WorkManagerTodoSyncScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : TodoSyncScheduler {
     override fun requestSync() {
+        enqueueSync(ExistingWorkPolicy.KEEP)
+    }
+
+    /** 手动重试：顶掉排队/退避中的旧任务，立即尝试。 */
+    override fun requestImmediateSync() {
+        enqueueSync(ExistingWorkPolicy.REPLACE)
+    }
+
+    private fun enqueueSync(policy: ExistingWorkPolicy) {
         val constraints =
             Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -32,7 +41,7 @@ class WorkManagerTodoSyncScheduler @Inject constructor(
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             FlowTodoSyncWorker.UNIQUE_WORK_NAME,
-            ExistingWorkPolicy.KEEP,
+            policy,
             request,
         )
     }
