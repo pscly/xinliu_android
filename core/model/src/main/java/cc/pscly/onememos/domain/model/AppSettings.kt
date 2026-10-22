@@ -46,6 +46,14 @@ data class AppSettings(
      * - 默认开启；没有定位权限或定位失败时静默跳过，不影响保存。
      */
     val autoAppendLocation: Boolean = true,
+    /**
+     * 是否允许网络栈使用 IPv6。
+     *
+     * - 默认关闭：DNS 只取 IPv4（A 记录），规避“域名有 AAAA 但 IPv6 路由不可用”
+     *   导致 OkHttp 连接一直等到超时（表现为同步失败/很慢）；
+     * - 打开后完全按系统 DNS 结果连接。
+     */
+    val ipv6Enabled: Boolean = false,
     // “盖章”浮层停留时长（毫秒）；越大越慢，建议 500~800ms。
     val sealStampDurationMs: Int = 600,
     // 是否自动预取最近随笔的图片附件（用于离线浏览时不“空白”）。

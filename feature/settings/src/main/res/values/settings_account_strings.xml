@@ -41,6 +41,9 @@
     <string name="settings_account_summary_configured">已保存同步配置，当前未登录</string>
     <string name="settings_account_summary_connected">同步账号已连接</string>
     <string name="settings_account_summary_named">当前账号：%1$s</string>
+
+    <string name="settings_account_ipv6_title">允许使用 IPv6</string>
+    <string name="settings_account_ipv6_description">默认关闭：仅用 IPv4 连接。部分网络下 IPv6 不通会让同步一直等到超时；仅当你的网络确实需要 IPv6 时再打开。</string>
     <string name="settings_account_management_title">账号管理</string>
     <string name="settings_account_management_summary">修改密码或安全退出当前账号</string>
     <string name="settings_account_advanced_title">高级同步与故障处理</string>

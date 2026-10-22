@@ -55,6 +55,21 @@ class SettingsRepositoryImplAutoEnrichTest {
             assertTrue(enabled.autoAppendLocation)
         }
 
+    @Test
+    fun ipv6_defaultsToDisabled_andPersistsToggle() =
+        runBlocking {
+            val repo = newRepo()
+
+            // 默认关闭：只解析 IPv4，规避 IPv6 路由不通导致的同步超时
+            assertFalse("ipv6Enabled 默认应为关闭", repo.settings.first().ipv6Enabled)
+
+            repo.setIpv6Enabled(true)
+            assertTrue(repo.settings.first().ipv6Enabled)
+
+            repo.setIpv6Enabled(false)
+            assertFalse(repo.settings.first().ipv6Enabled)
+        }
+
     private class FakeTokenStorage : TokenStorage {
         private var token: String = ""
 

@@ -12,12 +12,15 @@ import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
 import cc.pscly.onememos.worker.MemoDerivedFieldsRebuildScheduler
+import cc.pscly.onememos.core.network.IpFamilyDns
 import cc.pscly.onememos.data.auth.FlowBackendTokenRefresher
+import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.domain.sync.TodoReminderScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,6 +31,10 @@ class OneMemosApplication : Application(), Configuration.Provider, ImageLoaderFa
     @Inject lateinit var okHttpClientLazy: Lazy<OkHttpClient>
     @Inject lateinit var flowBackendTokenRefresherLazy: Lazy<FlowBackendTokenRefresher>
     @Inject lateinit var todoReminderSchedulerLazy: Lazy<TodoReminderScheduler>
+    @Inject lateinit var settingsRepositoryLazy: Lazy<SettingsRepository>
+
+    /** 全局 DNS（IPv4/IPv6 策略由设置项 ipv6_enabled 决定）。 */
+    @Inject lateinit var ipFamilyDns: IpFamilyDns
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -67,6 +74,16 @@ class OneMemosApplication : Application(), Configuration.Provider, ImageLoaderFa
                 override fun onActivityDestroyed(activity: Activity) = Unit
             },
         )
+
+        // 网络：把设置里的 IPv6 开关同步给全局 DNS（默认关闭 → 只解析 IPv4）。
+        // 用 Lazy + 延迟收集，避免影响冷启动。
+        appScope.launch {
+            runCatching {
+                settingsRepositoryLazy.get().settings.collect { settings ->
+                    ipFamilyDns.ipv6Enabled = settings.ipv6Enabled
+                }
+            }
+        }
 
         // 派生字段回填会触发 WorkManager 初始化；不要在 Application.onCreate 的同步路径里做，
         // 进程启动稍晚后再调度（WorkRequest 仍保持 initialDelaySeconds=45），避免影响冷启动。

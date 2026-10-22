@@ -105,6 +105,11 @@ class AccountSyncViewModel @Inject constructor(
         execute(AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion(completionId = completionId))
     }
 
+    /** 网络：是否允许使用 IPv6（默认关闭）。 */
+    fun setIpv6Enabled(enabled: Boolean) {
+        execute(AccountSyncSettingsCommand.SetIpv6Enabled(enabled = enabled))
+    }
+
     private fun execute(command: AccountSyncSettingsCommand) {
         viewModelScope.launch {
             when (val result = capability.execute(command)) {
@@ -131,6 +136,7 @@ class AccountSyncViewModel @Inject constructor(
                         passwordSuccessGeneration = current.passwordSuccessGeneration + 1,
                     )
                 AccountSyncSettingsCommand.Logout -> current.copy(logoutError = null)
+                is AccountSyncSettingsCommand.SetIpv6Enabled -> current
                 AccountSyncSettingsCommand.FullResync,
                 is AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion,
                 -> current.copy(fullResyncError = null)
@@ -147,6 +153,7 @@ class AccountSyncViewModel @Inject constructor(
                 AccountSyncSettingsCommand.SyncNow -> current.copy(syncError = error)
                 is AccountSyncSettingsCommand.ChangePassword -> current.copy(passwordError = error)
                 AccountSyncSettingsCommand.Logout -> current.copy(logoutError = error)
+                is AccountSyncSettingsCommand.SetIpv6Enabled -> current.copy(syncError = error)
                 AccountSyncSettingsCommand.FullResync,
                 is AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion,
                 -> current.copy(fullResyncError = error)

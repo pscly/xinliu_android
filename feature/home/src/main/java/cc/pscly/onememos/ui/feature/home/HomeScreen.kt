@@ -791,6 +791,19 @@ fun HomeScreen(
                 }
             val isEmpty = !isRefreshing && refreshError == null && !hasItems
 
+            // 性能：日期分组只依赖分页快照，用 derivedStateOf 缓存。
+            // 之前两个列表分支都在内容 lambda 里直接调用 buildGroupedItems()，
+            // 任何一次重组（滚动停稳切换富预览、加载状态变化、同步状态刷新）都会
+            // 按 itemCount 重新 peek + 逐条日期格式化并新建列表，是首页滚动的热点。
+            val groupedItems =
+                remember(pagingItems) {
+                    derivedStateOf {
+                        // 读取分页快照，订阅数据变化（item 内容/数量变化时才重新分组）
+                        pagingItems.itemSnapshotList
+                        buildGroupedItems(pagingItems)
+                    }
+                }.value
+
             // FAB 组（回到顶部 + 「记」）悬浮在列表右下角，底部内容会被遮挡；
             // 因此列表/网格的底部 contentPadding 需要额外预留 FAB 组的高度净空。
             val fabBottomClearance = HomeFabClearance.fabBottomClearance(showScrollToTop)
@@ -837,8 +850,6 @@ fun HomeScreen(
                         }
                     } else {
                         // 将 pagingItems 按日历日期分组，插入 DateHeader
-                        val groupedItems = buildGroupedItems(pagingItems)
-
                         items(
                             count = groupedItems.size,
                             key = { index -> groupedItems[index].stableKey() },
@@ -913,8 +924,6 @@ fun HomeScreen(
                     }
                 } else {
                     // 将 pagingItems 按日历日期分组，插入 DateHeader
-                    val groupedItems = buildGroupedItems(pagingItems)
-
                     items(
                         count = groupedItems.size,
                         key = { index -> groupedItems[index].stableKey() },
@@ -1640,10 +1649,8 @@ internal sealed class GroupedListItem {
  */
 private fun buildGroupedItems(
     pagingItems: androidx.paging.compose.LazyPagingItems<Memo>,
-): List<GroupedListItem> {
-    val memos = List(pagingItems.itemCount) { pagingItems.peek(it) }
-    return buildGroupedItemsFromList(memos)
-}
+): List<GroupedListItem> =
+    buildGroupedItems(count = pagingItems.itemCount) { index -> pagingItems.peek(index) }
 
 /**
  * 纯数据分组逻辑（可从 JVM 单元测试调用）。
@@ -1651,11 +1658,21 @@ private fun buildGroupedItems(
  */
 internal fun buildGroupedItemsFromList(
     memos: List<Memo?>,
+): List<GroupedListItem> =
+    buildGroupedItems(count = memos.size) { index -> memos[index] }
+
+/**
+ * 分组实现：只分配一个结果列表，避免“先 copy 一份 List 再遍历”的中间开销。
+ * 调用方负责保证 [count] 与 [memoAt] 的下标范围一致。
+ */
+private inline fun buildGroupedItems(
+    count: Int,
+    memoAt: (Int) -> Memo?,
 ): List<GroupedListItem> {
-    val items = mutableListOf<GroupedListItem>()
+    val items = ArrayList<GroupedListItem>(count + count / 8 + 2)
     var currentDate = ""
-    for (i in memos.indices) {
-        val memo = memos[i]
+    for (i in 0 until count) {
+        val memo = memoAt(i)
         if (memo != null) {
             val dateKey = DateTimeFormatter.formatYmd(memo.createdAt)
             if (dateKey != currentDate) {

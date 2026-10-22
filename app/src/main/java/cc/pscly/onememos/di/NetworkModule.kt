@@ -2,6 +2,7 @@ package cc.pscly.onememos.di
 
 import cc.pscly.onememos.BuildConfig
 import cc.pscly.onememos.core.network.AuthorizationInterceptor
+import cc.pscly.onememos.core.network.IpFamilyDns
 import cc.pscly.onememos.core.network.MemosApi
 import dagger.Module
 import dagger.Provides
@@ -16,10 +17,19 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+    /**
+     * 全局 DNS：按设置决定是否允许 IPv6（默认只走 IPv4，避免 IPv6 路由不通导致同步卡死）。
+     * 开关值由 OneMemosApplication 持续同步。
+     */
+    @Provides
+    @Singleton
+    fun provideIpFamilyDns(): IpFamilyDns = IpFamilyDns()
+
     @Provides
     @Singleton
     fun provideOkHttpClient(
         authorizationInterceptor: AuthorizationInterceptor,
+        ipFamilyDns: IpFamilyDns,
     ): OkHttpClient {
         val logging =
             HttpLoggingInterceptor().apply {
@@ -27,6 +37,7 @@ object NetworkModule {
                 level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
             }
         return OkHttpClient.Builder()
+            .dns(ipFamilyDns)
             .addInterceptor(authorizationInterceptor)
             .addInterceptor(logging)
             .build()

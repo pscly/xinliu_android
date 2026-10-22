@@ -65,6 +65,12 @@ interface SettingsRepository {
      */
     suspend fun setAutoAppendLocation(enabled: Boolean) = Unit
 
+    /**
+     * 是否允许网络使用 IPv6（默认关闭）。
+     * 默认空实现：既有测试 Fake 无需逐一覆写；正式实现见 SettingsRepositoryImpl。
+     */
+    suspend fun setIpv6Enabled(enabled: Boolean) = Unit
+
     suspend fun setSealStampDurationMs(durationMs: Int)
 
     /**

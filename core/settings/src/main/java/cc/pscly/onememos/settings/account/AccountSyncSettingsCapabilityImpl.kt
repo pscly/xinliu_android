@@ -57,6 +57,7 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
                 accountLabel = resolveAccountLabel(settings.loginMode),
                 lastSuccessAtEpochMs = global.lastSuccessAt.takeIf { it > 0L },
                 commandInFlight = inFlight,
+                ipv6Enabled = settings.ipv6Enabled,
             )
         }
 
@@ -92,6 +93,10 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
                     AccountSyncSettingsResult.Success
                 }
                 is AccountSyncSettingsCommand.ChangePassword -> changePassword(command)
+                is AccountSyncSettingsCommand.SetIpv6Enabled -> {
+                    settingsRepository.setIpv6Enabled(command.enabled)
+                    AccountSyncSettingsResult.Success
+                }
             }
         } catch (t: CancellationException) {
             throw t
@@ -257,5 +262,6 @@ class AccountSyncSettingsCapabilityImpl @Inject constructor(
             is AccountSyncSettingsCommand.AcknowledgeFullResyncCompletion -> "AcknowledgeFullResync"
             AccountSyncSettingsCommand.Logout -> "Logout"
             is AccountSyncSettingsCommand.ChangePassword -> "ChangePassword"
+            is AccountSyncSettingsCommand.SetIpv6Enabled -> "SetIpv6Enabled"
         }
 }

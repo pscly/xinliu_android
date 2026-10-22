@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,6 +63,7 @@ fun AccountSyncScreen(
         onSyncNow = viewModel::syncNow,
         onOpenAccountManagement = viewModel::openAccountManagement,
         onOpenAdvancedSync = viewModel::openAdvancedSync,
+        onSetIpv6Enabled = viewModel::setIpv6Enabled,
     )
 }
 
@@ -73,6 +75,7 @@ fun AccountSyncContent(
     onSyncNow: () -> Unit,
     onOpenAccountManagement: () -> Unit,
     onOpenAdvancedSync: () -> Unit,
+    onSetIpv6Enabled: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     AccountPaperPage(modifier = modifier) {
@@ -98,6 +101,10 @@ fun AccountSyncContent(
             value = accountSummary(snapshot),
             modifier = Modifier.testTag("settings_account_summary"),
         )
+        NetworkPreferenceBlock(
+            snapshot = snapshot,
+            onSetIpv6Enabled = onSetIpv6Enabled,
+        )
         NavigationRow(
             title = stringResource(R.string.settings_account_management_title),
             summary = stringResource(R.string.settings_account_management_summary),
@@ -110,6 +117,46 @@ fun AccountSyncContent(
                 summary = stringResource(R.string.settings_account_advanced_summary),
                 onClick = onOpenAdvancedSync,
                 modifier = Modifier.testTag("settings_account_advanced"),
+            )
+        }
+    }
+}
+
+/**
+ * 网络偏好：是否允许使用 IPv6。
+ *
+ * 默认关闭（只走 IPv4）。部分网络中域名会返回 AAAA，但 IPv6 路由实际不通，
+ * OkHttp 会一直等到连接超时，表现为“同步失败/很慢”，因此默认只在需要时手动开启。
+ */
+@Composable
+private fun NetworkPreferenceBlock(
+    snapshot: AccountSyncSettingsSnapshot?,
+    onSetIpv6Enabled: (Boolean) -> Unit,
+) {
+    val busy = snapshot?.commandInFlight != null
+    InkCard(modifier = Modifier.testTag("settings_account_network")) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(InkSpacing.X12),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_account_ipv6_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(R.string.settings_account_ipv6_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = snapshot?.ipv6Enabled == true,
+                onCheckedChange = onSetIpv6Enabled,
+                enabled = !busy,
+                modifier = Modifier.testTag("settings_account_ipv6"),
             )
         }
     }

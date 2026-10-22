@@ -2,6 +2,7 @@ package cc.pscly.onememos.di
 
 import cc.pscly.onememos.BuildConfig
 import cc.pscly.onememos.core.network.FlowBackendApi
+import cc.pscly.onememos.core.network.IpFamilyDns
 import cc.pscly.onememos.core.network.FlowDeviceHeadersInterceptor
 import cc.pscly.onememos.core.network.FlowDeviceInfoProvider
 import cc.pscly.onememos.core.network.AndroidFlowDeviceInfoProvider
@@ -33,6 +34,7 @@ object FlowBackendModule {
     @Named("flowBackend")
     fun provideFlowBackendOkHttpClient(
         flowDeviceHeadersInterceptor: FlowDeviceHeadersInterceptor,
+        ipFamilyDns: IpFamilyDns,
     ): OkHttpClient {
         val logging =
             HttpLoggingInterceptor().apply {
@@ -40,6 +42,7 @@ object FlowBackendModule {
                 level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
             }
         return OkHttpClient.Builder()
+            .dns(ipFamilyDns)
             .addInterceptor(flowDeviceHeadersInterceptor)
             .addInterceptor(logging)
             .build()

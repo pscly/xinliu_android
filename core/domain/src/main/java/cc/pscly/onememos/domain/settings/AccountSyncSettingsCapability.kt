@@ -45,6 +45,8 @@ data class AccountSyncSettingsSnapshot(
     val accountLabel: String?,
     val lastSuccessAtEpochMs: Long?,
     val commandInFlight: AccountSyncSettingsCommand?,
+    /** 是否允许网络使用 IPv6（默认关闭：只走 IPv4，规避 IPv6 路由不通导致同步卡死）。 */
+    val ipv6Enabled: Boolean = false,
 )
 
 sealed interface AccountSyncSettingsCommand {
@@ -62,6 +64,11 @@ sealed interface AccountSyncSettingsCommand {
 
     data class AcknowledgeFullResyncCompletion(
         val completionId: String,
+    ) : AccountSyncSettingsCommand
+
+    /** 切换 IPv6 开关（默认关闭）。 */
+    data class SetIpv6Enabled(
+        val enabled: Boolean,
     ) : AccountSyncSettingsCommand
 }
 
