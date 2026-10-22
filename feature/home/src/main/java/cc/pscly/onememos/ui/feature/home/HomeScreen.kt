@@ -382,7 +382,8 @@ fun HomeScreen(
                     },
                     actions = {
                         if (selectionMode) return@PaperInkTopAppBar
-                        IconButton(onClick = viewModel::requestSync, enabled = !isSyncing) {
+                        // 顶栏刷新 = 用户手动触发：忽略退避立即尝试（与横幅重试一致）
+                        IconButton(onClick = viewModel::requestImmediateSync, enabled = !isSyncing) {
                             if (isSyncing) {
                                 // 顶栏同步按钮加载态：转圈尺寸为结构常量，非间距尺度（M4 豁免保留）
                                 CircularProgressIndicator(modifier = Modifier.size(InkSpacing.X20), strokeWidth = InkBorder.SpinnerStroke)
