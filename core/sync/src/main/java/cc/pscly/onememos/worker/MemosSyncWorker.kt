@@ -961,8 +961,10 @@ class MemosSyncWorker @AssistedInject constructor(
 
             pageToken = response.nextPageToken
             if (pageToken.isNullOrBlank()) break
-            // 本页无任何变化：后续页更旧，也不可能变化，停止翻页。
-            if (changedInPage == 0) break
+            // 仅当服务端确实采用“按更新时间倒序”时，才能用“本页无变化”推断后续页无变化。
+            // （老服务端可能拒绝该 orderBy 并回退默认排序，此时必须继续翻页以免漏掉改动。）
+            val sortedByUpdateTime = page.orderBy == RECENT_MEMOS_ORDER_BY
+            if (sortedByUpdateTime && changedInPage == 0) break
         }
         Log.i(
             TAG_LOG,

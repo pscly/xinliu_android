@@ -42,7 +42,9 @@ class IncrementalSyncHelpersTest {
             assertEquals(RECENT_MEMOS_ORDER_BY, result.orderBy)
             assertEquals(listOf(50), api.pageSizeCalls)
             assertEquals(listOf("NORMAL"), api.stateCalls)
-            assertEquals(listOf("pinned desc, create_time desc"), api.orderByCalls)
+            // 1.17.6 起增量拉取改为按“更新时间倒序”，以便同步到老笔记的远端编辑
+            // （旧值 "pinned desc, create_time desc" 会让被编辑的老笔记翻页翻不到）。
+            assertEquals(listOf("update_time desc"), api.orderByCalls)
         }
 
     @Test
