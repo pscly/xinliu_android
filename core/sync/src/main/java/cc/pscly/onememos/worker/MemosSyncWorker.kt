@@ -287,6 +287,10 @@ class MemosSyncWorker @AssistedInject constructor(
 
                 // 再次读取（可能刚回写 serverId）
                 val current = memoDao.getMemo(originalMemo.uuid) ?: continue
+                // 收尾写库要用“最新的本地实体”：404 重建后 serverId 会变，
+                // 若仍用 current.memo（旧 serverId）收尾，会把新 serverId 又覆盖回已失效的旧值，
+                // 导致本地残留一条指向死 id 的记录、并在下次拉取时产生重复行。
+                var memoForFinalize = current.memo
 
                 if (!createdNow) {
                     // 冲突处理（LWW）：若远端更新更“新”，则保留远端为主，并生成一条“冲突副本”上传为新 memo，
@@ -324,12 +328,13 @@ class MemosSyncWorker @AssistedInject constructor(
                         // 处理：清空 serverId 后按“新建”重新上传，保住本地内容。
                         val recreated = createMemoOnServer(serverBase, current.memo.copy(serverId = null))
                         val newName = recreated.name ?: throw IllegalStateException("服务端未返回 memo.name")
-                        memoDao.upsertMemo(
-                            current.memo.copy(
-                                serverId = newName,
-                                creator = recreated.creator ?: current.memo.creator,
-                            ),
-                        )
+                        val recreatedEntity =
+                            current.memo.applyRecreatedServerId(
+                                newServerId = newName,
+                                newCreator = recreated.creator,
+                            )
+                        memoDao.upsertMemo(recreatedEntity)
+                        memoForFinalize = recreatedEntity
                         runCatching {
                             collectionsRepository.backfillMemoRefId(
                                 memoUuid = current.memo.uuid,
@@ -367,9 +372,9 @@ class MemosSyncWorker @AssistedInject constructor(
                     ),
                 )
 
-                // 标记成功
+                // 标记成功（用最新实体，避免把 404 重建后的新 serverId 覆盖回旧值）
                 memoDao.upsertMemo(
-                    current.memo.copy(
+                    memoForFinalize.copy(
                         syncStatus = SyncStatus.SYNCED,
                         lastSyncError = null,
                     ),
@@ -1034,3 +1039,13 @@ class MemosSyncWorker @AssistedInject constructor(
  * 从而重复创建脏数据。
  */
 internal fun shouldRecreateAfterPatchError(httpCode: Int): Boolean = httpCode == 404
+/**
+ * 远端 404 后重新创建成功时，把新的 serverId 应用到本地实体。
+ *
+ * 注意：必须保留原 uuid（本地业务主键不变），只替换 serverId；
+ * creator 由服务端返回值优先，缺省时保留本地值。
+ */
+internal fun MemoEntity.applyRecreatedServerId(
+    newServerId: String,
+    newCreator: String?,
+): MemoEntity = copy(serverId = newServerId, creator = newCreator?.takeIf { it.isNotBlank() } ?: creator)
