@@ -249,7 +249,8 @@ class MemosSyncWorker @AssistedInject constructor(
                 val currentBefore = memoDao.getMemo(originalMemo.uuid) ?: continue
                 val createdNow = currentBefore.memo.serverId.isNullOrBlank()
 
-                val serverId =
+                // 注意：这里用 var，因为下面可能在"远端已删除（404）"时重新创建并换 serverId。
+                var serverId =
                     if (currentBefore.memo.serverId.isNullOrBlank()) {
                         val created = createMemoOnServer(serverBase, currentBefore.memo)
                         val name = created.name ?: throw IllegalStateException("服务端未返回 memo.name")
@@ -314,7 +315,30 @@ class MemosSyncWorker @AssistedInject constructor(
                     }
 
                     // 对“非新建 memo”，正常走 PATCH 更新。
-                    updateMemoOnServer(serverBase, current.memo)
+                    try {
+                        updateMemoOnServer(serverBase, current.memo)
+                    } catch (e: HttpException) {
+                        if (!shouldRecreateAfterPatchError(e.code())) throw e
+                        // 远端已删除该 memo（网页端删除，或本地残留的“冲突副本”）。
+                        // 若直接抛错，这条 DIRTY 记录会在每轮同步都 404，把整轮同步永久卡死；
+                        // 处理：清空 serverId 后按“新建”重新上传，保住本地内容。
+                        val recreated = createMemoOnServer(serverBase, current.memo.copy(serverId = null))
+                        val newName = recreated.name ?: throw IllegalStateException("服务端未返回 memo.name")
+                        memoDao.upsertMemo(
+                            current.memo.copy(
+                                serverId = newName,
+                                creator = recreated.creator ?: current.memo.creator,
+                            ),
+                        )
+                        runCatching {
+                            collectionsRepository.backfillMemoRefId(
+                                memoUuid = current.memo.uuid,
+                                memoServerId = newName,
+                            )
+                        }
+                        Log.i(TAG_LOG, "PATCH 404（远端已删除），已按新建重新上传: ${current.memo.uuid} -> $newName")
+                        serverId = newName
+                    }
                 }
 
                 // 上传本地附件（若有）。注意：Room 的 @Relation 顺序不保证，因此这里按 sortOrder/createdAt 稳定排序。
@@ -1001,3 +1025,12 @@ class MemosSyncWorker @AssistedInject constructor(
         const val KEY_FOLLOWUP_SYNC = "followup_sync"
     }
 }
+
+/**
+ * PATCH 更新失败时，是否应当按“新建”重新上传。
+ *
+ * 只有 404 表示“远端已不存在”（网页端删除 / 本地残留的冲突副本）；
+ * 401/403/5xx/网络错误必须原样抛出，否则会把“无权限/服务器故障”误判成“已删除”，
+ * 从而重复创建脏数据。
+ */
+internal fun shouldRecreateAfterPatchError(httpCode: Int): Boolean = httpCode == 404
