@@ -126,6 +126,8 @@ class WorkManagerSyncScheduler @Inject constructor(
                 .setConstraints(constraints)
                 .setInputData(workDataOf(MemosSyncWorker.KEY_IS_PERIODIC to true))
                 .addTag(PERIODIC_TAG)
+                // 显式标记周期任务，供状态监控排除（类名 tag 无法区分）
+                .addTag(MemosSyncWorker.PERIODIC_MARKER_TAG)
                 .build()
 
         workManager.enqueueUniquePeriodicWork(
@@ -135,8 +137,11 @@ class WorkManagerSyncScheduler @Inject constructor(
         )
     }
 
-    private companion object {
-        private const val UNIQUE_PERIODIC_WORK_NAME = "one_memos_periodic_sync"
-        private const val PERIODIC_TAG = "one_memos_periodic_sync"
+    internal companion object {
+        /** 周期同步的 unique name；也被状态监控用来把周期任务排除在“同步中”之外。 */
+        internal const val UNIQUE_PERIODIC_WORK_NAME = "one_memos_periodic_sync"
+
+        /** 周期同步的 tag（与 unique name 相同，便于按 tag 清理）。 */
+        internal const val PERIODIC_TAG = "one_memos_periodic_sync"
     }
 }

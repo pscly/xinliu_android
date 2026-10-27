@@ -6,6 +6,7 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Base64
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -92,6 +93,7 @@ class MemosSyncWorker @AssistedInject constructor(
         val fullTracker = FullSyncTracker()
 
         return try {
+            val startedAt = System.currentTimeMillis()
             ensureCurrentUserCreator(serverBase, settings.currentUserCreator, settings.token)
 
             // 仅在需要全量同步时写入 RUNNING；普通同步不改变 DataStore 状态。
@@ -100,6 +102,7 @@ class MemosSyncWorker @AssistedInject constructor(
             }
 
             syncPending(serverBase)
+            val afterPending = System.currentTimeMillis()
 
             if (needFull && fullRunId != null) {
                 performFullSync(
@@ -131,6 +134,7 @@ class MemosSyncWorker @AssistedInject constructor(
             } else {
                 refreshFromServer(serverBase)
             }
+            val afterPull = System.currentTimeMillis()
 
             // 同步完成后触发一次“离线图片预取”。若用户在设置里关闭，PrefetchWorker 会快速退出。
             enqueuePrefetchWork()
@@ -141,6 +145,12 @@ class MemosSyncWorker @AssistedInject constructor(
 
             settingsRepository.setLastSyncSuccess()
             persistSyncWarningsAfterSuccessIfAny()
+            Log.i(
+                TAG_LOG,
+                "同步成功: periodic=$isPeriodic full=$needFull " +
+                    "上传耗时=${afterPending - startedAt}ms 拉取耗时=${afterPull - afterPending}ms " +
+                    "收尾耗时=${System.currentTimeMillis() - afterPull}ms",
+            )
             Result.success()
         } catch (e: CancellationException) {
             // 取消由 WorkManager/协程调度触发；必须透传，避免被当成失败后重试。
@@ -908,10 +918,21 @@ class MemosSyncWorker @AssistedInject constructor(
     private fun parseEpochMillis(raw: String?): Long? =
         runCatching { if (raw.isNullOrBlank()) null else Instant.parse(raw).toEpochMilli() }.getOrNull()
 
+    /**
+     * 增量拉取：按 `update_time desc` 逐页拉取并落库。
+     *
+     * 性能约束（1.17.5）：
+     * - 与本地完全一致的记录直接跳过（见 [upsertRemoteMemoFromDtoIfSafe] 返回值），
+     *   不跑 Markdown 派生、不写库；
+     * - 列表按更新时间倒序，**某一页没有任何变化时，更旧的页也不会变化**，直接停止翻页。
+     *   常规同步（无远端改动）从 4 页 × 50 条降到 1 页。
+     */
     private suspend fun refreshFromServer(serverBase: String) {
+        val startedAt = System.currentTimeMillis()
         var pageToken: String? = null
         var orderBy: String? = RECENT_MEMOS_ORDER_BY
         var pages = 0
+        var changedTotal = 0
         val creatorState = CreatorState(currentCreator = settingsRepository.settings.first().currentUserCreator.trim())
         while (pages < 4) { // 最多拉 4 页（约 200 条），避免首次就拉爆
             val page =
@@ -924,25 +945,47 @@ class MemosSyncWorker @AssistedInject constructor(
             val response = page.response
             orderBy = page.orderBy
 
+            var changedInPage = 0
             for (dto in response.memos) {
-                upsertRemoteMemoFromDtoIfSafe(
-                    dto = dto,
-                    memoDao = memoDao,
-                    creatorState = creatorState,
-                    onCreatorResolved = settingsRepository::setCurrentUserCreator,
-                )
+                val changed =
+                    upsertRemoteMemoFromDtoIfSafe(
+                        dto = dto,
+                        memoDao = memoDao,
+                        creatorState = creatorState,
+                        onCreatorResolved = settingsRepository::setCurrentUserCreator,
+                    )
+                if (changed) changedInPage += 1
             }
+            changedTotal += changedInPage
+            pages += 1
 
             pageToken = response.nextPageToken
             if (pageToken.isNullOrBlank()) break
-            pages += 1
+            // 本页无任何变化：后续页更旧，也不可能变化，停止翻页。
+            if (changedInPage == 0) break
         }
+        Log.i(
+            TAG_LOG,
+            "refreshFromServer 完成: pages=$pages changed=$changedTotal 耗时=${System.currentTimeMillis() - startedAt}ms",
+        )
     }
 
     companion object {
         const val UNIQUE_WORK_NAME = "one_memos_sync"
         const val TAG = "one_memos_sync"
         const val FULL_RESYNC_TAG = "one_memos_sync_full_resync"
+
+        /** 同步耗时/进度日志 tag：`adb logcat -s MemoSync` 可直接看各阶段耗时。 */
+        const val TAG_LOG = "MemoSync"
+
+        /**
+         * 周期同步专用标记 tag。
+         *
+         * 用途：周期任务复用本 Worker 类，WorkManager 会自动带上类名 tag，
+         * 因此仅靠 [TAG] 无法区分“一次性同步”与“周期同步”。此标记用于把周期任务
+         * 从“同步中”状态里排除（见 WorkManagerSyncStatusMonitor）。
+         */
+        const val PERIODIC_MARKER_TAG = "one_memos_sync_periodic_marker"
 
         private const val UNIQUE_FOLLOWUP_WORK_NAME = "one_memos_sync_followup"
 

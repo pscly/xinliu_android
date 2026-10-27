@@ -153,14 +153,18 @@ internal suspend fun performFullSync(
 
 /**
  * 将服务端 memo 写入本地（含附件），但会遵循“本地未同步则不覆盖”的保护逻辑。
+ *
+ * @return true 表示本地确实发生了插入/更新；false 表示**远端与本地一致，已跳过写入**。
+ *         返回 false 时不会执行 Markdown 派生与数据库写事务，这是同步提速的关键
+ *         （常规同步 200 条里通常 0 条有变化）。
  */
 internal suspend fun upsertRemoteMemoFromDtoIfSafe(
     dto: MemoDto,
     memoDao: MemoDao,
     creatorState: CreatorState,
     onCreatorResolved: suspend (String) -> Unit,
-) {
-    val serverId = dto.name ?: return
+): Boolean {
+    val serverId = dto.name ?: return false
 
     if (creatorState.currentCreator.isBlank() && parseVisibility(dto.visibility) == MemoVisibility.PRIVATE) {
         val c = dto.creator?.trim().orEmpty()
@@ -173,7 +177,14 @@ internal suspend fun upsertRemoteMemoFromDtoIfSafe(
     // 本地如果有未同步的同名记录，避免拉取覆盖本地更改
     val localWithAttachments: MemoWithAttachments? = memoDao.getMemoByServerId(serverId)
     val local = localWithAttachments?.memo
-    if (local != null && local.syncStatus != SyncStatus.SYNCED) return
+    if (local != null && local.syncStatus != SyncStatus.SYNCED) return false
+
+    // 快路径：远端记录与本地完全一致时直接跳过（省掉 Markdown 派生 + 写事务）。
+    if (local != null && localWithAttachments != null) {
+        if (isRemoteUnchanged(local = local, dto = dto, localAttachments = localWithAttachments.attachments)) {
+            return false
+        }
+    }
 
     val entity = dto.toMemoEntity(existing = local)
     val attachmentEntities =
@@ -185,6 +196,33 @@ internal suspend fun upsertRemoteMemoFromDtoIfSafe(
         memo = entity,
         attachments = attachmentEntities,
     )
+    return true
+}
+
+/**
+ * 判断远端 DTO 与本地实体是否“实质一致”。
+ *
+ * 只在**能确定完全一致**时返回 true（宁可多写一次，也不能漏掉真实变化）：
+ * - 更新时间、正文、状态、可见性、置顶、位置全部相同；
+ * - 附件集合按 remoteName 完全一致。
+ */
+private fun isRemoteUnchanged(
+    local: MemoEntity,
+    dto: MemoDto,
+    localAttachments: List<MemoAttachmentEntity>,
+): Boolean {
+    val remoteUpdated = parseEpochMillis(dto.updateTime) ?: return false
+    if (local.updatedAt != remoteUpdated) return false
+    if (local.content != dto.content.orEmpty()) return false
+    if (local.serverState != parseServerState(dto.state)) return false
+    if (local.visibility != parseVisibility(dto.visibility)) return false
+    if (local.pinned != (dto.pinned ?: false)) return false
+    if (local.locationLatitude != dto.location?.latitude) return false
+    if (local.locationLongitude != dto.location?.longitude) return false
+
+    val remoteNames = dto.attachments.orEmpty().mapNotNull { it.name }.sorted()
+    val localNames = localAttachments.mapNotNull { it.remoteName }.sorted()
+    return remoteNames == localNames
 }
 
 /**

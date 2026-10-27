@@ -29,18 +29,32 @@ class WorkManagerSyncStatusMonitor @Inject constructor(
 ) : SyncStatusMonitor {
     private val workManager = WorkManager.getInstance(context)
 
+    /**
+     * 一次性同步任务的工作信息。
+     *
+     * 注意（1.17.5 修复）：WorkManager 会自动为每个 Worker 追加一条“类名 tag”
+     * （`cc.pscly.onememos.worker.MemosSyncWorker`），而**周期同步**复用同一个 Worker 类。
+     * 因此按 [MemosSyncWorker.TAG] 或类名查询都会把周期任务（长期处于 ENQUEUED）算进来，
+     * 导致 UI 永远显示“同步中…”。
+     *
+     * 现在只按**一次性任务的 unique name**（[MemosSyncWorker.UNIQUE_WORK_NAME]）查询，
+     * 并过滤掉周期任务，保证“同步中”只反映真正的一次性同步。
+     */
     private val workInfos: Flow<List<WorkInfo>> =
         callbackFlow {
-            val liveData = workManager.getWorkInfosByTagLiveData(MemosSyncWorker.TAG)
+            val liveData = workManager.getWorkInfosForUniqueWorkLiveData(MemosSyncWorker.UNIQUE_WORK_NAME)
             val observer =
                 Observer<List<WorkInfo>> { infos ->
-                    trySend(infos).isSuccess
+                    trySend(infos.filterNot { it.isPeriodicSyncWork() }).isSuccess
                 }
             liveData.observeForever(observer)
             awaitClose { liveData.removeObserver(observer) }
         }
             .conflate()
             .distinctUntilChanged()
+
+    /** 周期同步（one_memos_periodic_sync）不计入“同步中”状态。 */
+    private fun WorkInfo.isPeriodicSyncWork(): Boolean = isPeriodicSyncTags(tags)
 
     private val pendingCount: Flow<Int> =
         memoDao
@@ -73,3 +87,15 @@ class WorkManagerSyncStatusMonitor @Inject constructor(
         return SyncWorkState.IDLE
     }
 }
+
+/**
+ * 判断一组 WorkManager tag 是否属于**周期同步**。
+ *
+ * 回归背景（1.17.5）：WorkManager 会给每个 Worker 自动追加类名 tag，
+ * 周期同步与一次性同步共用 `MemosSyncWorker`，因此按 tag/类名查询都会混入周期任务
+ * （长期 ENQUEUED），使 UI 永远显示“同步中…”。这里把判定抽成纯函数便于单测。
+ */
+internal fun isPeriodicSyncTags(tags: Set<String>): Boolean =
+    tags.contains(WorkManagerSyncScheduler.PERIODIC_TAG) ||
+        tags.contains(WorkManagerSyncScheduler.UNIQUE_PERIODIC_WORK_NAME) ||
+        tags.contains(MemosSyncWorker.PERIODIC_MARKER_TAG)
