@@ -63,6 +63,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -103,6 +104,7 @@ import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.theme.LocalReadingConfig
 import cc.pscly.onememos.ui.util.DateTimeFormatter
+import cc.pscly.onememos.ui.util.LeadingTimeStamp
 import cc.pscly.onememos.ui.util.rememberOneMemosHaptics
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -875,6 +877,8 @@ private fun HighlightingEditorField(
                 codeBackground = scheme.surfaceVariant,
                 linkColor = scheme.primary,
                 quoteColor = scheme.onSurface.copy(alpha = InkBorder.QuoteText),
+                // 自动时间戳行：浅色半透明，避免与正文抢注意力（可手动删除）
+                stampColor = scheme.onSurface.copy(alpha = INK_STAMP_ALPHA),
             )
         }
 
@@ -905,11 +909,19 @@ private fun HighlightingEditorField(
             maxLines = Int.MAX_VALUE,
             visualTransformation = transformation,
             decorationBox = { innerTextField ->
-                if (value.text.isBlank()) {
+                // 正文为空时显示提示；若只有自动时间戳，则把提示下移，避免压在时间戳上。
+                val bodyBlank = LeadingTimeStamp.bodyIsBlank(value.text)
+                val skipLines = if (bodyBlank) LeadingTimeStamp.bodyStartLineOffset(value.text) else 0
+                val placeholderTop =
+                    with(LocalDensity.current) {
+                        (lineHeight * skipLines.toFloat()).toDp()
+                    }
+                if (bodyBlank) {
                     Text(
                         text = placeholder,
                         style = textStyle,
                         color = scheme.outline,
+                        modifier = Modifier.padding(top = placeholderTop),
                     )
                 }
                 innerTextField()
@@ -936,6 +948,7 @@ private class MarkdownHighlightTransformation(
     private val codeBackground: androidx.compose.ui.graphics.Color,
     private val linkColor: androidx.compose.ui.graphics.Color,
     private val quoteColor: androidx.compose.ui.graphics.Color,
+    private val stampColor: androidx.compose.ui.graphics.Color,
 ) : VisualTransformation {
 
     override fun filter(text: AnnotatedString): TransformedText {
@@ -955,6 +968,10 @@ private class MarkdownHighlightTransformation(
                     styleLine(source, lineStart, lineEnd)
                 }
                 lineStart = lineEnd + 1
+            }
+            // 最后覆盖自动时间戳行：既压掉引用行的斜体配色，也保证浅色优先级最高。
+            LeadingTimeStamp.lineEndOrNull(source)?.let { end ->
+                addStyle(SpanStyle(color = stampColor, fontStyle = FontStyle.Normal), start = 0, end = end)
             }
         }
 
@@ -1056,6 +1073,14 @@ private class MarkdownHighlightTransformation(
 
 /** 双栏最小可用宽度（dp）：达到后顶栏才出现“双栏”开关。 */
 private const val DualPaneMinWidthDp = 840
+
+/**
+ * 自动时间戳行在输入框里的透明度。
+ *
+ * 取 0.38：看得见（提示已自动记录时间），但不与正文抢注意力；
+ * 它仍是普通文本，可以点选、可以手动删除。
+ */
+private const val INK_STAMP_ALPHA = LeadingTimeStamp.MUTED_ALPHA
 
 private fun usableFileUri(uri: String?): String? {
     if (uri.isNullOrBlank()) return null

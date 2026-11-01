@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import cc.pscly.onememos.ui.util.AutoTagLineHider
 import cc.pscly.onememos.ui.util.DateTimeFormatter
+import cc.pscly.onememos.ui.util.LeadingTimeStamp
 import cc.pscly.onememos.ui.util.QuickInsertTimeFormatter
 import javax.inject.Inject
 
@@ -83,6 +84,14 @@ data class EditorUiState(
     val devAutoTagLineKeywords: String = "__Atags",
     val devShowAutoTagLineInView: Boolean = false,
     val devShowAutoTagLineInEdit: Boolean = false,
+    /**
+     * 新建笔记时**已经展示在输入框里**的自动时间戳行（含 `> ` 前缀）。
+     *
+     * - 非空：说明打开编辑器时已把时间戳放进正文（用户在输入框里能看到，浅色显示）；
+     *   保存时不再重复添加 —— 用户若手动删掉了它，就尊重删除结果。
+     * - 为空：说明没展示过（例如设置里关了自动时间戳），保存时沿用旧逻辑兜底补一行。
+     */
+    val autoStampLine: String? = null,
 )
 
 sealed interface EditorEvent {
@@ -192,6 +201,40 @@ class EditorViewModel @Inject constructor(
     private fun trimTrailingSpacesOnly(text: String): String =
         text.trimEnd { it == ' ' || it == '\t' }
 
+    /** 新建笔记只播种一次时间戳，避免设置反复变化时重复刷新/覆盖用户输入。 */
+    private var stampSeeded = false
+
+    /**
+     * 新建笔记时，把自动时间戳放进输入框（浅色显示，见 LeadingTimeStamp）。
+     *
+     * 条件：确实是新建、开关开启、且当前内容为空（不覆盖草稿/用户已输入的内容）。
+     * 光标放在时间戳后的空行，用户直接打字就是正文。
+     */
+    private fun maybeSeedNewMemoStamp() {
+        if (stampSeeded) return
+        if (!uuidArg.isNullOrBlank()) return
+        val state = _uiState.value
+        if (!state.autoInsertTimestamp) return
+        if (state.content.text.isNotBlank()) return
+        val stamp =
+            QuickInsertTimeFormatter.buildQuotedLine(
+                epochMillis = System.currentTimeMillis(),
+                format = state.quickInsertTimeFormat,
+            )
+        val seeded = "$stamp\n\n"
+        stampSeeded = true
+        _uiState.update { current ->
+            if (current.content.text.isNotBlank()) {
+                current
+            } else {
+                current.copy(
+                    content = TextFieldValue(text = seeded, selection = TextRange(seeded.length)),
+                    autoStampLine = stamp,
+                )
+            }
+        }
+    }
+
     init {
         viewModelScope.launch {
             settingsRepository.settings.collectLatest { settings ->
@@ -219,6 +262,8 @@ class EditorViewModel @Inject constructor(
                 // - 查看态：直接从 tagSourceText 重新生成展示文本
                 // - 编辑态：在不丢用户当前输入的前提下，来回切换显示/隐藏
                 applyAutoTagLineVisibility()
+                // 新建笔记：把自动时间戳先放进输入框，让用户看得见（浅色显示，可手动删除）。
+                maybeSeedNewMemoStamp()
                 // serverBase 变化时，尝试对当前 memo 的远端图片做持久缓存预取（不阻塞 UI）。
                 schedulePrefetchAttachmentCache()
             }
@@ -598,7 +643,8 @@ class EditorViewModel @Inject constructor(
                         trimTrailingSpacesOnly(AutoTagLineHider.merge(split.visibleText, hidden))
                     }
                 val localUris = state.attachments.mapNotNull { it.localUri }
-                if (raw.isBlank() && localUris.isEmpty()) {
+                // 只有自动时间戳、没有正文与附件时视为“空内容”，不落库（避免产生空笔记）。
+                if (LeadingTimeStamp.bodyIsBlank(raw) && localUris.isEmpty()) {
                     _uiState.update { it.copy(isSaving = false) }
                     return@launch
                 }
@@ -607,14 +653,18 @@ class EditorViewModel @Inject constructor(
                 if (uuid.isNullOrBlank()) {
                     val now = System.currentTimeMillis()
                     val contentToSave =
-                        if (state.autoInsertTimestamp) {
-                            QuickInsertTimeFormatter.withLeadingStamp(
-                                content = raw,
-                                epochMillis = now,
-                                format = state.quickInsertTimeFormat,
-                            )
-                        } else {
-                            raw
+                        when {
+                            // 打开编辑器时已经展示过时间戳：保存时不再补，尊重用户的手动删除。
+                            state.autoStampLine != null -> raw
+                            // 正文开头已有时间戳行（草稿/粘贴等）：不重复添加
+                            LeadingTimeStamp.lineEndOrNull(raw) != null -> raw
+                            state.autoInsertTimestamp ->
+                                QuickInsertTimeFormatter.withLeadingStamp(
+                                    content = raw,
+                                    epochMillis = now,
+                                    format = state.quickInsertTimeFormat,
+                                )
+                            else -> raw
                         }
                     val location =
                         if (state.autoAppendLocation) locationProvider.latestOrNull() else null

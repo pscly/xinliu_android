@@ -64,3 +64,6 @@ kotlin-lsp.cmd
 # .sisyphus（仅忽略当前计划的产物，避免误提交）
 .sisyphus/notepads/tag-filter-exclude-and-insert-time/
 .sisyphus/plans/tag-filter-exclude-and-insert-time.md
+
+# Kotlin 编译器会话临时目录
+.kotlin/

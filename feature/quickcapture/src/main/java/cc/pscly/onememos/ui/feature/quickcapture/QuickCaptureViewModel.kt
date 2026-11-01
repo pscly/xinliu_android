@@ -16,6 +16,7 @@ import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraft
 import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftAttachment
 import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftStore
 import cc.pscly.onememos.ui.util.AutoTagLineHider
+import cc.pscly.onememos.ui.util.LeadingTimeStamp
 import cc.pscly.onememos.ui.util.QuickInsertTimeFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -55,6 +56,12 @@ data class QuickCaptureUiState(
     val autoAppendLocation: Boolean = true,
     val draftBannerVisible: Boolean = false,
     val draftOverwriteDialogVisible: Boolean = false,
+    /**
+     * 新建时已经展示在输入框里的自动时间戳行（含 `> ` 前缀）。
+     *
+     * 非空表示“已经让用户看见过”，保存时不再重复补 —— 用户手动删掉就尊重删除。
+     */
+    val autoStampLine: String? = null,
 )
 
 sealed interface QuickCaptureEvent {
@@ -71,6 +78,40 @@ class QuickCaptureViewModel @Inject constructor(
     // 只去掉行尾空格/Tab，不吞掉换行（否则用户很难插入换行/空行）。
     private fun trimTrailingSpacesOnly(text: String): String =
         text.trimEnd { it == ' ' || it == '\t' }
+
+    /** 新建态只播种一次时间戳，避免设置反复变化时覆盖用户输入。 */
+    private var stampSeeded = false
+
+    /**
+     * 新建时把自动时间戳放进输入框（浅色显示、可手动删除）：光标落在时间戳后的空行。
+     *
+     * 仅在“新建 + 开关开启 + 内容为空”时执行，不会覆盖草稿或已输入内容；
+     * 进入“续写/编辑上一条”时会清空 [QuickCaptureUiState.autoStampLine]，避免误判。
+     */
+    private fun maybeSeedStamp() {
+        if (stampSeeded) return
+        val state = _uiState.value
+        if (!state.editingUuid.isNullOrBlank()) return
+        if (!state.autoInsertTimestamp) return
+        if (state.content.text.isNotBlank()) return
+        val stamp =
+            QuickInsertTimeFormatter.buildQuotedLine(
+                epochMillis = System.currentTimeMillis(),
+                format = state.quickInsertTimeFormat,
+            )
+        val seeded = "$stamp\n\n"
+        stampSeeded = true
+        _uiState.update { current ->
+            if (!current.editingUuid.isNullOrBlank() || current.content.text.isNotBlank()) {
+                current
+            } else {
+                current.copy(
+                    content = TextFieldValue(text = seeded, selection = TextRange(seeded.length)),
+                    autoStampLine = stamp,
+                )
+            }
+        }
+    }
 
     private val defaultAutoTagKeywords: List<String> = AutoTagLineHider.parseKeywords(null)
 
@@ -106,6 +147,8 @@ class QuickCaptureViewModel @Inject constructor(
                 }
                 // 预热定位：保存时只取缓存，避免阻塞“盖”动作。
                 if (settings.autoAppendLocation) locationProvider.prime()
+                // 新建：把自动时间戳先放进输入框（浅色显示、可手动删除）。
+                maybeSeedStamp()
             }
         }
 
@@ -122,7 +165,8 @@ class QuickCaptureViewModel @Inject constructor(
 
         _uiState.update { it.copy(content = value, error = null) }
         if (isDraftEnabled(state) && draftWriteEnabled.get()) {
-            draftAutoSaver.onTextChanged(value.text)
+            // 只有自动时间戳时不写草稿，避免“只是打开了输入框”也弹「有草稿，可恢复」。
+            draftAutoSaver.onTextChanged(if (LeadingTimeStamp.bodyIsBlank(value.text)) "" else value.text)
         }
     }
 
@@ -223,13 +267,14 @@ class QuickCaptureViewModel @Inject constructor(
         val uuid = state.editingUuid
 
         if (uuid.isNullOrBlank()) {
-            if (visible.isBlank()) {
+            // 只有自动时间戳 = 没写正文：直接关闭，避免生成“只有时间戳”的空笔记。
+            if (LeadingTimeStamp.bodyIsBlank(visible)) {
                 // 空内容直接关闭，避免误触后还要手动返回
                 _events.tryEmit(QuickCaptureEvent.Saved)
                 return
             }
         } else {
-            if (visible.isBlank()) {
+            if (LeadingTimeStamp.bodyIsBlank(visible)) {
                 _uiState.update { it.copy(error = "内容不能为空") }
                 return
             }
@@ -248,14 +293,18 @@ class QuickCaptureViewModel @Inject constructor(
                 if (uuid.isNullOrBlank()) {
                     val now = System.currentTimeMillis()
                     val contentToSave =
-                        if (state.autoInsertTimestamp) {
-                            QuickInsertTimeFormatter.withLeadingStamp(
-                                content = content,
-                                epochMillis = now,
-                                format = state.quickInsertTimeFormat,
-                            )
-                        } else {
-                            content
+                        when {
+                            // 输入框里已经展示过时间戳：保存不再补，尊重用户手动删除。
+                            state.autoStampLine != null -> content
+                            // 正文开头已有时间戳行（例如草稿里带着）：不重复添加
+                            LeadingTimeStamp.lineEndOrNull(content) != null -> content
+                            state.autoInsertTimestamp ->
+                                QuickInsertTimeFormatter.withLeadingStamp(
+                                    content = content,
+                                    epochMillis = now,
+                                    format = state.quickInsertTimeFormat,
+                                )
+                            else -> content
                         }
                     val location =
                         if (state.autoAppendLocation) locationProvider.latestOrNull() else null
@@ -289,6 +338,8 @@ class QuickCaptureViewModel @Inject constructor(
                 editingUuid = memo.uuid,
                 hiddenAutoTagLines = split.hiddenLines,
                 error = null,
+                // 续写已有记录：不再播种新时间戳。
+                autoStampLine = null,
             )
         }
     }
@@ -312,6 +363,8 @@ class QuickCaptureViewModel @Inject constructor(
                     draftBannerVisible = false,
                     draftOverwriteDialogVisible = false,
                     error = null,
+                    // 草稿内容替换了输入框：清掉“已播种”标记，保存时按“已有时间戳不重复添加”处理。
+                    autoStampLine = null,
                 )
             }
             draftAutoSaver.onTextChanged(text)

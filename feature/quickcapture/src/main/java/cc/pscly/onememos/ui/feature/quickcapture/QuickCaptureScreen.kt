@@ -66,6 +66,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cc.pscly.onememos.ui.component.InkCard
 import cc.pscly.onememos.ui.component.SealButton
 import cc.pscly.onememos.ui.component.SealStampOverlay
+import cc.pscly.onememos.ui.util.LeadingTimeStamp
+import cc.pscly.onememos.ui.util.TimestampMuteTransformation
 import cc.pscly.onememos.ui.theme.InkShape
 import cc.pscly.onememos.ui.theme.InkSpacing
 import cc.pscly.onememos.ui.util.DateTimeFormatter
@@ -242,6 +244,12 @@ internal fun QuickCaptureScreen(
                     )
                 }
 
+                // 自动时间戳行在输入框里以浅色半透明显示：看得见，但不与正文抢注意力。
+                val stampMutedColor =
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = LeadingTimeStamp.MUTED_ALPHA)
+                val stampTransformation = remember(stampMutedColor) {
+                    TimestampMuteTransformation(stampMutedColor)
+                }
                 OutlinedTextField(
                     value = uiState.content,
                     onValueChange = onContentChange,
@@ -249,6 +257,7 @@ internal fun QuickCaptureScreen(
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
                     placeholder = { Text(text = "写点什么…") },
+                    visualTransformation = stampTransformation,
                     minLines = 3,
                     maxLines = 10,
                     singleLine = false,
