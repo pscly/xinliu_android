@@ -11,6 +11,7 @@ import cc.pscly.onememos.domain.repository.MemoRepository
 import cc.pscly.onememos.domain.repository.SettingsRepository
 import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraft
 import cc.pscly.onememos.ui.feature.quickcapture.draft.QuickCaptureDraftStore
+import cc.pscly.onememos.ui.util.LeadingTimeStamp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -102,12 +103,19 @@ class QuickCaptureDraftViewModelTest {
             store.saveDraft(QuickCaptureDraft(schemaVersion = 1, updatedAt = 0L, text = "old", attachments = emptyList()))
 
             val vm = newViewModel(memoRepo = FakeMemoRepository(), settingsRepo = FakeSettingsRepository(flowOf(AppSettings())))
-            assertEquals("", vm.uiState.value.content.text)
+            // 1.18.0 起新建态会自动播种“浅色可见”的时间戳行，因此初始内容可能只剩时间戳；
+            // 这里断言“没有正文”，而不是硬编码空串。
+            val initialText = vm.uiState.value.content.text
+            assertTrue(
+                "新建态不应自带正文，实际=$initialText",
+                LeadingTimeStamp.bodyIsBlank(initialText),
+            )
             assertTrue(vm.uiState.value.draftBannerVisible)
 
             vm.updateContent(TextFieldValue("new"))
             assertTrue(vm.uiState.value.draftOverwriteDialogVisible)
-            assertEquals("", vm.uiState.value.content.text)
+            // 确认覆盖前，输入框内容保持不变（不被 "new" 改写）
+            assertEquals(initialText, vm.uiState.value.content.text)
         }
 
     @Test
