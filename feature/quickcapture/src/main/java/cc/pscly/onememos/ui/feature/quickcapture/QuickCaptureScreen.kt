@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -59,6 +60,7 @@ import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -256,7 +258,22 @@ internal fun QuickCaptureScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
-                    placeholder = { Text(text = "写点什么…") },
+                    // 占位提示：Material3 只在文本为空时渲染，而新建态文本已含自动时间戳
+                    // （非空），所以这里要自己判断“正文是否为空”，并把提示下移到时间戳下方，
+                    // 否则极速记录页永远不会出现「写点什么…」。
+                    placeholder = {
+                        if (LeadingTimeStamp.bodyIsBlank(uiState.content.text)) {
+                            val skipLines = LeadingTimeStamp.bodyStartLineOffset(uiState.content.text)
+                            val placeholderTop =
+                                with(LocalDensity.current) {
+                                    (MaterialTheme.typography.bodyLarge.lineHeight * skipLines).toDp()
+                                }
+                            Text(
+                                text = "写点什么…",
+                                modifier = Modifier.padding(top = placeholderTop),
+                            )
+                        }
+                    },
                     visualTransformation = stampTransformation,
                     minLines = 3,
                     maxLines = 10,

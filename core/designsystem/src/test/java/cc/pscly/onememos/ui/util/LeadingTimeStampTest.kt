@@ -86,6 +86,31 @@ class LeadingTimeStampTest {
     }
 
     @Test
+    fun muteTransformation_appliesConfiguredAlpha() {
+        // “浅色半透明”是需求本身：断言传入的 alpha 被原样作用到时间戳行，
+        // 且明显小于 1（与正文区分开）。
+        val base = androidx.compose.ui.graphics.Color(0xFF1A1A1A)
+        val muted = base.copy(alpha = LeadingTimeStamp.MUTED_ALPHA)
+        val text = "> 2026-11-02 04:53:29\n\n正文"
+
+        val transformed = TimestampMuteTransformation(muted).filter(AnnotatedString(text))
+
+        val stampSpan = transformed.text.spanStyles.firstOrNull { it.start == 0 }
+        assertTrue("时间戳行应被染色", stampSpan != null)
+        assertEquals(muted, stampSpan!!.item.color)
+        // Compose Color 以 8 位通道量化，0.38 会存成 97/255≈0.38039，故用容差比较。
+        assertEquals(
+            LeadingTimeStamp.MUTED_ALPHA,
+            stampSpan.item.color.alpha,
+            1f / 255f,
+        )
+        assertTrue(
+            "时间戳必须比正文浅（alpha 应明显小于 1）",
+            stampSpan.item.color.alpha < 0.6f,
+        )
+    }
+
+    @Test
     fun muteTransformation_doesNothingWithoutStamp() {
         val text = "普通正文"
         val transformed = TimestampMuteTransformation(androidx.compose.ui.graphics.Color.Red)

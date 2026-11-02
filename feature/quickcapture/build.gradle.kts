@@ -29,6 +29,11 @@ android {
             isIncludeAndroidResources = true
             all {
                 it.systemProperties["robolectric.pixelCopyRenderMode"] = "hardware"
+                // 时间戳预览渲染（TimestampPreviewRenderTest）默认跳过；
+                // 需要人工看图时加 -Dtimestamp.preview=true 透传给测试 JVM。
+                System.getProperty("timestamp.preview")?.let { v ->
+                    it.systemProperties["timestamp.preview"] = v
+                }
             }
         }
     }
